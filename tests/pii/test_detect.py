@@ -103,3 +103,16 @@ def test_allowlisted_count_reported() -> None:
 
     found, allowed = scan_with_stats("a@corp.test.in b@corp.test.in", allow_values=["*@corp.test.in"])
     assert not found and allowed == 2
+
+
+@pytest.mark.parametrize("pattern", ["[a-z][a-z][a-z][a-z]*@*", "????*", "*abcd*", "a*b*c*d*e", "*@*.in"])
+def test_glob_tricks_rejected(pattern: str) -> None:
+    from seen_core.pii.detect import usable_patterns
+
+    assert usable_patterns([pattern]) == []
+
+
+def test_exact_and_suffix_patterns_kept() -> None:
+    from seen_core.pii.detect import usable_patterns
+
+    assert usable_patterns(["*@example.com", "qa.bot@corp.test.in", "*.test.local"]) == ["*@example.com", "qa.bot@corp.test.in", "*.test.local"]

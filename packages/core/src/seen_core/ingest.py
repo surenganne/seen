@@ -125,7 +125,9 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.git_head_after = head_after
         row.git_status = ("committed" if head_after != row.git_head_before else "uncommitted") if files else None
         _write_memories(db, cid, session_id, lines, turn_lines)
+        pii_rows, pii_allowed = _stop_scan(t, start, lines, turn_lines, files, before)
         _write_prompt_pii(db, cid, turn_lines)
+        _write_stop_pii(db, cid, pii_rows)
         _sync_inventory(db, pid)
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
         for path, (a, r) in sorted(files.items()):
@@ -156,6 +158,13 @@ def finish_turn(session_id: str) -> dict[str, Any]:
     audit.append(_fresh([{**ev, "event_id": f"{cid}:policy:{pol_id}", "type": "policy.result", "actor_kind": "system",
                           "subject": pol_id, "outcome": "ok" if met else "failed", "detail": {"policy": pol_id, "met": met}}
                          for pol_id, met in results]))
+    with ledger_session() as db:
+        found = list(db.scalars(select(PiiFinding).where(PiiFinding.change_id == cid, PiiFinding.source_kind != "prompt")))
+    audit.append(_fresh([{**ev, "event_id": f"{cid}:pii:{f.id}", "type": "pii.finding", "actor_kind": "hook", "subject": f.type,
+                          "detail": {"finding": f.id, "type": f.type, "count": f.count, "confidence": f.confidence,
+                                     "destination": f.destination, "source_kind": f.source_kind}} for f in found]
+                        + ([{**ev, "event_id": f"{cid}:pii:allowlisted", "type": "pii.allowlisted", "actor_kind": "hook",
+                             "detail": {"count": pii_allowed, "source_kind": "turn"}}] if pii_allowed else [])))
     missed = [p for p in pols if p.mode == "enforce" and (p.id, False) in results]
     return {"change_id": cid, "files": sorted(files), "turn": t, "turn_lines": turn_lines, "session_start": start,
             "invocations": invs, "policy_results": results,
@@ -416,3 +425,38 @@ def _set_pii_state(db: Any, row: Any, blocked: bool = False) -> None:
     n = sum(f.count for f in db.scalars(select(PiiFinding).where(PiiFinding.change_id == row.id, PiiFinding.status == "open")))
     row.pii_count = n
     row.pii_state = "blocked" if blocked else ("found" if n else "none")
+
+
+def _stop_scan(t: Turn, start: dict[str, Any], lines: list[dict[str, Any]], turn_lines: list[dict[str, Any]],
+               files: dict[str, tuple[int, int]], before: dict[str, Any] | None) -> tuple[list[Any], int]:
+    from . import config
+    from .pii import stopscan
+    from .pii.projectcfg import load_project
+
+    cfg = config.load()["pii"]
+    if cfg["mode"] == "off":
+        return [], 0
+    root, pid = start.get("root"), start.get("project_id")
+    c = stopscan.Collector(cfg, load_project(root))
+    stopscan.scan_transcript(c, t, root)
+    upto = lines[: lines.index(turn_lines[-1]) + 1] if turn_lines and turn_lines[-1] in lines else lines
+    window = turn_lines if any(ln.get("ev") == "turn_start" for ln in lines[: lines.index(turn_lines[0])]) else upto
+    ids = [i for ln in window if ln.get("ev") == "memory_injected" for i in ln.get("ids") or []]
+    stopscan.scan_memory(c, root, pid, ids)
+    untracked = set((before or {}).get("untracked") or {})
+    after_untracked = set()
+    if root:
+        after_untracked = {p for p in (gitutil.run(root, "ls-files", "--others", "--exclude-standard") or "").splitlines()}
+    stopscan.scan_diff(c, root, sorted(files), (before or {}).get("head"), untracked | after_untracked)
+    return list(c.rows.values()), c.allowlisted
+
+
+def _write_stop_pii(db: Any, cid: str, rows: list[Any]) -> None:
+    db.execute(delete(PiiFinding).where(PiiFinding.change_id == cid, PiiFinding.source_kind != "prompt"))
+    for r in rows:
+        key = f"{cid}:{r.source_kind}:{r.source_ref}:{r.type}:{r.confidence}:{r.destination}"
+        db.add(PiiFinding(id="pf_" + hashlib.sha1(key.encode()).hexdigest()[:16], change_id=cid, type=r.type, confidence=r.confidence,
+                          count=r.count, distinct_count=r.distinct, source_kind=r.source_kind, source_ref=r.source_ref,
+                          destination=r.destination, detector=r.detector, status="open", fingerprints_json=json.dumps(r.fingerprints)))
+    row = db.get(Change, cid)
+    _set_pii_state(db, row, row.pii_state == "blocked")

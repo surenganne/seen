@@ -131,7 +131,16 @@ def _issuer(d: str) -> bool:
 
 def usable_patterns(patterns: list[str]) -> list[str]:
     """A repo-controlled allowlist must not switch detection off: '*', '*@*' and the like are ignored."""
-    return [p for p in patterns if len(re.sub(r"[*?\[\]!.@-]", "", p)) >= 4]
+    out = []
+    for p in patterns:
+        literal = p[1:] if p.startswith("*") else p
+        # exact value, or one leading * plus a literal suffix; no ?, classes or inner wildcards
+        if any(ch in literal for ch in "*?[]") or len(re.sub(r"[.@-]", "", literal)) < 4:
+            continue
+        if p.startswith("*") and "." not in literal:
+            continue  # suffixes must name a domain, e.g. *@example.com
+        out.append(p)
+    return out
 
 
 def _allowed(typ: str, value: str, patterns: list[str]) -> bool:
