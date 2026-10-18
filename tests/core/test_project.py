@@ -3,9 +3,9 @@ import os
 from pathlib import Path
 
 import pytest
-
 from seen_core import paths
 from seen_core.project import normalise_remote, resolve_project
+
 from tests.conftest import git
 
 

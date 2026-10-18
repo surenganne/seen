@@ -1,5 +1,6 @@
 """Read-only: skill recall, truncation, MCP coverage, deny-rule hook ordering."""
-import json, os
+import json
+import os
 
 base = os.path.dirname(os.path.abspath(__file__)) + "/rec"
 

@@ -1,5 +1,7 @@
 """Minimal stdio MCP server for P0-12: one tool returning synthetic PII text."""
-import json, sys
+import json
+import sys
+
 
 def reply(i, result):
     sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": i, "result": result}) + "\n")

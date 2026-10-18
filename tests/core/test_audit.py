@@ -3,7 +3,6 @@ import time
 from pathlib import Path
 
 import pytest
-
 from seen_core import audit, paths
 
 
@@ -108,3 +107,12 @@ def test_verify_100k_under_10s(seen_home: Path) -> None:
     dt = time.perf_counter() - t
     assert r.ok and r.count == 100_000
     assert dt < 10, dt
+
+
+def test_subject_and_odd_types_checked(seen_home: Path) -> None:
+    with pytest.raises(ValueError):
+        audit.append([ev(1, subject="x" * 500)])
+    with pytest.raises(ValueError):
+        audit.append([ev(1, detail={"tool": ("a", "b" * 500)})])
+    with pytest.raises(ValueError):
+        audit.append([ev(1, detail={"tool": object()})])

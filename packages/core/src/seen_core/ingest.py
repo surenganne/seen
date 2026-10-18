@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import json
+import os
 import re
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select
 
-from . import gitdelta, gitutil, paths, pricing, spool
+from . import audit, gitdelta, gitutil, paths, pricing, spool
 from .db import ledger_session
 from .db.models import Change, ChangeFile, Project, Session, Skill, SkillInvocation, SkillVersion
+from .hook import EDIT_TOOLS
+from .identity import user_id as _uid
 from .invocations import Invocation, reconcile
 from .skills.scan import TRUST
-from .hook import EDIT_TOOLS
 from .transcript import Turn, parse_turn
 
 
@@ -114,14 +115,30 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
         for path, (a, r) in sorted(files.items()):
             db.add(ChangeFile(change_id=cid, path=path, added=a, removed=r))
-        invs = reconcile(turn_lines, t, ts.get("prompt") or "", {s["id"]: s for s in inventory(pid)})
+        invs = reconcile(turn_lines, t, "/" + ts["slash"] if ts.get("slash") else "", {s["id"]: s for s in inventory(pid)})
         _write_invocations(db, cid, invs)
         db.commit()
+    audit_spool(session_id)
+    ev = _ctx(session_id, pid, cid)
+    audit.append(_fresh([
+        *[{**ev, "event_id": f"{cid}:skill:{i}", "type": "skill.invoked", "actor_kind": "agent", "subject": inv.skill_id,
+           "detail": {"skill": inv.skill_id, "hash": (inv.hash or "")[:12] or None, "trigger": inv.trigger, "status": inv.status}}
+          for i, inv in enumerate(invs, 1)],
+        *[{**ev, "event_id": f"{cid}:file:{path}", "type": "file.changed", "actor_kind": "agent", "subject": path,
+           "detail": {"path": path, "added": a, "removed": r}} for path, (a, r) in sorted(files.items())],
+        {**ev, "event_id": f"{cid}:turn.end", "type": "turn.end", "actor_kind": "agent",
+         "detail": {"tok_in": _sum(t, "tok_in"), "tok_out": _sum(t, "tok_out"), "tok_cache_read": _sum(t, "tok_cache_read"),
+                    "tok_cache_write": _sum(t, "tok_cache_write"), "cost_usd": cost, "price_version": price_version,
+                    "head_before": before["head"] if before else None, "head_after": head_after, "files": len(files)}},
+    ]))
     return {"change_id": cid, "files": sorted(files), "turn": t, "turn_lines": turn_lines, "session_start": start,
             "invocations": invs}
 
 
 def finish_session(session_id: str) -> None:
+    audit_spool(session_id)
+    audit.record_head()
+    sweep_incomplete()
     with ledger_session() as db:
         sess = db.get(Session, session_id)
         if sess is None:
@@ -193,3 +210,100 @@ def _write_invocations(db: Any, cid: str, invs: list[Invocation]) -> None:
             db.add(Skill(id=inv.skill_id, kind=inv.kind, first_seen=now, last_seen=now))
         db.add(SkillInvocation(change_id=cid, ordinal=i, skill_id=inv.skill_id, hash=inv.hash, trigger=inv.trigger))
     db.flush()
+
+
+# ---- spool -> audit chain (plan 11A rule 2: hooks never write the DB, ingest converts in order)
+
+def _ctx(session_id: str, project_id: str | None, change_id: str | None = None) -> dict[str, Any]:
+    return {"actor_id": _uid(), "session_id": session_id, "project_id": project_id, "change_id": change_id}
+
+
+def _fresh(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop events already in the chain (deterministic ids make re-ingest idempotent)."""
+    ids = [e["event_id"] for e in events]
+    if not ids:
+        return []
+    c = audit.connect()
+    try:
+        have = {r[0] for r in c.execute(f"SELECT event_id FROM audit_events WHERE event_id IN ({','.join('?' * len(ids))})", ids)}
+    finally:
+        c.close()
+    return [e for e in events if e["event_id"] not in have]
+
+
+def _prev_start(project_id: str | None, session_id: str) -> dict[str, Any] | None:
+    for e in audit.query(project_id=project_id, type_="session.start", limit=5):
+        if e["session_id"] != session_id:
+            return e
+    return None
+
+
+def _events_for(session_id: str, i: int, ln: dict[str, Any], pid: str | None) -> list[dict[str, Any]]:
+    ev = {**_ctx(session_id, pid), "event_id": f"{session_id}:{i}", "occurred_at": ln.get("t")}
+    kind = ln.get("ev")
+    if kind == "session_start":
+        out = [{**ev, "type": "session.start", "actor_kind": "system", "subject": ln.get("project_name"),
+                "detail": {"plugin_version": ln.get("plugin_version"), "config_hash": ln.get("config_hash"),
+                           "lockfile_hash": ln.get("lock_hash"), "policies_hash": ln.get("policies_hash"),
+                           "source": ln.get("source")}}]
+        prev = _prev_start(pid, session_id)
+        if prev:
+            for key, typ in (("lockfile_hash", "lockfile.changed"), ("policies_hash", "policies.changed")):
+                old, new = prev["detail"].get(key), out[0]["detail"][key]
+                if old != new:
+                    out.append({**ev, "event_id": f"{session_id}:{i}:{typ}", "type": typ, "actor_kind": "system",
+                                "detail": {"old": old, "new": new}})
+        return out
+    if kind == "turn_start":
+        return [{**ev, "type": "turn.start", "actor_kind": "user",
+                 "detail": {"prompt_sha256": ln.get("prompt_sha256"), "prompt_len": ln.get("prompt_len"), "slash": ln.get("slash")}}]
+    if kind == "tool":
+        d = {"tool": ln.get("tool"), "path": ln.get("path"), "cmd0": ln.get("cmd0"), "skill": ln.get("skill")}
+        return [{**ev, "type": "tool.call", "actor_kind": "agent", "subject": ln.get("tool"),
+                 "detail": {k: v for k, v in d.items() if v is not None}}]
+    if kind == "gate":
+        return [{**ev, "type": "gate.decision", "actor_kind": "hook", "outcome": "blocked" if ln.get("decision") == "block" else "ok",
+                 "subject": ln.get("hook"), "detail": {"hook": ln.get("hook"), "decision": ln.get("decision"), "reason": ln.get("reason")}}]
+    if kind == "memory_injected":
+        return [{**ev, "type": "memory.injected", "actor_kind": "hook",
+                 "detail": {"ids": ln.get("ids"), "hashes": ln.get("hashes"), "tokens": ln.get("tokens")}}]
+    if kind == "capture_gap":
+        return [{**ev, "type": "capture.gap", "actor_kind": "hook", "outcome": "failed", "subject": ln.get("hook"),
+                 "detail": {"hook": ln.get("hook"), "error": ln.get("error")}}]
+    if kind == "pii_prompt":
+        return [{**ev, "event_id": f"{session_id}:{i}:{n}", "type": "pii.finding", "actor_kind": "hook",
+                 "outcome": "blocked" if ln.get("blocked") else "ok",
+                 "detail": {"type": f["type"], "count": f["count"], "confidence": f["confidence"], "destination": "model",
+                            "source_kind": "prompt"}} for n, f in enumerate(ln.get("findings") or [])]
+    if kind == "session_end":
+        return [{**ev, "type": "session.end", "actor_kind": "system", "detail": {"reason": ln.get("reason")}}]
+    return []  # skill_start, turn_end: summarised by skill.invoked / turn.end
+
+
+def audit_spool(session_id: str) -> None:
+    lines = spool.read(session_id)
+    pid = next((ln.get("project_id") for ln in lines if ln.get("ev") == "session_start"), None)
+    events = [e for i, ln in enumerate(lines) for e in _events_for(session_id, i, ln, pid)]
+    audit.append(_fresh(events))
+
+
+def sweep_incomplete(max_age_s: float = 6 * 3600) -> None:
+    """Sessions that never reached SessionEnd get session.incomplete (the trail records its own gaps)."""
+    import time
+
+    d = paths.home() / "spool"
+    if not d.is_dir():
+        return
+    for f in d.glob("*.jsonl"):
+        if time.time() - f.stat().st_mtime < max_age_s:
+            continue
+        sid = f.stem
+        lines = spool.read(sid)
+        if not lines or any(ln.get("ev") == "session_end" for ln in lines):
+            continue
+        audit_spool(sid)
+        pid = next((ln.get("project_id") for ln in lines if ln.get("ev") == "session_start"), None)
+        last = audit.query(session=sid, limit=1)
+        audit.append(_fresh([{**_ctx(sid, pid), "event_id": f"{sid}:incomplete", "type": "session.incomplete",
+                              "actor_kind": "system", "outcome": "failed",
+                              "detail": {"last_seq": last[0]["seq"] if last else None}}]))

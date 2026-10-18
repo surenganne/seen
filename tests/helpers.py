@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from seen_core import hook
+
 from tests.conftest import FIXTURES
 
 

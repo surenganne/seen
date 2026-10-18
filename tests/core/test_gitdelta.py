@@ -1,9 +1,9 @@
 import subprocess
-
-import pytest
 from pathlib import Path
 
+import pytest
 from seen_core.gitdelta import delta, snapshot
+
 from tests.conftest import git
 
 

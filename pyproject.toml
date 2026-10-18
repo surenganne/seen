@@ -26,10 +26,11 @@ markers = ["e2e: needs a real Claude Code session (manual or nightly)", "pg: nee
 
 [tool.ruff]
 line-length = 110
+extend-exclude = ["spikes"]
 target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
-ignore = ["E501"]
+ignore = ["E501", "SIM105"]
 
 [tool.mypy]
 python_version = "3.11"

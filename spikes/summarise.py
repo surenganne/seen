@@ -1,5 +1,7 @@
 """Read-only: summarise recorded spike runs (stream.jsonl + hook payloads)."""
-import json, os, sys
+import json
+import os
+import sys
 
 base = os.path.dirname(os.path.abspath(__file__)) + "/rec"
 for n in sys.argv[1:]:
