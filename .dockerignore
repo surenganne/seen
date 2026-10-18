@@ -1,0 +1,16 @@
+.git
+.venv
+**/node_modules
+**/__pycache__
+.superpowers
+.remember
+.repowise
+.code-review-graph
+.playwright-mcp
+**/.claude
+.dev-data
+.test-data
+web/dist
+web/test-results
+web/playwright-report
+spikes

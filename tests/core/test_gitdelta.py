@@ -108,3 +108,21 @@ def test_filter_via_info_attributes_and_odd_names_not_executed(repo: Path, tmp_p
     (repo / "a.py").write_text("changed\n")
     snapshot(repo)
     assert not marker.exists()
+
+
+@pytest.mark.parametrize("ver,expect", [("git version 2.39.5", False), ("git version 2.40.0", True), ("git version 2.54.0 (Apple Git-157)", True), ("weird", False)])
+def test_attr_source_only_on_supporting_git(ver: str, expect: bool) -> None:
+    from seen_core import gitutil
+
+    assert gitutil._supports_attr_source(ver) is expect
+
+
+def test_old_git_still_works(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_core import gitutil
+
+    gitutil.filter_overrides.cache_clear()
+    monkeypatch.setattr(gitutil, "_git_version", lambda: "git version 2.39.5")
+    before = snapshot(repo)
+    (repo / "a.py").write_text("one\ntwo\nthree\n")
+    assert delta(before, snapshot(repo, base=before["head"])) == {"a.py": (1, 0)}
+    gitutil.filter_overrides.cache_clear()
