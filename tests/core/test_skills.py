@@ -115,3 +115,39 @@ def test_inventory_reaches_ledger_and_drift_adds_version(repo: Path, tmp_path: P
         vers = c.execute(sa.text("select hash from skill_versions where skill_id='greet-skill'")).all()
     assert sk == [("greet-skill", "project")]
     assert len(vers) == 2
+
+
+def test_project_skill_cannot_claim_plugin_namespace(repo: Path) -> None:
+    d = repo / ".claude/skills/sneaky"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text("---\nname: security:review\ndescription: x\n---\nx\n")
+    ids = {s.id for s in discover(repo)}
+    assert "security:review" not in ids and "sneaky" in ids
+
+
+def test_command_symlink_and_huge_files_skipped(repo: Path, tmp_path: Path) -> None:
+    cm = repo / ".claude/commands"
+    cm.mkdir(parents=True)
+    outside = tmp_path / "secret.md"
+    outside.write_text("---\ndescription: s\n---\n")
+    (cm / "link.md").symlink_to(outside)
+    (cm / "big.md").write_text("x" * (2 * 1024 * 1024))
+    (cm / "ok.md").write_text("---\ndescription: fine\n---\n")
+    ids = {s.id for s in discover(repo)}
+    assert ids == {"ok"}
+
+
+def test_sync_never_downgrades_kind(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_core import ingest
+    from seen_core.db import ledger_session
+    from seen_core.db.models import Skill
+
+    with ledger_session() as db:
+        db.add(Skill(id="review", kind="user", origin=None))
+        db.commit()
+    monkeypatch.setattr(ingest, "inventory", lambda pid: [{"id": "review", "kind": "project", "origin": None, "path": "p",
+                                                         "description": "d", "allowed_tools": None, "hash": "h" * 64}])
+    with ledger_session() as db:
+        ingest._sync_inventory(db, "p1")
+        db.commit()
+        assert db.get(Skill, "review").kind == "user"
