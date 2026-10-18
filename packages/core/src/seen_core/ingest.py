@@ -13,7 +13,8 @@ from sqlalchemy import delete, func, select
 
 from . import gitdelta, gitutil, paths, pricing, spool
 from .db import ledger_session
-from .db.models import Change, ChangeFile, Project, Session, Skill, SkillVersion
+from .db.models import Change, ChangeFile, Project, Session, Skill, SkillInvocation, SkillVersion
+from .invocations import Invocation, reconcile
 from .hook import EDIT_TOOLS
 from .transcript import Turn, parse_turn
 
@@ -112,8 +113,11 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
         for path, (a, r) in sorted(files.items()):
             db.add(ChangeFile(change_id=cid, path=path, added=a, removed=r))
+        invs = reconcile(turn_lines, t, ts.get("prompt") or "", {s["id"]: s for s in inventory(pid)})
+        _write_invocations(db, cid, invs)
         db.commit()
-    return {"change_id": cid, "files": sorted(files), "turn": t, "turn_lines": turn_lines, "session_start": start}
+    return {"change_id": cid, "files": sorted(files), "turn": t, "turn_lines": turn_lines, "session_start": start,
+            "invocations": invs}
 
 
 def finish_session(session_id: str) -> None:
@@ -175,4 +179,14 @@ def _sync_inventory(db: Any, project_id: str | None) -> None:
             row.scope_project_id = project_id
         if db.get(SkillVersion, (s["id"], s["hash"])) is None:
             db.add(SkillVersion(skill_id=s["id"], hash=s["hash"], first_seen=now))
+    db.flush()
+
+
+def _write_invocations(db: Any, cid: str, invs: list[Invocation]) -> None:
+    db.execute(delete(SkillInvocation).where(SkillInvocation.change_id == cid))
+    now = spool.now()
+    for i, inv in enumerate(invs, start=1):
+        if db.get(Skill, inv.skill_id) is None:  # not in any scanned folder: sideloaded
+            db.add(Skill(id=inv.skill_id, kind=inv.kind, first_seen=now, last_seen=now))
+        db.add(SkillInvocation(change_id=cid, ordinal=i, skill_id=inv.skill_id, hash=inv.hash, trigger=inv.trigger))
     db.flush()
