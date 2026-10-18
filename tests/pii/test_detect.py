@@ -115,4 +115,11 @@ def test_glob_tricks_rejected(pattern: str) -> None:
 def test_exact_and_suffix_patterns_kept() -> None:
     from seen_core.pii.detect import usable_patterns
 
-    assert usable_patterns(["*@example.com", "qa.bot@corp.test.in", "*.test.local"]) == ["*@example.com", "qa.bot@corp.test.in", "*.test.local"]
+    assert usable_patterns(["*@example.com", "qa.bot@corp.test.in", "*@test.local"]) == ["*@example.com", "qa.bot@corp.test.in", "*@test.local"]
+
+
+@pytest.mark.parametrize("pattern", ["*.test.local", "*@gmail.com", "*@co.in", "*@com", "*m", "*@yahoo.co.in"])
+def test_overbroad_suffixes_rejected(pattern: str) -> None:
+    from seen_core.pii.detect import usable_patterns
+
+    assert usable_patterns([pattern]) == []

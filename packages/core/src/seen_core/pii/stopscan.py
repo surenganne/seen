@@ -7,6 +7,7 @@ repo-relative path, never command arguments; values never leave this function ex
 from __future__ import annotations
 
 import os
+import re
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,15 +51,29 @@ def _rel(path: str, root: str | None) -> str:
     return paths.redact_home(path)
 
 
+def usable_paths(patterns: list[str]) -> list[str]:
+    """allow_paths must start with a literal directory (tests/fixtures/**); '**', '*.csv', '../x', '/abs' are ignored."""
+    out = []
+    for p in patterns:
+        first = p.strip().split("/", 1)[0]
+        if not first or p.startswith(("/", "~")) or ".." in p.split("/") or any(ch in first for ch in "*?[]!") or len(first) < 3:
+            continue
+        out.append(p.strip())
+    return out
+
+
 class Collector:
     def __init__(self, cfg: dict[str, Any], pcfg: dict[str, Any]) -> None:
         self.cfg, self.pcfg = cfg, pcfg
         self.rows: dict[tuple[str, str, str, str, str], Row] = {}
         self.allowlisted = 0
-        self.allow_paths = pathspec.PathSpec.from_lines("gitignore", pcfg.get("allow_paths") or [])
+        self.allow_paths = pathspec.PathSpec.from_lines("gitignore", usable_paths(pcfg.get("allow_paths") or []))
 
     def path_allowed(self, rel: str) -> bool:
-        return bool(rel) and self.allow_paths.match_file(rel)
+        rel = os.path.normpath(rel) if rel else rel
+        if not rel or rel.startswith(("..", "/", "~")):
+            return False
+        return self.allow_paths.match_file(rel)
 
     def add(self, text: str, kind: str, ref: str, dest: str) -> None:
         if not text:
@@ -78,16 +93,32 @@ class Collector:
                 r.fingerprints.append(fp)
 
 
-def _cmd0(tool_input_json: str) -> str:
+WRAPPERS = {"env", "sudo", "doas", "timeout", "nohup", "nice", "xargs", "time", "command", "exec", "stdbuf", "bash", "sh", "zsh"}
+INTERPRETERS = {"python", "python3", "node", "ruby", "perl", "php", "deno", "bun"}
+
+
+def is_network_command(tool_input_json: str) -> bool:
+    """True if any pipeline segment runs a network command. Unparseable commands count as network (fail closed)."""
     import json
     import shlex
 
     try:
         cmd = str(json.loads(tool_input_json).get("command") or "")
-        toks = [t for t in shlex.split(cmd) if "=" not in t]
     except (ValueError, AttributeError):
-        return ""
-    return os.path.basename(toks[0]) if toks else ""
+        return True
+    if "://" in cmd and any(i in cmd for i in INTERPRETERS):
+        return True
+    for seg in re.split(r"\|\||&&|[|;&\n]|\$\(|`", cmd):
+        try:
+            toks = shlex.split(seg)
+        except ValueError:
+            return True
+        toks = [t for t in toks if "=" not in t and not t.startswith("-")]
+        while toks and os.path.basename(toks[0]) in WRAPPERS:
+            toks = toks[1:]
+        if toks and os.path.basename(toks[0]) in NETWORK_CMDS:
+            return True
+    return False
 
 
 def scan_transcript(c: Collector, turn: Turn, root: str | None) -> None:
@@ -112,7 +143,7 @@ def scan_transcript(c: Collector, turn: Turn, root: str | None) -> None:
             if tool in NETWORK_TOOLS or tool.startswith("mcp__"):
                 name = "MCP " + ".".join(tool.split("__")[1:]) if tool.startswith("mcp__") else tool
                 c.add(text, "tool_input", name, "network")
-            elif tool == "Bash" and _cmd0(text) in NETWORK_CMDS:
+            elif tool == "Bash" and is_network_command(text):
                 c.add(text, "tool_input", "Bash network command", "network")
 
 
@@ -142,7 +173,9 @@ def _read_capped(p: Path) -> str:
 def scan_diff(c: Collector, root: str | None, files: list[str], before_head: str | None, untracked: set[str]) -> None:
     if not root or not files or not c.cfg.get("scan_diff", True):
         return
-    tracked = [f for f in files if f not in untracked and not c.path_allowed(f)]
+    skipped = [f for f in files if c.path_allowed(f)]
+    c.allowlisted += len(skipped)
+    tracked = [f for f in files if f not in untracked and f not in skipped]
     if tracked and before_head:
         out = gitutil.run(root, "diff", "--unified=0", "--no-color", "--no-renames", "--end-of-options", before_head, "--", *tracked) or ""
         current = None

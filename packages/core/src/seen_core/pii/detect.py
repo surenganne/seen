@@ -129,16 +129,24 @@ def _issuer(d: str) -> bool:
             or two in (36, 38) or 300 <= three <= 305 or two == 35)
 
 
+FREE_MAIL = {"gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.in", "outlook.com", "hotmail.com", "live.com", "msn.com",
+             "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "rediffmail.com", "zoho.com", "yandex.com", "gmx.com", "mail.com"}
+PUBLIC_SUFFIXES = {"co.in", "org.in", "net.in", "ac.in", "gov.in", "edu.in", "co.uk", "org.uk", "com.au", "co.jp", "com.br", "com.sg"}
+
+
 def usable_patterns(patterns: list[str]) -> list[str]:
-    """A repo-controlled allowlist must not switch detection off: '*', '*@*' and the like are ignored."""
+    """A repo-controlled allowlist must not switch detection off. Accepted: an exact value, or
+    '*@<domain>' for a real domain (two or more labels, not free-mail, not a bare public suffix)."""
     out = []
     for p in patterns:
-        literal = p[1:] if p.startswith("*") else p
-        # exact value, or one leading * plus a literal suffix; no ?, classes or inner wildcards
-        if any(ch in literal for ch in "*?[]") or len(re.sub(r"[.@-]", "", literal)) < 4:
+        if p.startswith("*"):
+            dom = p[2:].lower() if p.startswith("*@") else ""
+            labels = dom.split(".")
+            if (not dom or any(ch in dom for ch in "*?[]@") or len(labels) < 2 or not all(labels)
+                    or dom in FREE_MAIL or dom in PUBLIC_SUFFIXES or len(dom.replace(".", "")) < 4):
+                continue
+        elif any(ch in p for ch in "*?[]") or len(re.sub(r"[.@-]", "", p)) < 4:
             continue
-        if p.startswith("*") and "." not in literal:
-            continue  # suffixes must name a domain, e.g. *@example.com
         out.append(p)
     return out
 
