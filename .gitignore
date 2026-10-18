@@ -1,0 +1,26 @@
+# local tooling state
+.remember/
+.repowise/
+.code-review-graph/
+.claude/settings.local.json
+.claude/autoharness/
+.claude/logs/
+.claude/tmp/
+.superpowers/
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+# node
+node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+# dev data (mock/test DBs live here, never ~/.seen)
+.dev-data/
+.test-data/
