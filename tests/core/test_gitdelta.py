@@ -154,3 +154,21 @@ def test_snapshot_is_fast_in_a_fresh_process(repo: Path) -> None:
     run()  # first process may fill the on-disk cache
     ms = sorted(run() for _ in range(5))[2]
     assert ms < 45, ms
+
+
+def test_repo_path_with_spaces(tmp_path: Path) -> None:
+    r = tmp_path / "my repo dir"
+    r.mkdir()
+    git(r, "init", "-q", "-b", "main")
+    (r / "a.py").write_text("one\n")
+    git(r, "add", "-A")
+    git(r, "commit", "-qm", "i")
+    before = snapshot(r)
+    assert before["head"] and len(before["head"]) == 40
+    (r / "a.py").write_text("one\ntwo\n")
+    assert delta(before, snapshot(r, base=before["head"])) == {"a.py": (1, 0)}
+
+
+def test_bad_base_ref_is_ignored(repo: Path) -> None:
+    s = snapshot(repo, base="--output=/tmp/pwned")
+    assert s["head"] and not Path("/tmp/pwned").exists()

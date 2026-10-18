@@ -53,7 +53,12 @@ def render(memories: list[Memory]) -> str:
              "[STALE] and [UNVERIFIED] items may be wrong. Save new durable decisions, conventions and gotchas "
              "as files in .seen/memory/ (see the using-seen-memory skill)."]
     for m in memories:
-        flags = (" [STALE]" if m.stale else "") + (" [UNVERIFIED]" if not m.verified_at else "")
-        ref = f" ({m.file_ref})" if m.file_ref else ""
-        lines.append(f"- [{m.type}] {m.id}{ref}{flags}: {m.body.strip()}")
+        flags = (" stale" if m.stale else "") + (" unverified" if not m.verified_at else "")
+        tag = "".join(f" [{f.strip().upper()}]" for f in flags.split())
+        ref = f' file="{m.file_ref}"' if m.file_ref else ""
+        body = _CTRL.sub("", m.body.strip()).replace("</memory>", "</ memory>")
+        lines.append(f'<memory id="{m.id}" type="{m.type}"{ref}>{tag}\n{body}\n</memory>')
     return "\n".join(lines)
+
+
+_CTRL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")

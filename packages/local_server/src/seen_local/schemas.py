@@ -325,3 +325,25 @@ class SettingsIn(BaseModel):
 class Ok(BaseModel):
     ok: bool = True
     detail: dict[str, Any] = {}
+
+
+class MemoryOut(BaseModel):
+    id: str
+    type: str
+    scope: str
+    status: Literal["verified", "unverified", "stale", "invalid"]
+    file_ref: str | None
+    verified_at: str | None
+    source_change: str | None
+    stale_reason: str | None
+    error: str | None
+    body: str
+    path: str
+    content_hash: str
+    used_in: int
+
+
+class MemoryPage(BaseModel):
+    items: list[MemoryOut]
+    invalid: list[MemoryOut]
+    counts: dict[str, int]

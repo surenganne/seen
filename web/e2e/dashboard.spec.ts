@@ -120,3 +120,35 @@ test("dark theme toggle wins over the OS setting", async ({ page }) => {
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
+
+test.describe("P3-7 memory", () => {
+  test("re-verify clears stale; archive removes", async ({ page }, info) => {
+    // mutating test: each browser project uses its own seeded project so parallel runs don't collide
+    const pid = info.project.name === "phone" ? "demo-patient" : "demo-payments";
+    await page.goto(`/p/${pid}/memory`);
+    const stale = page.locator('[data-testid=memory-card][data-status=stale]').first();
+    await expect(stale).toBeVisible();
+    await expect(stale.getByTestId("stale-reason")).toContainText("changed in change #");
+    const id = (await stale.getAttribute("data-id"))!;
+    await stale.getByRole("button", { name: "Re-verify" }).click();
+    await expect(page.locator(`[data-testid=memory-card][data-id="${id}"]`)).toHaveAttribute("data-status", "verified");
+    const card = page.locator(`[data-testid=memory-card][data-id="${id}"]`);
+    await card.getByRole("button", { name: "Archive" }).click();
+    await expect(card).toHaveCount(0);
+    await page.goto(`/p/${pid}/audit?type=approval.*`);
+    await expect(page.getByTestId("audit-row").first()).toContainText("approval.memory");
+  });
+
+  test("freshness filter", async ({ page }) => {
+    await page.goto("/p/demo-payments/memory");
+    await page.getByLabel("Freshness").selectOption("unverified");
+    await expect(page.locator("[data-testid=memory-card]").first()).toHaveAttribute("data-status", "unverified");
+    await expect(page.locator('[data-testid=memory-card]:not([data-status=unverified])')).toHaveCount(0);
+  });
+
+  test("change detail shows memory read", async ({ page }) => {
+    await page.goto("/p/demo-payments/changes?range=28&mem=loaded");
+    await page.getByTestId("change-row").first().click();
+    await expect(page.getByRole("heading", { name: "Memory read" })).toBeVisible();
+  });
+});
