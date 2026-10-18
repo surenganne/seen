@@ -1,0 +1,7 @@
+{
+ "cwd": "/work/demo-repo",
+ "hook_event_name": "SessionStart",
+ "session_id": "96462da1-3d4c-41fa-882d-0417486acfba",
+ "source": "startup",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/96462da1-3d4c-41fa-882d-0417486acfba.jsonl"
+}

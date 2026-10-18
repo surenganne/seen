@@ -1,0 +1,8 @@
+{
+ "cwd": "/work/demo-repo",
+ "hook_event_name": "SessionEnd",
+ "prompt_id": "4fbf7573-d110-4138-9304-862666d07480",
+ "reason": "other",
+ "session_id": "96462da1-3d4c-41fa-882d-0417486acfba",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/96462da1-3d4c-41fa-882d-0417486acfba.jsonl"
+}

@@ -1,0 +1,9 @@
+{
+ "cwd": "/work/demo-repo",
+ "hook_event_name": "UserPromptSubmit",
+ "permission_mode": "acceptEdits",
+ "prompt": "/greet-skill",
+ "prompt_id": "3bd4aef7-9222-4740-86c4-edab1a8cab35",
+ "session_id": "dccdf3f5-ee51-4d42-8cdf-9e367db4b7f7",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/dccdf3f5-ee51-4d42-8cdf-9e367db4b7f7.jsonl"
+}

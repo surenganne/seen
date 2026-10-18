@@ -1,0 +1,9 @@
+{
+ "cwd": "/work/demo-repo",
+ "hook_event_name": "UserPromptSubmit",
+ "permission_mode": "acceptEdits",
+ "prompt": "/shout banana",
+ "prompt_id": "3c13c7eb-cd5e-42bb-8199-f60ab2d3db19",
+ "session_id": "ff251231-17f4-4a92-a61a-aff8386da803",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/ff251231-17f4-4a92-a61a-aff8386da803.jsonl"
+}
