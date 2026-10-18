@@ -11,12 +11,14 @@ from typing import Any
 
 from sqlalchemy import delete, func, select
 
-from . import audit, gitdelta, gitutil, paths, pricing, spool
+from . import audit, gitdelta, gitutil, paths, policy, pricing, spool
 from .db import ledger_session
 from .db.models import (
     Change,
     ChangeFile,
     ChangeMemory,
+    Policy,
+    PolicyResult,
     Project,
     Session,
     Skill,
@@ -26,6 +28,7 @@ from .db.models import (
 from .hook import EDIT_TOOLS
 from .identity import user_id as _uid
 from .invocations import Invocation, reconcile
+from .skills import lock
 from .skills.scan import TRUST
 from .transcript import Turn, parse_turn
 
@@ -125,7 +128,14 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         for path, (a, r) in sorted(files.items()):
             db.add(ChangeFile(change_id=cid, path=path, added=a, removed=r))
         invs = reconcile(turn_lines, t, "/" + ts["slash"] if ts.get("slash") else "", {s["id"]: s for s in inventory(pid)})
+        root = start.get("root")
+        lk = lock.load(root) if root else lock.Lockfile()
+        for inv in invs:
+            inv.status = lock.status(lk, inv.skill_id, inv.hash)
         _write_invocations(db, cid, invs)
+        pols = policy.load(root)
+        results = policy.evaluate(pols, sorted(files), {i.skill_id for i in invs})
+        _write_policies(db, cid, pid, pols, results)
         db.commit()
     audit_spool(session_id)
     ev = _ctx(session_id, pid, cid)
@@ -140,8 +150,13 @@ def finish_turn(session_id: str) -> dict[str, Any]:
                     "tok_cache_write": _sum(t, "tok_cache_write"), "cost_usd": cost, "price_version": price_version,
                     "head_before": before["head"] if before else None, "head_after": head_after, "files": len(files)}},
     ]))
+    audit.append(_fresh([{**ev, "event_id": f"{cid}:policy:{pol_id}", "type": "policy.result", "actor_kind": "system",
+                          "subject": pol_id, "outcome": "ok" if met else "failed", "detail": {"policy": pol_id, "met": met}}
+                         for pol_id, met in results]))
+    missed = [p for p in pols if p.mode == "enforce" and (p.id, False) in results]
     return {"change_id": cid, "files": sorted(files), "turn": t, "turn_lines": turn_lines, "session_start": start,
-            "invocations": invs}
+            "invocations": invs, "policy_results": results,
+            "block_reason": policy.block_reason(missed[0], sorted(files)) if missed else None}
 
 
 def finish_session(session_id: str) -> None:
@@ -217,7 +232,7 @@ def _write_invocations(db: Any, cid: str, invs: list[Invocation]) -> None:
     for i, inv in enumerate(invs, start=1):
         if db.get(Skill, inv.skill_id) is None:  # not in any scanned folder: sideloaded
             db.add(Skill(id=inv.skill_id, kind=inv.kind, first_seen=now, last_seen=now))
-        db.add(SkillInvocation(change_id=cid, ordinal=i, skill_id=inv.skill_id, hash=inv.hash, trigger=inv.trigger))
+        db.add(SkillInvocation(change_id=cid, ordinal=i, skill_id=inv.skill_id, hash=inv.hash, trigger=inv.trigger, status=inv.status))
     db.flush()
 
 
@@ -359,3 +374,15 @@ def _write_memories(db: Any, cid: str, session_id: str, lines: list[dict[str, An
     row = db.get(Change, cid)
     row.mem_state = msess.read(session_id).get("state") or "none"
     row.mem_injected_tokens = tokens
+
+
+def _write_policies(db: Any, cid: str, pid: str | None, pols: list[policy.Policy], results: list[tuple[str, bool]]) -> None:
+    for p in pols:  # mirror the committed file into the ledger for the dashboard
+        key = f"{pid}:{p.id}"
+        row = db.get(Policy, key) or Policy(id=key)
+        row.project_id, row.title, row.paths_json = pid, p.title, json.dumps(p.paths)
+        row.require_skill, row.mode = p.require_skill, p.mode
+        db.merge(row)
+    db.execute(delete(PolicyResult).where(PolicyResult.change_id == cid))
+    for pol_id, met in results:
+        db.add(PolicyResult(change_id=cid, policy_id=f"{pid}:{pol_id}", met=int(met)))
