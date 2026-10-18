@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
-from . import paths
 from .pii.detect import scan
 
 
@@ -20,5 +20,5 @@ def redact(text: str, *, allow_values: list[str] | None = None, custom_rules: li
         last = e
     out.append(text[last:])
     red = "".join(out)
-    home = str(paths.Path.home())
+    home = os.path.expanduser("~")
     return red.replace(home + "/", "~/").replace(home, "~") if home and home != "/" else red
