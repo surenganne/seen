@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/changes/{cid}/pii": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Change Pii */
+        get: operations["change_pii_api_changes__cid__pii_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/memory/{mid}/archive": {
         parameters: {
             query?: never;
@@ -83,6 +100,23 @@ export interface paths {
         put?: never;
         /** Memory Verify */
         post: operations["memory_verify_api_memory__mid__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pii/{finding_id}/mark-test-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pii Mark Test Data */
+        post: operations["pii_mark_test_data_api_pii__finding_id__mark_test_data_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -166,6 +200,40 @@ export interface paths {
         };
         /** Overview */
         get: operations["overview_api_projects__pid__overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{pid}/pii": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pii List */
+        get: operations["pii_list_api_projects__pid__pii_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{pid}/pii/deny-snippet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deny Snippet */
+        get: operations["deny_snippet_api_projects__pid__pii_deny_snippet_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -465,6 +533,15 @@ export interface components {
             /** Date */
             date: string;
         };
+        /** DenySnippet */
+        DenySnippet: {
+            /** Note */
+            note: string;
+            /** Rules */
+            rules: string[];
+            /** Snippet */
+            snippet: string;
+        };
         /** ExportIn */
         ExportIn: {
             /** Date From */
@@ -641,6 +718,42 @@ export interface components {
             source_ref: string | null;
             /** Status */
             status: string | null;
+            /** Type */
+            type: string | null;
+        };
+        /** PiiPage */
+        PiiPage: {
+            /** Checked */
+            checked: string;
+            /** Items */
+            items: components["schemas"]["PiiRow"][];
+        };
+        /** PiiRow */
+        PiiRow: {
+            /** Change Id */
+            change_id: string | null;
+            /** Confidence */
+            confidence: string | null;
+            /** Count */
+            count: number;
+            /** Destination */
+            destination: string | null;
+            /** Detector */
+            detector: string | null;
+            /** Distinct Count */
+            distinct_count: number;
+            /** Id */
+            id: string;
+            /** Source Kind */
+            source_kind: string | null;
+            /** Source Ref */
+            source_ref: string | null;
+            /** Started At */
+            started_at: string | null;
+            /** Status */
+            status: string | null;
+            /** Summary */
+            summary: string | null;
             /** Type */
             type: string | null;
         };
@@ -1051,6 +1164,37 @@ export interface operations {
             };
         };
     };
+    change_pii_api_changes__cid__pii_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PiiFindingOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     memory_archive_api_memory__mid__archive_post: {
         parameters: {
             query: {
@@ -1104,6 +1248,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pii_mark_test_data_api_pii__finding_id__mark_test_data_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                finding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
                 };
             };
             /** @description Validation Error */
@@ -1275,6 +1450,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Overview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pii_list_api_projects__pid__pii_get: {
+        parameters: {
+            query?: {
+                range?: number | null;
+                type?: string | null;
+                source?: string | null;
+                status?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PiiPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deny_snippet_api_projects__pid__pii_deny_snippet_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DenySnippet"];
                 };
             };
             /** @description Validation Error */

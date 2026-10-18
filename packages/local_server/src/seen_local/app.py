@@ -166,6 +166,32 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
             valid = [o for o in valid if q.lower() in f"{o.id} {o.body} {o.file_ref or ''}".lower()]
         return S.MemoryPage(items=valid, invalid=[o for o in out if o.status == "invalid"], counts=counts)
 
+    @app.get("/api/projects/{pid}/pii", response_model=S.PiiPage)
+    def pii_list(pid: str, db: Db, range_: Annotated[int | None, Query(alias="range")] = None, type: str | None = None,
+                 source: str | None = None, status: str | None = None) -> S.PiiPage:
+        project_or_404(db, pid)
+        rows = queries.load_rows(db, pid, range_)
+        items = [S.PiiRow(**queries.pii_out(f).model_dump(), change_id=r.c.id, started_at=r.c.started_at, summary=r.c.summary)
+                 for r in rows for f in r.pii
+                 if (not type or f.type == type) and (not source or f.source_kind == source) and (not status or f.status == status)]
+        return S.PiiPage(items=items, checked=queries.PII_CHECKED)
+
+    @app.get("/api/changes/{cid}/pii", response_model=list[S.PiiFindingOut])
+    def change_pii(cid: str, db: Db) -> list[S.PiiFindingOut]:
+        from seen_core.db.models import PiiFinding
+
+        return [queries.pii_out(f) for f in db.scalars(select(PiiFinding).where(PiiFinding.change_id == cid))]
+
+    @app.get("/api/projects/{pid}/pii/deny-snippet", response_model=S.DenySnippet)
+    def deny_snippet(pid: str, db: Db) -> S.DenySnippet:
+        import json as _json
+
+        project_or_404(db, pid)
+        rules = sorted({r for s_ in queries.overview(db, pid, 28, True).pii_top_sources if (r := s_.deny_rule)})
+        return S.DenySnippet(rules=rules, snippet=_json.dumps({"permissions": {"deny": rules}}, indent=2),
+                             note="Add to the repo's .claude/settings.json. Seen shows this and never writes it. "
+                                  "A Read deny does not cover cat through Bash.")
+
     @app.get("/api/audit/verify", response_model=S.VerifyOut)
     def audit_verify() -> S.VerifyOut:
         state["v"] = _verify()

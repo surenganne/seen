@@ -1,4 +1,5 @@
 import { useSettings } from "../api/hooks";
+import { PiiSettings } from "../components/PiiSettings";
 import { Badge, Card, ErrorBox, Loading } from "../components/ui";
 
 function KV({ obj }: { obj: Record<string, unknown> }) {
@@ -39,10 +40,7 @@ export function Settings() {
         </Card>
         <Card title="Memory behaviour"><KV obj={s.memory} /></Card>
         <Card title="Skill auditing"><KV obj={s.skills} /></Card>
-        <Card title="PII detection" aside={<Badge tone="neutral">{String(s.pii.mode)}</Badge>}>
-          <KV obj={s.pii} />
-          <p className="muted" style={{ fontSize: ".78rem", marginBottom: 0 }}>Regex finds structured identifiers. It misses names, addresses and free-text health details. This is evidence for a privacy review, not a compliance control.</p>
-        </Card>
+        <PiiSettings pii={s.pii} />
         <Card title="Audit retention"><KV obj={s.audit} /></Card>
         <Card title="Team sync" aside={<Badge tone="neutral">{s.sync.enabled ? "on" : "off"}</Badge>}>
           <KV obj={s.sync} />

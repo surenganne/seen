@@ -59,6 +59,18 @@ class Row:
             unapproved_skill=any(s.status in ("changed", "unreviewed", "blocked") for s in self.skills))
 
 
+PII_CHECKED = ("Structured identifiers (email, phone, Aadhaar, PAN, card, IBAN, SSN, UPI, DOB, GSTIN, passport, secrets) in the "
+               "prompt, file reads, tool and MCP output, network tool inputs, injected memory and added diff lines. "
+               "Names, addresses and free-text health details are not detected.")
+
+
+def pii_out(p: PiiFinding) -> S.PiiFindingOut:
+    """Never fingerprints, never values."""
+    return S.PiiFindingOut(id=p.id, type=p.type, confidence=p.confidence, count=p.count, distinct_count=p.distinct_count,
+                           source_kind=p.source_kind, source_ref=p.source_ref, destination=p.destination, detector=p.detector,
+                           status=p.status)
+
+
 def since(days: int) -> str:
     return (datetime.now(UTC) - timedelta(days=days)).isoformat().replace("+00:00", "Z")
 
@@ -263,11 +275,8 @@ def change_detail(db: DB, cid: str, prompt_storage: str) -> S.ChangeDetail | Non
         policies=[S.PolicyCheck(policy_id=p.policy_id, title=pols[p.policy_id].title if p.policy_id in pols else None,
                                 require_skill=pols[p.policy_id].require_skill if p.policy_id in pols else None, met=bool(p.met),
                                 mode=pols[p.policy_id].mode if p.policy_id in pols else None) for p in r.policies],
-        pii=[S.PiiFindingOut(id=p.id, type=p.type, confidence=p.confidence, count=p.count, distinct_count=p.distinct_count,
-                             source_kind=p.source_kind, source_ref=p.source_ref, destination=p.destination, detector=p.detector,
-                             status=p.status) for p in r.pii],
-        pii_checked="Structured identifiers (email, phone, Aadhaar, PAN, card, IBAN, SSN, UPI, DOB, secrets) in the prompt, "
-                    "file reads, tool output and added diff lines. Names, addresses and free-text health details are not detected.",
+        pii=[pii_out(p) for p in r.pii],
+        pii_checked=PII_CHECKED,
         memory_saved=[str(fm.get("id") or f.stem) for f, fm in _memory_files(proj.root_path if proj else None)
                       if str(fm.get("source_change") or "") == cid])
 
