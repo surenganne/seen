@@ -25,6 +25,10 @@ def _raw(cwd: str | Path, args: list[str], timeout: float) -> str | None:
     return r.stdout if r.returncode == 0 else None
 
 
+EMPTY_TREE = {"sha1": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+              "sha256": "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939dd74decc5321"}
+
+
 @lru_cache(maxsize=1)
 def _git_version() -> str:
     try:
@@ -42,13 +46,79 @@ def _supports_attr_source(version: str) -> bool:
     return (int(m.group(1)), int(m.group(2))) >= (2, 40)
 
 
+def _git_dir(cwd: str) -> Path | None:
+    """Find the repo's config dir without spawning git (worktrees resolve to the common dir)."""
+    d = Path(os.path.abspath(cwd))
+    for p in [d, *d.parents]:
+        g = p / ".git"
+        if g.is_dir():
+            return g
+        if g.is_file():
+            try:
+                target = Path(g.read_text().split("gitdir:", 1)[1].strip())
+                target = target if target.is_absolute() else (p / target)
+                common = target / "commondir"
+                return (target / common.read_text().strip()).resolve() if common.exists() else target
+            except (OSError, IndexError):
+                return None
+    return None
+
+
+def _cache_key(gd: Path) -> list[object]:
+    home = Path.home()
+    files = [gd / "config", home / ".gitconfig", Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config") / "git" / "config"]
+    import shutil
+
+    exe = shutil.which("git") or "git"
+    try:
+        est = os.stat(exe)
+        key: list[object] = [exe, est.st_mtime_ns, est.st_size]  # a git upgrade changes this; no `git --version` per hook
+    except OSError:
+        key = [exe]
+    for f in files:
+        try:
+            st = f.stat()
+            key += [str(f), st.st_mtime_ns, st.st_size]
+        except OSError:
+            key += [str(f), None]
+    return key
+
+
 @lru_cache(maxsize=64)
 def filter_overrides(cwd: str) -> tuple[str, ...]:
+    """Cached on disk per repo, keyed on git config mtimes: each hook is a fresh process.
+    ponytail: [include] files are not in the key; a filter added via an included file needs a repo config touch."""
+    import hashlib
+    import json
+
+    from . import paths
+
+    gd = _git_dir(cwd)
+    if gd is None:
+        return _compute_overrides(cwd)
+    f = paths.home() / "cache" / f"git-{hashlib.sha1(str(gd).encode()).hexdigest()[:16]}.json"
+    key = _cache_key(gd)
+    try:
+        hit = json.loads(f.read_text())
+        if hit.get("key") == key:
+            return tuple(hit["overrides"])
+    except (OSError, ValueError, AttributeError):
+        pass
+    out = _compute_overrides(cwd)
+    try:
+        paths.ensure_dir(f.parent)
+        f.write_text(json.dumps({"key": key, "overrides": list(out)}))
+    except OSError:
+        pass
+    return out
+
+
+def _compute_overrides(cwd: str) -> tuple[str, ...]:
     """Two layers: read attributes from the empty tree (no in-repo .gitattributes can pick a
     driver), and replace every configured filter driver with identity cat anyway."""
     args: list[str] = []
     # --attr-source needs git 2.40+; older git would reject every call. The driver overrides below still apply.
-    empty = (_raw(cwd, [*_SAFE, "hash-object", "-t", "tree", os.devnull], 5) or "").strip() \
+    empty = EMPTY_TREE.get((_raw(cwd, [*_SAFE, "rev-parse", "--show-object-format"], 5) or "sha1").strip(), "") \
         if _supports_attr_source(_git_version()) else ""
     if empty:
         args += ["--attr-source", empty]
@@ -60,7 +130,34 @@ def filter_overrides(cwd: str) -> tuple[str, ...]:
     return tuple(args)
 
 
-def run(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
+def _argv(cwd: str | Path, args: tuple[str, ...]) -> list[str]:
     if args and args[0] == "diff":
         args = ("diff", "--no-ext-diff", "--no-textconv", "--ignore-submodules=all", *args[1:])
-    return _raw(cwd, [*_SAFE, *filter_overrides(str(cwd)), *args], timeout)
+    return ["git", *_SAFE, *filter_overrides(str(cwd)), *args]
+
+
+def run(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
+    return _raw(cwd, _argv(cwd, args)[1:], timeout)
+
+
+def run_many(cwd: str | Path, calls: list[tuple[str, ...]], timeout: float = 10) -> list[str | None]:
+    """Run several hardened git commands in parallel (each hook is latency-bound)."""
+    procs: list[subprocess.Popen[str] | None] = []
+    for args in calls:
+        try:
+            procs.append(subprocess.Popen(_argv(cwd, args), cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                          text=True, env={**os.environ, **_ENV}))
+        except OSError:
+            procs.append(None)
+    out: list[str | None] = []
+    for p in procs:
+        if p is None:
+            out.append(None)
+            continue
+        try:
+            so, _ = p.communicate(timeout=timeout)
+            out.append(so if p.returncode == 0 else None)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            out.append(None)
+    return out

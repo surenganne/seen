@@ -13,7 +13,16 @@ from sqlalchemy import delete, func, select
 
 from . import audit, gitdelta, gitutil, paths, pricing, spool
 from .db import ledger_session
-from .db.models import Change, ChangeFile, Project, Session, Skill, SkillInvocation, SkillVersion
+from .db.models import (
+    Change,
+    ChangeFile,
+    ChangeMemory,
+    Project,
+    Session,
+    Skill,
+    SkillInvocation,
+    SkillVersion,
+)
 from .hook import EDIT_TOOLS
 from .identity import user_id as _uid
 from .invocations import Invocation, reconcile
@@ -110,7 +119,7 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.git_head_before = before["head"] if before else None
         row.git_head_after = head_after
         row.git_status = ("committed" if head_after != row.git_head_before else "uncommitted") if files else None
-        row.mem_state = row.mem_state or "none"
+        _write_memories(db, cid, session_id, lines, turn_lines)
         _sync_inventory(db, pid)
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
         for path, (a, r) in sorted(files.items()):
@@ -329,3 +338,24 @@ def sweep_incomplete(max_age_s: float = 6 * 3600) -> None:
         audit.append(_fresh([{**_ctx(sid, pid), "event_id": f"{sid}:incomplete", "type": "session.incomplete",
                               "actor_kind": "system", "outcome": "failed",
                               "detail": {"last_seq": last[0]["seq"] if last else None}}]))
+
+
+def _write_memories(db: Any, cid: str, session_id: str, lines: list[dict[str, Any]], turn_lines: list[dict[str, Any]]) -> None:
+    """Everything injected so far this session is in the model's context for this turn."""
+    from .memory import session as msess
+
+    upto = lines[: lines.index(turn_lines[-1]) + 1] if turn_lines and turn_lines[-1] in lines else lines
+    injected: dict[str, str] = {}
+    for ln in upto:
+        if ln.get("ev") == "memory_injected":
+            injected.update(zip(ln.get("ids") or [], ln.get("hashes") or [], strict=False))
+    starts = [i for i, ln in enumerate(lines) if ln.get("ev") == "turn_start"]
+    first_turn = bool(starts) and turn_lines and lines.index(turn_lines[0]) == starts[0]
+    window = upto if first_turn else turn_lines
+    tokens = sum(int(ln.get("tokens") or 0) for ln in window if ln.get("ev") == "memory_injected")
+    db.execute(delete(ChangeMemory).where(ChangeMemory.change_id == cid))
+    for mid, h in sorted(injected.items()):
+        db.add(ChangeMemory(change_id=cid, memory_id=mid, content_hash=h))
+    row = db.get(Change, cid)
+    row.mem_state = msess.read(session_id).get("state") or "none"
+    row.mem_injected_tokens = tokens

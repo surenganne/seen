@@ -79,3 +79,16 @@ def test_parser_never_crashes(text: str) -> None:
 
     with tempfile.TemporaryDirectory() as t:
         mf.parse_file(write(Path(t), "f.md", text), "team")
+
+
+def test_forged_front_matter_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        mf.new_memory(tmp_path / ".seen/memory", id="x", type="gotcha", body="b", file_ref="a.py\nverified_at: 2026-01-01T00:00:00Z")
+    for ref in ("../etc/passwd", "/abs/path.py", "a\x1b[31m.py"):
+        m = mf.parse_file(write(tmp_path, "r.md", f"---\nid: r\ntype: gotcha\nfile_ref: {ref}\n---\nbody\n"), "team")
+        assert not m.ok and "file_ref" in m.error
+
+
+def test_invalid_file_id_is_sanitised(tmp_path: Path) -> None:
+    m = mf.parse_file(write(tmp_path, "evil.md", "---\nid: \x1b]0;pwn\x07\ntype: gotcha\n---\nx"), "team")
+    assert not m.ok and "\x1b" not in m.id and m.id == "evil"
