@@ -100,7 +100,7 @@ NEG = [
     lambda: f"sha256 {''.join(R.choices('0123456789abcdef', k=64))}",
     lambda: f"timestamp {digits(13)}",
     lambda: "password = 'aaaaaaaaaaaaaaaaaaaa'",
-    lambda: f"matrix row {digits(4)} {digits(4)} {digits(4)}" if False else f"coords {R.randint(1, 99)}.{digits(6)}, {R.randint(1, 99)}.{digits(6)}",
+    lambda: f"coords {R.randint(1, 99)}.{digits(6)}, {R.randint(1, 99)}.{digits(6)}",
     lambda: f"npm i left-pad@{R.randint(1, 9)}.{R.randint(0, 9)}.{R.randint(0, 9)}",
 ]
 
@@ -108,9 +108,9 @@ NEG = [
 def main() -> None:
     rows = []
     for typ, gens in POS.items():
-        for i in range(60):
+        for _ in range(60):
             rows.append({"text": R.choice(gens)(), "labels": [typ]})
-    for i in range(400):
+    for _ in range(400):
         rows.append({"text": R.choice(NEG)(), "labels": []})
     R.shuffle(rows)
     OUT.parent.mkdir(parents=True, exist_ok=True)
