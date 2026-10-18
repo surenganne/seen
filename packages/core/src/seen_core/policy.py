@@ -35,7 +35,7 @@ def load(root: str | Path | None) -> list[Policy]:
         if not isinstance(p.get("id"), str) or not isinstance(paths, list) or not all(isinstance(x, str) for x in paths) \
                 or not isinstance(p.get("require_skill"), str):
             continue
-        mode = p.get("mode") if p.get("mode") in ("report", "enforce") else "report"
+        mode = str(p["mode"]) if p.get("mode") in ("report", "enforce") else "report"
         out.append(Policy(id=p["id"], title=str(p.get("title") or p["id"]), paths=paths, require_skill=p["require_skill"], mode=mode))
     return out
 
