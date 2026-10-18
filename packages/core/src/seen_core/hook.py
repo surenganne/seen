@@ -204,10 +204,19 @@ def _on_pre_read(p: dict[str, Any]) -> Result:
 
 
 def _on_pre_skill(p: dict[str, Any]) -> Result:
+    from .memory import session as msess
+    from .skills import lock
+
     ti = p.get("tool_input") or {}
-    spool.append(p["session_id"], {"ev": "skill_start", **_base(p), "skill": ti.get("skill"),
+    skill = str(ti.get("skill") or "")
+    spool.append(p["session_id"], {"ev": "skill_start", **_base(p), "skill": skill,
                                    "tool_use_id": p.get("tool_use_id"),
                                    "trigger": "subagent" if p.get("agent_id") else "model"})
+    root = msess.read(p["session_id"]).get("root")
+    if root and skill in lock.load(root).blocked:
+        spool.append(p["session_id"], {"ev": "gate", **_base(p), "hook": "pre-skill", "decision": "block", "reason": "skill_blocked"})
+        return Result(code=2, stderr=f"Seen: the skill {skill} is blocked for this project (.seen/skills.lock.json). "
+                                     "Continue without it, or ask the user to unblock it.")
     return Result()
 
 
@@ -230,7 +239,11 @@ def _on_stop(p: dict[str, Any]) -> Result:
                                    "last_message": (p.get("last_assistant_message") or "")[:2000]})
     from . import ingest  # heavy imports only here, once per turn
 
-    ingest.finish_turn(p["session_id"])
+    r = ingest.finish_turn(p["session_id"])
+    # enforce mode: block Stop once per turn; stop_hook_active means we already asked (A2), so never loop
+    if r.get("block_reason") and not p.get("stop_hook_active"):
+        spool.append(p["session_id"], {"ev": "gate", **_base(p), "hook": "stop", "decision": "block", "reason": "policy_missed"})
+        return Result(stdout=json.dumps({"decision": "block", "reason": r["block_reason"]}))
     return Result()
 
 
