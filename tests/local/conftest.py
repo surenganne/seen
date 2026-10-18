@@ -16,4 +16,4 @@ def seeded(seen_home: Path) -> Path:
 def client(seeded: Path) -> TestClient:
     from seen_local.app import create_app
 
-    return TestClient(create_app(web_dist=None))
+    return TestClient(create_app(web_dist=None), base_url="http://localhost")
