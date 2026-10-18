@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from .. import safeio
 
 
 @dataclass
@@ -42,6 +43,7 @@ def load(root: str | Path) -> Lockfile:
 
 def load_strict(root: str | Path) -> Lockfile:
     p = path(root)
+    safeio.check_no_symlinks(p, Path(root))
     if not p.exists():
         return Lockfile()
     try:
@@ -60,32 +62,14 @@ def status(lk: Lockfile, skill_id: str, full_hash: str | None) -> str:
 
 
 def _save(root: str | Path, lk: Lockfile) -> None:
-    p = path(root)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"approved": dict(sorted(lk.approved.items())), "blocked": sorted(set(lk.blocked))}, indent=2) + "\n")
-    os.replace(tmp, p)
+    safeio.write_text(path(root), json.dumps({"approved": dict(sorted(lk.approved.items())),
+                                              "blocked": sorted(set(lk.blocked))}, indent=2) + "\n", Path(root))
 
 
-class _locked:
-    """Exclusive lock around a read-modify-write of the lockfile."""
-
-    def __init__(self, root: str | Path) -> None:
-        self.f = path(root).with_suffix(".lock")
-
-    def __enter__(self) -> None:
-        import fcntl
-
-        self.f.parent.mkdir(parents=True, exist_ok=True)
-        self.fh = open(self.f, "w")
-        fcntl.flock(self.fh, fcntl.LOCK_EX)
-
-    def __exit__(self, *exc: object) -> None:
-        self.fh.close()
 
 
 def approve(root: str | Path, skill_id: str, full_hash: str) -> None:
-    with _locked(root):
+    with safeio.Locked(path(root)):
         _approve(root, skill_id, full_hash)
 
 
@@ -98,7 +82,7 @@ def _approve(root: str | Path, skill_id: str, full_hash: str) -> None:
 
 
 def block(root: str | Path, skill_id: str) -> None:
-    with _locked(root):
+    with safeio.Locked(path(root)):
         _block(root, skill_id)
 
 
@@ -110,7 +94,7 @@ def _block(root: str | Path, skill_id: str) -> None:
 
 
 def unblock(root: str | Path, skill_id: str) -> None:
-    with _locked(root):
+    with safeio.Locked(path(root)):
         _unblock(root, skill_id)
 
 
