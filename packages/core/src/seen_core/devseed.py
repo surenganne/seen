@@ -17,8 +17,19 @@ from typing import Any
 
 from . import audit, paths, pricing, secret
 from .db import ledger_session
-from .db.models import (Change, ChangeFile, ChangeMemory, PiiFinding, Policy, PolicyResult, Project, Session, Skill,
-                        SkillInvocation, SkillVersion)
+from .db.models import (
+    Change,
+    ChangeFile,
+    ChangeMemory,
+    PiiFinding,
+    Policy,
+    PolicyResult,
+    Project,
+    Session,
+    Skill,
+    SkillInvocation,
+    SkillVersion,
+)
 
 PROJECTS = [
     ("payments-api", "github.com/acme/payments-api",
