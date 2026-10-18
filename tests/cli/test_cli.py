@@ -91,3 +91,42 @@ def test_doctor_reports_checks(repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_
 def test_ingest_command_replays_session(repo: Path, tmp_path: Path) -> None:
     recorded(repo, tmp_path)
     assert "ch_" in invoke("ingest", "--session", "sess-1")
+
+
+def test_dev_seed_into_explicit_home(tmp_path: Path) -> None:
+    home = tmp_path / "dev"
+    out = invoke("dev-seed", "--home", str(home))
+    assert "changes" in out and (home / "ledger.db").exists() and (home / "demo-repos/payments-api/.seen/memory").is_dir()
+
+
+def test_dev_seed_refuses_real_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    r = cli.invoke(app, ["dev-seed", "--home", str(Path("~/.seen").expanduser())])
+    assert r.exit_code != 0 and not (Path("~/.seen").expanduser() / "ledger.db").exists()
+
+
+def test_serve_starts_and_answers(tmp_path: Path) -> None:
+    import socket
+    import subprocess
+    import sys
+    import time
+    import urllib.request
+
+    home = tmp_path / "dev"
+    invoke("dev-seed", "--home", str(home))
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    p = subprocess.Popen([sys.executable, "-m", "seen_cli.main", "serve", "--port", str(port)],
+                         env={**os.environ, "SEEN_HOME": str(home)}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        for _ in range(50):
+            try:
+                body = urllib.request.urlopen(f"http://127.0.0.1:{port}/api/projects", timeout=1).read()
+                break
+            except OSError:
+                time.sleep(0.2)
+        assert b"payments-api" in body
+    finally:
+        p.terminate()
+        p.wait(5)
