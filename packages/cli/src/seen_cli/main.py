@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from seen_core import audit, brand, config, ingest, paths
 from seen_core.db import ledger_session
-from seen_core.db.models import Change, ChangeFile, Project, Session, Skill, SkillInvocation
+from seen_core.db.models import Change, ChangeFile, Project, Session, SkillInvocation
 from seen_core.identity import user_id
 from seen_core.project import resolve_project
 
@@ -56,7 +56,7 @@ def init() -> None:
     s = root / ".seen"
     (s / "memory").mkdir(parents=True, exist_ok=True)
     created = []
-    for name, text in ((".gitignore", ".cache/\n"), ("policies.yaml", POLICIES_TEMPLATE), ("pii.yaml", PII_TEMPLATE),
+    for name, text in ((".gitignore", ".cache/\n*.lock\n"), ("policies.yaml", POLICIES_TEMPLATE), ("pii.yaml", PII_TEMPLATE),
                        ("skills.lock.json", json.dumps({"approved": {}, "blocked": []}, indent=2) + "\n")):
         if not (s / name).exists():
             (s / name).write_text(text)

@@ -31,6 +31,8 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
 ignore = ["E501", "SIM105"]
+[tool.ruff.lint.isort]
+known-first-party = ["seen_core", "seen_cli", "seen_local", "seen_team", "tests"]
 
 [tool.mypy]
 python_version = "3.11"

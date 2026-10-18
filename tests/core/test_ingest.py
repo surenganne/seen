@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import sqlalchemy as sa
-from seen_core.db import ledger_engine
 
+from seen_core.db import ledger_engine
 from tests.conftest import git
 from tests.helpers import Replay
 

@@ -218,8 +218,27 @@ def _ctx(session_id: str, project_id: str | None, change_id: str | None = None) 
     return {"actor_id": _uid(), "session_id": session_id, "project_id": project_id, "change_id": change_id}
 
 
+def _clip(v: Any) -> Any:
+    if isinstance(v, str) and len(v) > audit.MAX_STR:
+        return "…" + v[-(audit.MAX_STR - 1):]  # keep the tail: file names live there
+    if isinstance(v, dict):
+        return {k: _clip(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_clip(x) for x in v]
+    return v
+
+
+def _norm(e: dict[str, Any]) -> dict[str, Any]:
+    """Make an event fit the audit limits instead of losing the batch."""
+    out = _clip(e)
+    if len(e["event_id"]) > audit.MAX_STR:
+        out["event_id"] = "h:" + hashlib.sha256(e["event_id"].encode()).hexdigest()
+    return dict(out)
+
+
 def _fresh(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Drop events already in the chain (deterministic ids make re-ingest idempotent)."""
+    """Normalise, then drop events already in the chain (deterministic ids: re-ingest is idempotent)."""
+    events = [_norm(e) for e in events]
     ids = [e["event_id"] for e in events]
     if not ids:
         return []
@@ -256,7 +275,7 @@ def _events_for(session_id: str, i: int, ln: dict[str, Any], pid: str | None) ->
         return out
     if kind == "turn_start":
         return [{**ev, "type": "turn.start", "actor_kind": "user",
-                 "detail": {"prompt_sha256": ln.get("prompt_sha256"), "prompt_len": ln.get("prompt_len"), "slash": ln.get("slash")}}]
+                 "detail": {"prompt_hmac": ln.get("prompt_hmac"), "prompt_len": ln.get("prompt_len"), "slash": ln.get("slash")}}]
     if kind == "tool":
         d = {"tool": ln.get("tool"), "path": ln.get("path"), "cmd0": ln.get("cmd0"), "skill": ln.get("skill")}
         return [{**ev, "type": "tool.call", "actor_kind": "agent", "subject": ln.get("tool"),
@@ -301,7 +320,10 @@ def sweep_incomplete(max_age_s: float = 6 * 3600) -> None:
         lines = spool.read(sid)
         if not lines or any(ln.get("ev") == "session_end" for ln in lines):
             continue
-        audit_spool(sid)
+        try:
+            audit_spool(sid)
+        except Exception:
+            continue  # one bad spool must not stop the sweep; it is retried next time
         pid = next((ln.get("project_id") for ln in lines if ln.get("ev") == "session_start"), None)
         last = audit.query(session=sid, limit=1)
         audit.append(_fresh([{**_ctx(sid, pid), "event_id": f"{sid}:incomplete", "type": "session.incomplete",
