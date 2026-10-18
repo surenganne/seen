@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useChange } from "../api/hooks";
+import { MarkTestData } from "../components/PiiActions";
 import { Badge, Card, ErrorBox, GitStatus, Loading, MemState, SkillStatus } from "../components/ui";
 import { int, money, pct, short, tokens, when } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
@@ -132,7 +133,7 @@ export function ChangeDetail() {
                     <td><Badge tone={p.confidence === "high" ? "critical" : p.confidence === "medium" ? "warning" : "neutral"}>{p.confidence}</Badge></td>
                     <td>{SOURCE[p.source_kind ?? ""] ?? p.source_kind} <span className="path muted">{p.source_ref}</span></td>
                     <td>{DEST[p.destination ?? ""] ?? p.destination}</td>
-                    <td>{p.status === "open" ? <Badge tone="warning">open</Badge> : <Badge tone="neutral">{p.status?.replace("_", " ")}</Badge>}</td>
+                    <td>{p.status === "open" ? <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}><Badge tone="warning">open</Badge><MarkTestData id={p.id} /></span> : <Badge tone="neutral">{p.status?.replace("_", " ")}</Badge>}</td>
                   </tr>
                 ))}
               </tbody>

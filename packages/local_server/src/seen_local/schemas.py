@@ -347,3 +347,20 @@ class MemoryPage(BaseModel):
     items: list[MemoryOut]
     invalid: list[MemoryOut]
     counts: dict[str, int]
+
+
+class PiiRow(PiiFindingOut):
+    change_id: str | None
+    started_at: str | None
+    summary: str | None
+
+
+class PiiPage(BaseModel):
+    items: list[PiiRow]
+    checked: str
+
+
+class DenySnippet(BaseModel):
+    rules: list[str]
+    snippet: str
+    note: str

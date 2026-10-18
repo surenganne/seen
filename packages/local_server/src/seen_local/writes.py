@@ -155,6 +155,33 @@ def register(app: FastAPI, state: dict[str, Any]) -> None:
         _record_skill(sid, project, h, old, "blocked")
         return S.Ok(detail={"status": "blocked"})
 
+    @app.post("/api/pii/{finding_id}/mark-test-data", response_model=S.Ok)
+    def pii_mark_test_data(finding_id: str) -> S.Ok:
+        from sqlalchemy import select
+
+        from seen_core.db import ledger_session
+        from seen_core.db.models import Change, PiiFinding
+
+        with ledger_session() as db:
+            f = db.get(PiiFinding, finding_id)
+            if f is None:
+                raise HTTPException(404, "finding not found")
+            old = f.status
+            f.status = "test_data"
+            db.flush()
+            ch = db.get(Change, f.change_id) if f.change_id else None
+            if ch is not None:
+                ch.pii_count = sum(x.count for x in db.scalars(select(PiiFinding).where(PiiFinding.change_id == ch.id,
+                                                                                         PiiFinding.status == "open")))
+                if ch.pii_state != "blocked":
+                    ch.pii_state = "found" if ch.pii_count else "none"
+            pid = ch.project_id if ch else None
+            audit.append([{"type": "approval.pii_test_data", "actor_kind": "user", "actor_id": user_id(), "project_id": pid,
+                           "change_id": f.change_id, "subject": finding_id,
+                           "detail": {"finding": finding_id, "type": f.type, "old": old, "new": "test_data"}}])
+            db.commit()
+        return S.Ok(detail={"status": "test_data"})
+
     @app.post("/api/audit/export", response_model=S.ExportOut)
     def post_export(body: S.ExportIn) -> S.ExportOut:
         import json

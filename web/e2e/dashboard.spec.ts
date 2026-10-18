@@ -180,3 +180,38 @@ test.describe("P4-2 / P4-5 skill audit", () => {
     await expect(page.getByTestId("change-row").first()).toContainText("security-review");
   });
 });
+
+test.describe("P4B-8 PII in the dashboard", () => {
+  test("open a change with findings, mark one as test data", async ({ page }, info) => {
+    const pid = info.project.name === "phone" ? "demo-pipes" : "demo-patient";
+    await page.goto(`/p/${pid}/changes?range=28&pii=true`);
+    await page.getByTestId("change-row").first().click();
+    const panel = page.getByTestId("pii-panel");
+    await expect(panel).toBeVisible();
+    const openBefore = await panel.getByRole("button", { name: "Mark as test data" }).count();
+    await panel.getByRole("button", { name: "Mark as test data" }).first().click();
+    await expect(panel.getByRole("button", { name: "Mark as test data" })).toHaveCount(openBefore - 1);
+    await expect(panel.getByText("test data").first()).toBeVisible();
+    await page.goto(`/p/${pid}/audit?type=approval.pii_test_data`);
+    await expect(page.getByTestId("audit-row").first()).toContainText("approval.pii_test_data");
+  });
+
+  test("overview shows PII tile and top sources", async ({ page }) => {
+    await page.goto("/p/demo-patient?range=28");
+    await expect(page.getByTestId("tile-Changes with PII exposure")).toBeVisible();
+    await expect(page.getByTestId("pii-sources")).toContainText("Read data/patients.csv");
+  });
+
+  test("settings: change PII mode and it persists", async ({ page }, info) => {
+    test.skip(info.project.name === "phone", "global setting: run once");
+    await page.goto("/settings");
+    await page.getByLabel("PII mode").selectOption("warn");
+    await page.getByTestId("pii-settings").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Saved.")).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel("PII mode")).toHaveValue("warn");
+    await page.getByLabel("PII mode").selectOption("report");
+    await page.getByTestId("pii-settings").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Saved.")).toBeVisible();
+  });
+});
