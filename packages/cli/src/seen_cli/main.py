@@ -249,5 +249,37 @@ def serve(port: int = typer.Option(47821, help="Port (default 47821, off the com
     uvicorn.run(create_app(dist), host=host, port=port, log_level="warning", server_header=False)
 
 
+audit_app = typer.Typer(help="Tamper-evident audit trail", no_args_is_help=True)
+app.add_typer(audit_app, name="audit")
+
+
+@audit_app.command("verify")
+def audit_verify() -> None:
+    """Recompute the hash chain and print the first break."""
+    v = audit.verify()
+    if v.ok:
+        typer.echo(f"Chain verified: {v.count} events, head {v.head} (seq {v.head_seq}). Not anchored off this machine.")
+        return
+    typer.echo(f"BROKEN at seq {v.break_seq}: {v.reason}\n  expected {v.expected}\n  found    {v.found}")
+    raise typer.Exit(1)
+
+
+@audit_app.command("export")
+def audit_export(project: str = typer.Option(None, help="Project id (default: all)"),
+                 date_from: str = typer.Option(None, "--from", help="YYYY-MM-DD"),
+                 date_to: str = typer.Option(None, "--to", help="YYYY-MM-DD"),
+                 fmt: str = typer.Option("ndjson", "--format", help="csv | ndjson"),
+                 out: Path = typer.Option(None, help="Output path without extension")) -> None:
+    """Write events plus a manifest (range, count, head hash, verification result)."""
+    from seen_core import export
+
+    if fmt not in ("csv", "ndjson"):
+        raise typer.BadParameter("format must be csv or ndjson")
+    base = out or paths.home() / "exports" / f"audit-{project or 'all'}"
+    path = export.export(base, project=project, date_from=date_from, date_to=date_to, fmt=fmt, actor=user_id())
+    m = json.loads(path.with_suffix(".manifest.json").read_text())
+    typer.echo(f"{m['count']} events -> {path} (verified: {m['verification']['ok']}, head {m['head_hash'][:12]})")
+
+
 if __name__ == "__main__":
     app()

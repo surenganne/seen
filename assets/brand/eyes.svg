@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Seen">
+  <!-- Placeholder brand mark (owner supplies the final set). Idle: looks around and blinks. -->
+  <style>
+    .look { animation: look 7s ease-in-out infinite; }
+    .lid  { transform-box: fill-box; transform-origin: center; transform: scaleY(0); animation: blink 5.2s infinite; }
+    @keyframes look { 0%,18% { transform: translate(0,0) } 24%,40% { transform: translate(-3.2px,1px) }
+      46%,62% { transform: translate(3.2px,-.6px) } 68%,84% { transform: translate(.6px,1.6px) } 90%,100% { transform: translate(0,0) } }
+    @keyframes blink { 0%,93%,100% { transform: scaleY(0) } 95.5%,97% { transform: scaleY(1) } }
+    @media (prefers-reduced-motion: reduce) { .look, .lid { animation: none } }
+  </style>
+  <rect width="64" height="64" rx="14" fill="#0A2540"/>
+  <g>
+    <ellipse cx="21" cy="32" rx="11" ry="12.5" fill="#F5F5F5"/>
+    <ellipse cx="43" cy="32" rx="11" ry="12.5" fill="#F5F5F5"/>
+    <g class="look">
+      <circle cx="21" cy="32" r="6" fill="#E85D26"/><circle cx="21" cy="32" r="2.8" fill="#0A2540"/>
+      <circle cx="43" cy="32" r="6" fill="#E85D26"/><circle cx="43" cy="32" r="2.8" fill="#0A2540"/>
+      <circle cx="22.6" cy="30.3" r="1.1" fill="#fff"/><circle cx="44.6" cy="30.3" r="1.1" fill="#fff"/>
+    </g>
+    <rect class="lid" x="9.5" y="19" width="23" height="26" rx="11" fill="#0A2540"/>
+    <rect class="lid" x="31.5" y="19" width="23" height="26" rx="11" fill="#0A2540"/>
+  </g>
+</svg>

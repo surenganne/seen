@@ -1,0 +1,18 @@
+.eyes { display: block; flex: none; }
+.eyes-bg { fill: #0a2540; stroke: rgba(255, 255, 255, .12); stroke-width: 1; }
+.eyes-white { fill: #f5f5f5; }
+.eyes-iris { fill: #e85d26; transition: fill .3s; }
+.eyes-pupil { fill: #0a2540; transition: r .3s; }
+.eyes-glint { fill: #fff; }
+.eyes-lid { fill: #0a2540; transform-box: fill-box; transform-origin: center; transform: scaleY(0); }
+.eyes-idle .eyes-look { animation: eyes-look 7s ease-in-out infinite; }
+.eyes-idle .eyes-lid { animation: eyes-blink 5.2s infinite; }
+.eyes-alert .eyes-iris { fill: #f2364a; }
+.eyes-alert .eyes-pupil { r: 2.1; }
+.eyes-alert .eyes-white { fill: #fff; }
+@keyframes eyes-look {
+  0%, 18% { transform: translate(0, 0); } 24%, 40% { transform: translate(-3.2px, 1px); }
+  46%, 62% { transform: translate(3.2px, -.6px); } 68%, 84% { transform: translate(.6px, 1.6px); } 90%, 100% { transform: translate(0, 0); }
+}
+@keyframes eyes-blink { 0%, 93%, 100% { transform: scaleY(0); } 95.5%, 97% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .eyes-look, .eyes-lid { animation: none !important; } }

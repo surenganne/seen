@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from functools import cache
 from pathlib import Path
 
@@ -38,10 +39,22 @@ def make_engine(url: str) -> sa.Engine:
     return eng
 
 
+_lock = threading.Lock()
+
+
 @cache
-def _engine_for(url: str) -> sa.Engine:
+def _build(url: str) -> sa.Engine:
     upgrade(url)
     return make_engine(url)
+
+
+def _engine_for(url: str) -> sa.Engine:
+    # Alembic's command API uses global state: first use from several request threads must serialise
+    with _lock:
+        return _build(url)
+
+
+_engine_for.cache_clear = _build.cache_clear  # type: ignore[attr-defined]
 
 
 def ledger_url() -> str:

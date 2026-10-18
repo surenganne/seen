@@ -24,3 +24,5 @@ web/playwright-report/
 # dev data (mock/test DBs live here, never ~/.seen)
 .dev-data/
 .test-data/
+.playwright-mcp/
+web/test-results/

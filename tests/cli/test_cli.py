@@ -135,3 +135,21 @@ def test_serve_starts_and_answers(tmp_path: Path) -> None:
 def test_serve_refuses_non_loopback_without_flag() -> None:
     r = cli.invoke(app, ["serve", "--host", "0.0.0.0"])
     assert r.exit_code == 2 and "--allow-remote" in r.output
+
+
+def test_audit_verify_and_export_cli(repo: Path, tmp_path: Path) -> None:
+    recorded(repo, tmp_path)
+    assert "verified" in invoke("audit", "verify").lower()
+    out = invoke("audit", "export", "--format", "csv", "--out", str(tmp_path / "exp"))
+    assert (tmp_path / "exp.csv").exists() and (tmp_path / "exp.manifest.json").exists() and "events" in out
+
+
+def test_audit_verify_reports_break(repo: Path, tmp_path: Path, seen_home: Path) -> None:
+    import sqlite3
+
+    recorded(repo, tmp_path)
+    c = sqlite3.connect(seen_home / "audit.db", isolation_level=None)
+    c.execute("DROP TRIGGER audit_no_update")
+    c.execute("UPDATE audit_events SET outcome='x' WHERE seq=2")
+    r = cli.invoke(app, ["audit", "verify"])
+    assert r.exit_code == 1 and "seq 2" in r.output

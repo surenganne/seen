@@ -202,9 +202,9 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
                             events.append({"type": "skill.invoked", "occurred_at": _iso(t), "actor_kind": "agent", "actor_id": "u_demo",
                                            "project_id": pid, "session_id": sess_id, "change_id": cid, "subject": s,
                                            "detail": {"skill": s, "hash": skill_hash[s][:12], "status": status}})
-                        for pol, globs, req in (("pol-auth", ("src/auth/",), "security-review"),
+                        for pol, prefixes, req in (("pol-auth", ("src/auth/",), "security-review"),
                                                 ("pol-phi", ("llm/", "src/llm/"), "phi-redaction-check")):
-                            if any(f.startswith(globs) for f in touched):
+                            if any(f.startswith(prefixes) for f in touched):
                                 met = int(req in skills_run or rnd.random() < 0.7)
                                 db.add(PolicyResult(change_id=cid, policy_id=f"{pid}:{pol}", met=met))
                                 events.append({"type": "policy.result", "occurred_at": _iso(t), "actor_kind": "system", "actor_id": "u_demo",
