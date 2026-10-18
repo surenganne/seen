@@ -40,3 +40,5 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "seen_core.*"
 strict = true
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option", "typer.Argument", "fastapi.Query", "fastapi.Depends"]

@@ -130,3 +130,8 @@ def test_serve_starts_and_answers(tmp_path: Path) -> None:
     finally:
         p.terminate()
         p.wait(5)
+
+
+def test_serve_refuses_non_loopback_without_flag() -> None:
+    r = cli.invoke(app, ["serve", "--host", "0.0.0.0"])
+    assert r.exit_code == 2 and "--allow-remote" in r.output
