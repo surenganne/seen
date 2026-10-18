@@ -226,9 +226,15 @@ def dev_seed(home: Path = typer.Option(None, help="Scratch SEEN_HOME to fill (de
 @app.command()
 def serve(port: int = typer.Option(47821, help="Port (default 47821, off the common defaults)"),
           host: str = typer.Option("127.0.0.1", help="Bind address; keep 127.0.0.1 outside containers"),
-          open_browser: bool = typer.Option(False, "--open", help="Open the dashboard in a browser")) -> None:
+          open_browser: bool = typer.Option(False, "--open", help="Open the dashboard in a browser"),
+          allow_remote: bool = typer.Option(False, "--allow-remote",
+                                            help="Allow a non-loopback bind (containers only; publish the port on 127.0.0.1)")) -> None:
     """Run the local dashboard."""
     import uvicorn
+
+    if host not in ("127.0.0.1", "localhost", "::1") and not allow_remote:
+        typer.echo(f"Refusing to bind {host}: the local API has no login. Use --allow-remote only inside a container.", err=True)
+        raise typer.Exit(2)
 
     from seen_local.app import create_app, default_web_dist
 
@@ -240,7 +246,7 @@ def serve(port: int = typer.Option(47821, help="Port (default 47821, off the com
         import webbrowser
 
         threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{port}/")).start()
-    uvicorn.run(create_app(dist), host=host, port=port, log_level="warning")
+    uvicorn.run(create_app(dist), host=host, port=port, log_level="warning", server_header=False)
 
 
 if __name__ == "__main__":

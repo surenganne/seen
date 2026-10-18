@@ -43,9 +43,38 @@ def _verify() -> S.VerifyOut:
                        found=v.found, reason=v.reason, verified_at=v.verified_at, anchored=False, anchor_note=ANCHOR_NOTE)
 
 
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+       "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; "
+       "frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'")
+SECURITY_HEADERS = {"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+                    "Content-Security-Policy": CSP, "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()"}
+
+
+def allowed_hosts() -> list[str]:
+    extra = [h.strip() for h in os.environ.get("SEEN_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    return ["127.0.0.1", "localhost", "testserver", *extra]
+
+
 def create_app(web_dist: Path | None = None) -> FastAPI:
+    from fastapi import Request, Response
+    from fastapi.responses import JSONResponse
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
+
     app = FastAPI(title=f"{brand.NAME} local API", version=brand.VERSION)
     state: dict[str, S.VerifyOut] = {}
+
+    @app.middleware("http")
+    async def guard(request: Request, call_next):  # type: ignore[no-untyped-def]
+        # unsafe methods need a custom header: a cross-site page can't send it without a CORS preflight we never grant
+        if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.headers.get("x-seen-request") != "1":
+            resp: Response = JSONResponse({"detail": "missing X-Seen-Request header"}, status_code=403)
+        else:
+            resp = await call_next(request)
+        resp.headers.update(SECURITY_HEADERS)
+        return resp
+
+    # outermost: reject DNS-rebound Host headers before anything else runs
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts())
 
     def verified() -> S.VerifyOut:
         if "v" not in state:
