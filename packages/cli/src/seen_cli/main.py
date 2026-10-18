@@ -204,3 +204,44 @@ def doctor() -> None:
     errors = log.read_text().count("Traceback") if log.exists() else 0
     line(errors == 0, f"hook log: {errors} errors in {log}")
     raise typer.Exit(0 if ok else 0)  # doctor is advisory; exit 0 so scripts can read the report
+
+
+@app.command("dev-seed")
+def dev_seed(home: Path = typer.Option(None, help="Scratch SEEN_HOME to fill (default: $SEEN_HOME)")) -> None:
+    """Fill a scratch SEEN_HOME with generated data. Never touches ~/.seen."""
+    from seen_core import devseed
+
+    target = home or (Path(os.environ["SEEN_HOME"]) if os.environ.get("SEEN_HOME") else None)
+    if target is None:
+        typer.echo("Give --home or set SEEN_HOME to a scratch folder.", err=True)
+        raise typer.Exit(2)
+    try:
+        counts = devseed.seed(target)
+    except SystemExit as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(2) from None
+    typer.echo(f"Seeded {target}: " + ", ".join(f"{v} {k}" for k, v in counts.items()))
+
+
+@app.command()
+def serve(port: int = typer.Option(47821, help="Port (default 47821, off the common defaults)"),
+          host: str = typer.Option("127.0.0.1", help="Bind address; keep 127.0.0.1 outside containers"),
+          open_browser: bool = typer.Option(False, "--open", help="Open the dashboard in a browser")) -> None:
+    """Run the local dashboard."""
+    import uvicorn
+
+    from seen_local.app import create_app, default_web_dist
+
+    dist = default_web_dist()
+    if dist is None:
+        typer.echo("Web build not found: API only (build it with `npm run build` in web/).", err=True)
+    if open_browser:
+        import threading
+        import webbrowser
+
+        threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{port}/")).start()
+    uvicorn.run(create_app(dist), host=host, port=port, log_level="warning")
+
+
+if __name__ == "__main__":
+    app()
