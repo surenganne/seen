@@ -108,5 +108,5 @@ for run in ("run1", "subagent", "stopblock", "slash", "mcp", "bigout", "recall")
                 sub = "\n".join(json.dumps(scrub(json.loads(l)), sort_keys=True) for l in open(os.path.join(subdir, f)) if json.loads(l).get("type") in KEEP_TYPES) + "\n"
                 check(sub, f)
                 os.makedirs(os.path.join(out_t, run, "subagents"), exist_ok=True)
-                open(os.path.join(out_t, run, "subagents", "agent-sub1.jsonl"), "w").write(sub)
+                open(os.path.join(out_t, run, "subagents", f), "w").write(sub)
 print("ok", len(PICK), "payloads")

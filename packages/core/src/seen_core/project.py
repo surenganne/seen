@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+from . import gitutil
 
 
 @dataclass(frozen=True)
@@ -19,11 +20,8 @@ class Project:
 
 
 def _git(cwd: str | Path, *args: str) -> str | None:
-    try:
-        r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=5)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return r.stdout.strip() if r.returncode == 0 else None
+    out = gitutil.run(cwd, *args, timeout=5)
+    return out.strip() if out is not None else None
 
 
 def normalise_remote(url: str) -> str:
