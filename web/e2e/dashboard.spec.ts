@@ -152,3 +152,31 @@ test.describe("P3-7 memory", () => {
     await expect(page.getByRole("heading", { name: "Memory read" })).toBeVisible();
   });
 });
+
+test.describe("P4-2 / P4-5 skill audit", () => {
+  test("approve a changed skill version; UI reflects it", async ({ page }, info) => {
+    const pid = info.project.name === "phone" ? "demo-pipes" : "demo-payments";
+    await page.goto(`/p/${pid}/skills?skill=tdd`);
+    const panel = page.getByTestId("skill-panel");
+    await expect(panel.getByText("changed").first()).toBeVisible();
+    await panel.getByRole("button", { name: /Approve/ }).click();
+    await expect(panel.getByRole("button", { name: "Version approved" })).toBeDisabled();
+    await expect(page.getByTestId("skill-row").filter({ hasText: "tdd" }).getByText("approved")).toBeVisible();
+    await page.goto(`/p/${pid}/audit?type=approval.skill`);
+    await expect(page.getByTestId("audit-row").first()).toContainText("tdd");
+  });
+
+  test("required-skill rule links to missed changes", async ({ page }) => {
+    await page.goto("/p/demo-payments/skills?tab=required");
+    await page.getByTestId("policies").getByRole("link", { name: /missed/ }).first().click();
+    await expect(page).toHaveURL(/policy_missed=true/);
+    await expect(page.getByTestId("change-row").first().getByText("policy missed")).toBeVisible();
+  });
+
+  test("changes skill select filters", async ({ page }) => {
+    await page.goto("/p/demo-payments/changes?range=28");
+    await page.getByLabel("Skill").selectOption("security-review");
+    await expect(page).toHaveURL(/skill=security-review/);
+    await expect(page.getByTestId("change-row").first()).toContainText("security-review");
+  });
+});

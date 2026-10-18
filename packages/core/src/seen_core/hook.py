@@ -209,14 +209,14 @@ def _on_pre_skill(p: dict[str, Any]) -> Result:
 
     ti = p.get("tool_input") or {}
     skill = str(ti.get("skill") or "")
+    root = msess.read(p["session_id"]).get("root")
+    if root and lock.is_blocked(lock.load(root), skill):  # check first: a blocked attempt is not a skill run
+        spool.append(p["session_id"], {"ev": "gate", **_base(p), "hook": "pre-skill", "decision": "block", "reason": "skill_blocked"})
+        return Result(code=2, stderr=f"Seen: the skill {skill.strip()[:80]} is blocked for this project (.seen/skills.lock.json). "
+                                     "Continue without it, or ask the user to unblock it.")
     spool.append(p["session_id"], {"ev": "skill_start", **_base(p), "skill": skill,
                                    "tool_use_id": p.get("tool_use_id"),
                                    "trigger": "subagent" if p.get("agent_id") else "model"})
-    root = msess.read(p["session_id"]).get("root")
-    if root and skill in lock.load(root).blocked:
-        spool.append(p["session_id"], {"ev": "gate", **_base(p), "hook": "pre-skill", "decision": "block", "reason": "skill_blocked"})
-        return Result(code=2, stderr=f"Seen: the skill {skill} is blocked for this project (.seen/skills.lock.json). "
-                                     "Continue without it, or ask the user to unblock it.")
     return Result()
 
 
