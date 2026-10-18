@@ -25,12 +25,31 @@ def _raw(cwd: str | Path, args: list[str], timeout: float) -> str | None:
     return r.stdout if r.returncode == 0 else None
 
 
+@lru_cache(maxsize=1)
+def _git_version() -> str:
+    try:
+        return subprocess.run(["git", "--version"], capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def _supports_attr_source(version: str) -> bool:
+    import re
+
+    m = re.search(r"(\d+)\.(\d+)", version)
+    if m is None:
+        return False
+    return (int(m.group(1)), int(m.group(2))) >= (2, 40)
+
+
 @lru_cache(maxsize=64)
 def filter_overrides(cwd: str) -> tuple[str, ...]:
     """Two layers: read attributes from the empty tree (no in-repo .gitattributes can pick a
     driver), and replace every configured filter driver with identity cat anyway."""
     args: list[str] = []
-    empty = (_raw(cwd, [*_SAFE, "hash-object", "-t", "tree", os.devnull], 5) or "").strip()
+    # --attr-source needs git 2.40+; older git would reject every call. The driver overrides below still apply.
+    empty = (_raw(cwd, [*_SAFE, "hash-object", "-t", "tree", os.devnull], 5) or "").strip() \
+        if _supports_attr_source(_git_version()) else ""
     if empty:
         args += ["--attr-source", empty]
     out = _raw(cwd, [*_SAFE, "config", "-z", "--name-only", "--get-regexp", r"^filter\."], 5) or ""

@@ -1,0 +1,78 @@
+# Seen local stack. Ports avoid common defaults (47821 API+dashboard, 47822 Vite, 47825 real data).
+#   docker compose up -d                        dashboard on mock data      http://127.0.0.1:47821
+#   docker compose --profile dev up -d          + Vite dev server (HMR)     http://127.0.0.1:47822
+#   docker compose --profile test run --rm tests            Python lint/type/unit suite in a container
+#   docker compose --profile test run --rm e2e              Playwright against a throwaway seeded test DB
+#   docker compose --profile local up -d dashboard-local    your real ~/.seen (read/write)  http://127.0.0.1:47825
+name: seen
+
+services:
+  dashboard:
+    build: { context: ., target: app }
+    image: seen-dashboard:dev
+    environment:
+      SEEN_HOME: /data
+      SEEN_DEV_SEED: "1"
+      SEEN_ALLOWED_HOSTS: dashboard
+    volumes: [seen-dev-data:/data]
+    ports: ["127.0.0.1:47821:47821"]
+    restart: unless-stopped
+
+  web-dev:
+    profiles: [dev]
+    image: node:22.20.0-alpine
+    working_dir: /web
+    command: sh -c "npm ci --no-audit --no-fund && npm run dev"
+    environment:
+      SEEN_API: http://dashboard:47821
+      SEEN_DEV_HOST: 0.0.0.0
+    volumes: [./web:/web, seen-web-node-modules:/web/node_modules]
+    ports: ["127.0.0.1:47822:47822"]
+    depends_on: { dashboard: { condition: service_healthy } }
+
+  tests:
+    profiles: [test]
+    build: { context: ., target: test }
+    image: seen-tests:dev
+    tmpfs: ["/tmp:exec"]
+
+  # Isolated test database: tmpfs, seeded fresh on every start, never the dev or real data.
+  dashboard-test:
+    profiles: [test]
+    image: seen-dashboard:dev
+    build: { context: ., target: app }
+    environment:
+      SEEN_HOME: /data
+      SEEN_DEV_SEED: "1"
+      SEEN_ALLOWED_HOSTS: dashboard-test
+    tmpfs: ["/data:uid=10001,mode=0700"]
+
+  e2e:
+    profiles: [test]
+    image: mcr.microsoft.com/playwright:v1.64.1-noble
+    working_dir: /web
+    command: sh -c "npm ci --no-audit --no-fund && npx playwright test"
+    environment:
+      SEEN_E2E_URL: http://dashboard-test:47821
+      CI: "1"
+    volumes: [./web:/web, seen-e2e-node-modules:/web/node_modules]
+    depends_on: { dashboard-test: { condition: service_healthy } }
+
+  dashboard-local:
+    profiles: [local]
+    image: seen-dashboard:dev
+    build: { context: ., target: app }
+    user: "${SEEN_UID:-10001}"
+    environment:
+      SEEN_HOME: ${HOME}/.seen
+      SEEN_DEV_SEED: "0"
+    # same absolute paths as the host, so project roots stored in the ledger resolve inside the container
+    volumes:
+      - ${HOME}/.seen:${HOME}/.seen
+      - ${SEEN_REPOS:-${HOME}/repos}:${SEEN_REPOS:-${HOME}/repos}
+    ports: ["127.0.0.1:47825:47821"]
+
+volumes:
+  seen-dev-data:
+  seen-web-node-modules:
+  seen-e2e-node-modules:
