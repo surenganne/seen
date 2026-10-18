@@ -18,13 +18,36 @@ def path(root: str | Path) -> Path:
     return Path(root) / ".seen" / "skills.lock.json"
 
 
+class LockfileError(ValueError):
+    pass
+
+
+def _parse(text: str) -> Lockfile:
+    d = json.loads(text)
+    approved, blocked = d.get("approved", {}), d.get("blocked", [])
+    if not isinstance(approved, dict) or not isinstance(blocked, list) or \
+            not all(isinstance(v, list) and all(isinstance(h, str) for h in v) for v in approved.values()) or \
+            not all(isinstance(b, str) for b in blocked):
+        raise LockfileError("skills.lock.json: unexpected shape")
+    return Lockfile(approved={str(k): list(v) for k, v in approved.items()}, blocked=list(blocked))
+
+
 def load(root: str | Path) -> Lockfile:
+    """Lenient read for status display. Writers use load_strict."""
     try:
-        d = json.loads(path(root).read_text())
-        return Lockfile(approved={str(k): [str(h) for h in v] for k, v in (d.get("approved") or {}).items()},
-                        blocked=[str(b) for b in d.get("blocked") or []])
-    except (OSError, ValueError, AttributeError):
+        return _parse(path(root).read_text())
+    except (OSError, ValueError, TypeError, AttributeError):
         return Lockfile()
+
+
+def load_strict(root: str | Path) -> Lockfile:
+    p = path(root)
+    if not p.exists():
+        return Lockfile()
+    try:
+        return _parse(p.read_text())
+    except (ValueError, TypeError, AttributeError) as e:
+        raise LockfileError(f"{p} is not valid; fix it by hand before approving or blocking ({e})") from e
 
 
 def status(lk: Lockfile, skill_id: str, full_hash: str | None) -> str:
@@ -44,8 +67,30 @@ def _save(root: str | Path, lk: Lockfile) -> None:
     os.replace(tmp, p)
 
 
+class _locked:
+    """Exclusive lock around a read-modify-write of the lockfile."""
+
+    def __init__(self, root: str | Path) -> None:
+        self.f = path(root).with_suffix(".lock")
+
+    def __enter__(self) -> None:
+        import fcntl
+
+        self.f.parent.mkdir(parents=True, exist_ok=True)
+        self.fh = open(self.f, "w")
+        fcntl.flock(self.fh, fcntl.LOCK_EX)
+
+    def __exit__(self, *exc: object) -> None:
+        self.fh.close()
+
+
 def approve(root: str | Path, skill_id: str, full_hash: str) -> None:
-    lk = load(root)
+    with _locked(root):
+        _approve(root, skill_id, full_hash)
+
+
+def _approve(root: str | Path, skill_id: str, full_hash: str) -> None:
+    lk = load_strict(root)
     short = full_hash[:7]
     if short not in lk.approved.setdefault(skill_id, []):
         lk.approved[skill_id].append(short)
@@ -53,13 +98,23 @@ def approve(root: str | Path, skill_id: str, full_hash: str) -> None:
 
 
 def block(root: str | Path, skill_id: str) -> None:
-    lk = load(root)
+    with _locked(root):
+        _block(root, skill_id)
+
+
+def _block(root: str | Path, skill_id: str) -> None:
+    lk = load_strict(root)
     if skill_id not in lk.blocked:
         lk.blocked.append(skill_id)
     _save(root, lk)
 
 
 def unblock(root: str | Path, skill_id: str) -> None:
-    lk = load(root)
+    with _locked(root):
+        _unblock(root, skill_id)
+
+
+def _unblock(root: str | Path, skill_id: str) -> None:
+    lk = load_strict(root)
     lk.blocked = [b for b in lk.blocked if b != skill_id]
     _save(root, lk)

@@ -6,8 +6,8 @@ import time
 from pathlib import Path
 
 import pytest
-from seen_core import hook, paths
 
+from seen_core import hook, paths
 from tests.conftest import FIXTURES
 
 P = FIXTURES / "hook_payloads"
@@ -138,3 +138,13 @@ def test_background_scan_runs_isolated(repo: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(sp, "Popen", fake)
     run("session-start", payload("session_start", repo))
     assert "-I" in seen["args"] and seen["cwd"] == str(paths.home())
+
+
+def test_session_hashes_skip_symlinked_lockfile(repo: Path, tmp_path: Path) -> None:
+    (repo / ".seen").mkdir()
+    secret = tmp_path / "elsewhere.json"
+    secret.write_text("{}")
+    (repo / ".seen/skills.lock.json").symlink_to(secret)
+    d = payload("session_start", repo)
+    run("session-start", d)
+    assert spool(d["session_id"])[0]["lock_hash"] is None

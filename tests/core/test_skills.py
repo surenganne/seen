@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import pytest
+
 from seen_core.frontmatter import parse
 from seen_core.skills.hashing import hash_folder
 from seen_core.skills.scan import claude_dir, discover
@@ -91,8 +92,8 @@ def test_discover_uses_cache_until_file_changes(tmp_path: Path, repo: Path, monk
 
 def test_inventory_reaches_ledger_and_drift_adds_version(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import sqlalchemy as sa
-    from seen_core.db import ledger_engine
 
+    from seen_core.db import ledger_engine
     from tests.helpers import Replay
 
     monkeypatch.setenv("SEEN_INVENTORY_SYNC", "1")

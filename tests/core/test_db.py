@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import sqlalchemy as sa
+
 from seen_core.db import ledger_engine, upgrade
 
 TABLES = {"projects", "sessions", "changes", "change_files", "change_memories", "skills", "skill_versions",

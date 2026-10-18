@@ -2,8 +2,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from seen_core.gitdelta import delta, snapshot
 
+from seen_core.gitdelta import delta, snapshot
 from tests.conftest import git
 
 

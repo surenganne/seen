@@ -67,13 +67,21 @@ def _write_json(f: Any, obj: Any) -> None:
     os.replace(tmp, f)
 
 
-def _file_hash(f: Any) -> str | None:
+def _file_hash(f: Any, cap: int = 1024 * 1024) -> str | None:
+    """sha256 of a small regular file. Repo files are untrusted: no symlinks, fifos or giants."""
     import hashlib
+    import stat
 
     try:
-        return hashlib.sha256(f.read_bytes()).hexdigest()
+        st = os.lstat(f)
+        if not stat.S_ISREG(st.st_mode) or st.st_size > cap:
+            return None
+        fd = os.open(f, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as fh:
+            data = fh.read(cap + 1)
     except OSError:
         return None
+    return hashlib.sha256(data).hexdigest() if len(data) <= cap else None
 
 
 def _on_session_start(p: dict[str, Any]) -> Result:
@@ -121,15 +129,14 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
     cwd = p.get("cwd") or "."
     before = snapshot(cwd)
     _write_json(paths.snap_file(p["session_id"]), {"prompt_id": p.get("prompt_id"), "cwd": cwd, "before": before})
-    import hashlib
     import re
 
-    from . import config
+    from . import config, secret
 
     prompt = p.get("prompt") or ""
     m = re.match(r"^/([\w:.-]+)", prompt.strip())
     line: dict[str, Any] = {"ev": "turn_start", **_base(p), "transcript_offset": offset, "cwd": cwd, "head": before["head"],
-                            "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(), "prompt_len": len(prompt),
+                            "prompt_hmac": secret.keyed(prompt, 64), "prompt_len": len(prompt),
                             "slash": m.group(1) if m else None}
     if config.load()["pii"]["store_prompt_text"] == "full":
         line["prompt"] = prompt  # only on explicit opt-in; redacted storage arrives with redact.py

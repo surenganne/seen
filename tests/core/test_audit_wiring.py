@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 
 import pytest
-from seen_core import audit, ingest, paths, spool
 
+from seen_core import audit, ingest, paths, spool
 from tests.core.test_skills import mkskill
 from tests.helpers import Replay
 
@@ -31,7 +31,7 @@ def test_replayed_session_event_sequence(repo: Path, tmp_path: Path, monkeypatch
     blob = json.dumps(audit.query(limit=10_000))
     assert "SENTINEL-77" not in blob  # no prompt text, diff or command args, ever
     ts = next(e for e in audit.query(type_="turn.start"))
-    assert ts["detail"]["prompt_len"] == len("secret prompt text SENTINEL-77") and len(ts["detail"]["prompt_sha256"]) == 64
+    assert ts["detail"]["prompt_len"] == len("secret prompt text SENTINEL-77") and len(ts["detail"]["prompt_hmac"]) == 64
     bash = [e for e in audit.query(type_="tool.call") if e["detail"]["tool"] == "Bash"][0]
     assert bash["detail"]["cmd0"] == "curl"
     te = next(e for e in audit.query(type_="turn.end"))
@@ -93,3 +93,40 @@ def test_lockfile_change_between_sessions_detected(repo: Path, tmp_path: Path) -
     ch = audit.query(type_="lockfile.changed")
     assert len(ch) == 1 and ch[0]["detail"]["old"] != ch[0]["detail"]["new"]
     assert spool.read("sess-2")[0]["lock_hash"] == ch[0]["detail"]["new"]
+
+
+def test_long_paths_are_normalised_not_dropped(repo: Path, tmp_path: Path) -> None:
+    deep = repo / ("d" * 120) / ("e" * 120)
+    deep.mkdir(parents=True)
+    r = Replay(repo, tmp_path)
+    r.start()
+    r.prompt()
+    (deep / "f.py").write_text("x\n")
+    r.model_works()
+    r.stop()
+    fc = audit.query(type_="file.changed")
+    assert len(fc) == 1 and len(fc[0]["subject"]) <= 200 and fc[0]["detail"]["path"].endswith("f.py")
+    assert audit.query(type_="turn.end")
+
+
+def test_prompt_fingerprint_is_keyed(repo: Path, tmp_path: Path) -> None:
+    import hashlib
+
+    r = Replay(repo, tmp_path)
+    r.start()
+    r.prompt("yes")
+    r.model_works()
+    r.stop()
+    ts = audit.query(type_="turn.start")[0]["detail"]
+    assert "prompt_sha256" not in ts and ts["prompt_hmac"] != hashlib.sha256(b"yes").hexdigest()
+
+
+def test_one_bad_spool_does_not_block_sweep(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for sid in ("bad", "good"):
+        r = Replay(repo, tmp_path, sid=sid)
+        r.start()
+        r.prompt()
+    real = ingest.audit_spool
+    monkeypatch.setattr(ingest, "audit_spool", lambda s: (_ for _ in ()).throw(ValueError("x")) if s == "bad" else real(s))
+    ingest.sweep_incomplete(max_age_s=0)
+    assert [e["session_id"] for e in audit.query(type_="session.incomplete")] == ["good"]
