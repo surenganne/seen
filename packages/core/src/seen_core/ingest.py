@@ -17,6 +17,7 @@ from .db.models import (
     Change,
     ChangeFile,
     ChangeMemory,
+    PiiFinding,
     Policy,
     PolicyResult,
     Project,
@@ -28,6 +29,7 @@ from .db.models import (
 from .hook import EDIT_TOOLS
 from .identity import user_id as _uid
 from .invocations import Invocation, reconcile
+from .redact import redact
 from .skills import lock
 from .skills.scan import TRUST
 from .transcript import Turn, parse_turn
@@ -113,8 +115,8 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.started_at = ts["t"]
         row.ended_at = (end or {}).get("t") or spool.now()
         row.duration_s = _secs(row.started_at, row.ended_at)
-        row.prompt_text = None  # stored only through redact.py (P4B-2); never raw by default
-        row.summary = summarise(last) if last else None
+        row.prompt_text = ts.get("prompt")  # already redacted (or omitted) at prompt-submit per store_prompt_text
+        row.summary = redact(summarise(last)) if last else None
         row.model = _main_model(t)
         row.tok_in, row.tok_out = _sum(t, "tok_in"), _sum(t, "tok_out")
         row.tok_cache_read, row.tok_cache_write = _sum(t, "tok_cache_read"), _sum(t, "tok_cache_write")
@@ -123,6 +125,7 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.git_head_after = head_after
         row.git_status = ("committed" if head_after != row.git_head_before else "uncommitted") if files else None
         _write_memories(db, cid, session_id, lines, turn_lines)
+        _write_prompt_pii(db, cid, turn_lines)
         _sync_inventory(db, pid)
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
         for path, (a, r) in sorted(files.items()):
@@ -386,3 +389,28 @@ def _write_policies(db: Any, cid: str, pid: str | None, pols: list[policy.Policy
     db.execute(delete(PolicyResult).where(PolicyResult.change_id == cid))
     for pol_id, met in results:
         db.add(PolicyResult(change_id=cid, policy_id=f"{pid}:{pol_id}", met=int(met)))
+
+
+def _write_prompt_pii(db: Any, cid: str, turn_lines: list[dict[str, Any]]) -> None:
+    db.execute(delete(PiiFinding).where(PiiFinding.change_id == cid, PiiFinding.source_kind == "prompt"))
+    total, blocked = 0, False
+    for ln in turn_lines:
+        if ln.get("ev") != "pii_prompt":
+            continue
+        blocked |= bool(ln.get("blocked"))
+        for i, f in enumerate(ln.get("findings") or []):
+            total += int(f["count"])
+            key = f"{cid}:prompt:{i}:{f['type']}"
+            db.add(PiiFinding(id="pf_" + hashlib.sha1(key.encode()).hexdigest()[:16],
+                              change_id=cid, type=f["type"], confidence=f["confidence"], count=f["count"],
+                              distinct_count=f["distinct"], source_kind="prompt", source_ref="Prompt", destination="model",
+                              detector=f["detector"], status="open", fingerprints_json=json.dumps(f["fingerprints"])))
+    row = db.get(Change, cid)
+    _set_pii_state(db, row, blocked)
+
+
+def _set_pii_state(db: Any, row: Any, blocked: bool = False) -> None:
+    db.flush()
+    n = sum(f.count for f in db.scalars(select(PiiFinding).where(PiiFinding.change_id == row.id, PiiFinding.status == "open")))
+    row.pii_count = n
+    row.pii_state = "blocked" if blocked else ("found" if n else "none")

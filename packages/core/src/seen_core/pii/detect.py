@@ -24,7 +24,7 @@ AADHAAR_CTX = re.compile(r"(?i)\b(aadhaa?r|uid|uidai|आधार)\b")
 DOB_CTX = re.compile(r"(?i)\b(dob|d\.o\.b|date of birth|birth ?date|born)\b")
 
 _RX = {
-    "email": re.compile(r"(?<![\w.+-])[A-Za-z0-9._%+-]{1,64}@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24})\b"),
+    "email": re.compile(r"(?<![\w.+-])[A-Za-z0-9._%+-]{1,64}@((?:[A-Za-z0-9-]{1,63}\.){1,8}[A-Za-z]{2,24})\b"),
     "aadhaar": re.compile(r"(?<![\w-])[2-9]\d{3}([ -]?)\d{4}\1\d{4}(?![\w-])"),  # 4-4-4, one consistent separator
     "pan": re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b"),
     "card": re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)"),
@@ -46,7 +46,8 @@ _SECRETS = [
     (re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b"), "slack_token", "high"),
     (re.compile(r"\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}\b"), "api_key", "high"),
 ]
-_ASSIGN = re.compile(r"(?i)\b[\w.-]*(?:key|secret|token|passwd|password|pwd|credential)[\w.-]*\s*[:=]\s*['\"]?([A-Za-z0-9/+_=.-]{16,})['\"]?")
+# bounded on purpose: unbounded runs around the keyword backtrack polynomially (ReDoS) on "key.key.key..."
+_ASSIGN = re.compile(r"(?i)(?<![\w.-])[\w.-]{0,40}?(?:key|secret|token|passwd|password|pwd|credential)[\w-]{0,20}[ \t]{0,4}[:=][ \t]{0,4}['\"]?([A-Za-z0-9/+_=.-]{16,256})")
 CTX_WINDOW = 32
 
 
