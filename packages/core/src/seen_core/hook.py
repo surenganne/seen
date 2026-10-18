@@ -126,11 +126,17 @@ def _on_post_tool(p: dict[str, Any]) -> Result:
 def _on_stop(p: dict[str, Any]) -> Result:
     spool.append(p["session_id"], {"ev": "turn_end", **_base(p), "stop_hook_active": bool(p.get("stop_hook_active")),
                                    "last_message": (p.get("last_assistant_message") or "")[:2000]})
+    from . import ingest  # heavy imports only here, once per turn
+
+    ingest.finish_turn(p["session_id"])
     return Result()
 
 
 def _on_session_end(p: dict[str, Any]) -> Result:
     spool.append(p["session_id"], {"ev": "session_end", **_base(p), "reason": p.get("reason")})
+    from . import ingest
+
+    ingest.finish_session(p["session_id"])
     return Result()
 
 
