@@ -69,6 +69,40 @@ def register(app: FastAPI, state: dict[str, Any]) -> None:
                                  "subject": "settings", "detail": {"key": "settings", "changed": 0}}])
         return S.Ok(detail={"changed": [f"{s}.{k}" for s, k, _, _ in changes]})
 
+    def _memory_root(project: str) -> tuple[str | None, str]:
+        from seen_core.db import ledger_session
+        from seen_core.db.models import Project
+
+        with ledger_session() as db:
+            p = db.get(Project, project)
+        if p is None:
+            raise HTTPException(404, "project not found")
+        return p.root_path, project
+
+    @app.post("/api/memory/{mid}/verify", response_model=S.MemoryOut)
+    def memory_verify(mid: str, project: str) -> S.MemoryOut:
+        from seen_core.memory import service
+
+        root, pid = _memory_root(project)
+        try:
+            m = service.do_verify(root, pid, mid, user_id())
+        except KeyError:
+            raise HTTPException(404, "memory not found") from None
+        return S.MemoryOut(id=m.id, type=m.type, scope=m.scope, status=service.status(m), file_ref=m.file_ref,  # type: ignore[arg-type]
+                           verified_at=m.verified_at, source_change=m.source_change, stale_reason=m.stale_reason, error=None,
+                           body=m.body, path=paths.redact_home(m.path), content_hash=m.content_hash, used_in=0)
+
+    @app.post("/api/memory/{mid}/archive", response_model=S.Ok)
+    def memory_archive(mid: str, project: str) -> S.Ok:
+        from seen_core.memory import service
+
+        root, pid = _memory_root(project)
+        try:
+            dest = service.do_archive(root, pid, mid, user_id())
+        except KeyError:
+            raise HTTPException(404, "memory not found") from None
+        return S.Ok(detail={"archived_to": paths.redact_home(str(dest))})
+
     @app.post("/api/audit/export", response_model=S.ExportOut)
     def post_export(body: S.ExportIn) -> S.ExportOut:
         import json

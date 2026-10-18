@@ -8,6 +8,7 @@ are still counted. Known limit: lines a human edits during the turn are counted 
 from __future__ import annotations
 
 import os
+import re
 import stat
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from typing import Any
 from . import gitutil
 
 MAX_UNTRACKED = 2000
+_SHA = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
 MAX_COUNT_BYTES = 5 * 1024 * 1024
 
 Snapshot = dict[str, Any]
@@ -46,12 +48,12 @@ def snapshot(cwd: str | Path, base: str | None = None) -> Snapshot:
         if top is None:
             return {"head": None, "numstat": {}, "untracked": {}}
         out0 = top
-    parts = out0.split()
+    parts = out0.splitlines()  # paths may contain spaces
     root = Path(parts[0])
-    head = parts[1] if len(parts) > 1 else None
-    ref = base or head
+    head = parts[1].strip() if len(parts) > 1 and _SHA.match(parts[1].strip()) else None
+    ref = base if base and _SHA.match(base) else head
     numstat: dict[str, list[int]] = {}
-    out, others = gitutil.run_many(root, [("diff", "--numstat", "--no-renames", ref) if ref else
+    out, others = gitutil.run_many(root, [("diff", "--numstat", "--no-renames", "--end-of-options", ref, "--") if ref else
                                           ("diff", "--numstat", "--no-renames", "--cached"),
                                           ("ls-files", "--others", "--exclude-standard")])
     for ln in (out or "").splitlines():

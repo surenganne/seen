@@ -141,6 +141,31 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
                             q=q, limit=size, offset=(page - 1) * size)
         return S.AuditPage(page=page, page_size=size, items=[S.AuditEventOut(**e) for e in items])
 
+    @app.get("/api/projects/{pid}/memory", response_model=S.MemoryPage)
+    def memory(pid: str, db: Db, type: str | None = None, status: str | None = None, q: str | None = None) -> S.MemoryPage:
+        from collections import Counter
+
+        from seen_core.db.models import Change, ChangeMemory
+        from seen_core.memory import service
+
+        p = project_or_404(db, pid)
+        used = Counter(m for (m,) in db.execute(select(ChangeMemory.memory_id).join(Change, Change.id == ChangeMemory.change_id)
+                                                .where(Change.project_id == pid)))
+        out = [S.MemoryOut(id=m.id, type=m.type, scope=m.scope, status=service.status(m), file_ref=m.file_ref,  # type: ignore[arg-type]
+                           verified_at=m.verified_at, source_change=m.source_change, stale_reason=m.stale_reason,
+                           error=m.error or None, body=m.body, path=paths.redact_home(m.path),
+                           content_hash=m.content_hash if m.ok else "", used_in=used[m.id])
+               for m in service.all_memories(p.root_path, pid)]
+        counts = dict(Counter(o.status for o in out))
+        valid = [o for o in out if o.status != "invalid"]
+        if type:
+            valid = [o for o in valid if o.type == type]
+        if status:
+            valid = [o for o in valid if o.status == status]
+        if q:
+            valid = [o for o in valid if q.lower() in f"{o.id} {o.body} {o.file_ref or ''}".lower()]
+        return S.MemoryPage(items=valid, invalid=[o for o in out if o.status == "invalid"], counts=counts)
+
     @app.get("/api/audit/verify", response_model=S.VerifyOut)
     def audit_verify() -> S.VerifyOut:
         state["v"] = _verify()

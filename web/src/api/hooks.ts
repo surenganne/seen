@@ -80,3 +80,10 @@ export function useWrite<TArgs, TOut>(fn: (a: TArgs) => Promise<TOut>) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries() });
 }
+
+export const useMemory = (pid: string, f: { type?: string; status?: string; q?: string }) =>
+  useQuery({
+    queryKey: ["memory", pid, f],
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/memory", { params: { path: { pid }, query: f } })),
+    placeholderData: keepPreviousData,
+  });

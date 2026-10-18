@@ -850,6 +850,152 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "MemoryOut": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "file_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Ref"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "source_change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Change"
+          },
+          "stale_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale Reason"
+          },
+          "status": {
+            "enum": [
+              "verified",
+              "unverified",
+              "stale",
+              "invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "used_in": {
+            "title": "Used In",
+            "type": "integer"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "scope",
+          "status",
+          "file_ref",
+          "verified_at",
+          "source_change",
+          "stale_reason",
+          "error",
+          "body",
+          "path",
+          "content_hash",
+          "used_in"
+        ],
+        "title": "MemoryOut",
+        "type": "object"
+      },
+      "MemoryPage": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "invalid": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryOut"
+            },
+            "title": "Invalid",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MemoryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "invalid",
+          "counts"
+        ],
+        "title": "MemoryPage",
+        "type": "object"
+      },
       "MemoryRef": {
         "properties": {
           "content_hash": {
@@ -2325,6 +2471,102 @@
         "summary": "Change"
       }
     },
+    "/api/memory/{mid}/archive": {
+      "post": {
+        "operationId": "memory_archive_api_memory__mid__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mid",
+            "required": true,
+            "schema": {
+              "title": "Mid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Memory Archive"
+      }
+    },
+    "/api/memory/{mid}/verify": {
+      "post": {
+        "operationId": "memory_verify_api_memory__mid__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mid",
+            "required": true,
+            "schema": {
+              "title": "Mid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Memory Verify"
+      }
+    },
     "/api/projects": {
       "get": {
         "operationId": "projects_api_projects_get",
@@ -2705,6 +2947,93 @@
           }
         },
         "summary": "Changes"
+      }
+    },
+    "/api/projects/{pid}/memory": {
+      "get": {
+        "operationId": "memory_api_projects__pid__memory_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Memory"
       }
     },
     "/api/projects/{pid}/overview": {

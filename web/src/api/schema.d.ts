@@ -55,6 +55,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/memory/{mid}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Memory Archive */
+        post: operations["memory_archive_api_memory__mid__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/memory/{mid}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Memory Verify */
+        post: operations["memory_verify_api_memory__mid__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects": {
         parameters: {
             query?: never;
@@ -98,6 +132,23 @@ export interface paths {
         };
         /** Changes */
         get: operations["changes_api_projects__pid__changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{pid}/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Memory */
+        get: operations["memory_api_projects__pid__memory_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -428,6 +479,49 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** MemoryOut */
+        MemoryOut: {
+            /** Body */
+            body: string;
+            /** Content Hash */
+            content_hash: string;
+            /** Error */
+            error: string | null;
+            /** File Ref */
+            file_ref: string | null;
+            /** Id */
+            id: string;
+            /** Path */
+            path: string;
+            /** Scope */
+            scope: string;
+            /** Source Change */
+            source_change: string | null;
+            /** Stale Reason */
+            stale_reason: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "verified" | "unverified" | "stale" | "invalid";
+            /** Type */
+            type: string;
+            /** Used In */
+            used_in: number;
+            /** Verified At */
+            verified_at: string | null;
+        };
+        /** MemoryPage */
+        MemoryPage: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Invalid */
+            invalid: components["schemas"]["MemoryOut"][];
+            /** Items */
+            items: components["schemas"]["MemoryOut"][];
         };
         /** MemoryRef */
         MemoryRef: {
@@ -923,6 +1017,72 @@ export interface operations {
             };
         };
     };
+    memory_archive_api_memory__mid__archive_post: {
+        parameters: {
+            query: {
+                project: string;
+            };
+            header?: never;
+            path: {
+                mid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memory_verify_api_memory__mid__verify_post: {
+        parameters: {
+            query: {
+                project: string;
+            };
+            header?: never;
+            path: {
+                mid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     projects_api_projects_get: {
         parameters: {
             query?: never;
@@ -1012,6 +1172,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChangePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    memory_api_projects__pid__memory_get: {
+        parameters: {
+            query?: {
+                type?: string | null;
+                status?: string | null;
+                q?: string | null;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemoryPage"];
                 };
             };
             /** @description Validation Error */
