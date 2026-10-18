@@ -57,3 +57,47 @@ def test_known_edit_lands_in_ledger(scratch: tuple[Path, Path]) -> None:
     a = sqlite3.connect(home / "audit.db")
     types = [t for (t,) in a.execute("select type from audit_events order by seq")]
     assert types[0] == "session.start" and "turn.end" in types and "file.changed" in types
+
+
+def _memory(repo: Path, mid: str, body: str) -> None:
+    d = repo / ".seen/memory"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{mid}.md").write_text(f"---\nid: {mid}\ntype: context\nverified_at: 2026-10-10T00:00:00Z\n---\n{body}\n")
+
+
+def test_p3_3_model_quotes_injected_memory(scratch: tuple[Path, Path]) -> None:
+    repo, home = scratch
+    _memory(repo, "deploy-codeword", "The deploy codeword for this project is HERON-58.")
+    r = claude(repo, home, "What is the deploy codeword in this project's memory? Reply with the codeword only. Do not use tools.")
+    assert r.returncode == 0 and "HERON-58" in r.stdout, r.stdout
+    db = sqlite3.connect(home / "ledger.db")
+    assert db.execute("select memory_id from change_memories").fetchall() == [("deploy-codeword",)]
+    assert db.execute("select mem_state from changes").fetchone()[0] == "loaded"
+
+
+def test_p3_4_gate_blocks_until_memory_read(scratch: tuple[Path, Path]) -> None:
+    repo, home = scratch
+    _memory(repo, "calc-style", "Functions in calc.py have one-line docstrings.")
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "config.toml").write_text("[memory]\ninject = false\n")
+    r = claude(repo, home, "Add a function mul(a, b) returning a*b to calc.py using the Edit tool. "
+                           "If a hook blocks you, follow its instructions and retry. Then reply 'done.'")
+    assert r.returncode == 0, r.stderr[-1500:]
+    assert "def mul" in (repo / "calc.py").read_text()
+    import json
+
+    gates = [json.loads(x) for f in (home / "spool").glob("*.jsonl") for x in f.read_text().splitlines()]
+    decisions = [g["decision"] for g in gates if g.get("ev") == "gate"]
+    assert decisions[0] == "block" and "allow" in decisions, decisions
+
+
+def test_p3_5_agent_saves_memory_as_unverified(scratch: tuple[Path, Path]) -> None:
+    repo, home = scratch
+    _memory(repo, "existing", "Placeholder so the memory folder exists.")
+    r = claude(repo, home, "We decided: all money amounts are stored as integer paise, never floats. "
+                           "Save this as project memory following the using-seen-memory skill, then reply 'saved.'")
+    assert r.returncode == 0, r.stderr[-1500:]
+    from seen_core.memory import files as mf
+
+    new = [m for m in mf.load(repo, None) if m.ok and m.id != "existing"]
+    assert new and new[0].verified_at is None and "paise" in new[0].body.lower(), [m.__dict__ for m in mf.load(repo, None)]
