@@ -109,3 +109,14 @@ def test_seen_home_is_private(repo: Path, seen_home: Path) -> None:
 
 def test_cmd0_skips_env_assignments() -> None:
     assert hook._cmd0("AWS_SECRET=abc /usr/bin/aws s3 ls") == "aws"
+
+
+def test_prompt_submit_writes_before_snapshot(repo: Path) -> None:
+    (repo / "dirty.txt").write_text("x\n")
+    d = payload("user_prompt_submit", repo)
+    run("prompt-submit", d)
+    snap = json.loads(paths.snap_file(d["session_id"]).read_text())
+    assert snap["prompt_id"] == d["prompt_id"]
+    assert snap["before"]["head"] and snap["before"]["untracked"] == {"dirty.txt": 1}
+    ts = [x for x in spool(d["session_id"]) if x["ev"] == "turn_start"][0]
+    assert ts["head"] == snap["before"]["head"]
