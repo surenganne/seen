@@ -26,3 +26,6 @@ web/playwright-report/
 .test-data/
 .playwright-mcp/
 web/test-results/
+**/.claude/autoharness/
+**/.claude/logs/
+**/.claude/tmp/
