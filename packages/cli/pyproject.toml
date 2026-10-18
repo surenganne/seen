@@ -1,0 +1,21 @@
+[project]
+name = "seen-cli"
+version = "0.1.0"
+description = "Seen: nothing your agents do goes unseen"
+requires-python = ">=3.11"
+dependencies = ["seen-core", "seen-local", "typer==0.27.3"]
+
+[project.scripts]
+seen = "seen_cli.main:app"
+seen-hook = "seen_core.hook:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/seen_cli"]
+
+[tool.uv.sources]
+seen-core = { workspace = true }
+seen-local = { workspace = true }

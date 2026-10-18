@@ -1,0 +1,16 @@
+[project]
+name = "seen-local"
+version = "0.1.0"
+description = "Seen local dashboard API"
+requires-python = ">=3.11"
+dependencies = ["seen-core", "fastapi==0.146.0", "uvicorn==0.54.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/seen_local"]
+
+[tool.uv.sources]
+seen-core = { workspace = true }
