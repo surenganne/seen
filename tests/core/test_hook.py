@@ -120,3 +120,21 @@ def test_prompt_submit_writes_before_snapshot(repo: Path) -> None:
     assert snap["before"]["head"] and snap["before"]["untracked"] == {"dirty.txt": 1}
     ts = [x for x in spool(d["session_id"]) if x["ev"] == "turn_start"][0]
     assert ts["head"] == snap["before"]["head"]
+
+
+def test_background_scan_runs_isolated(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess as sp
+
+    seen: dict = {}
+    real = sp.Popen
+
+    def fake(args, **kw):  # type: ignore[no-untyped-def]
+        if "seen_core.skills.scan" in args:
+            seen.update(args=args, **kw)
+            return None
+        return real(args, **kw)
+
+    monkeypatch.delenv("SEEN_INVENTORY_SYNC", raising=False)
+    monkeypatch.setattr(sp, "Popen", fake)
+    run("session-start", payload("session_start", repo))
+    assert "-I" in seen["args"] and seen["cwd"] == str(paths.home())

@@ -90,8 +90,10 @@ def _scan_inventory(root: str | None, project_id: str | None) -> None:
         return
     import subprocess
 
-    subprocess.Popen([sys.executable, "-m", "seen_core.skills.scan", root or "", project_id or "none"],
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    cwd = paths.ensure_dir(paths.home())
+    # -I and a trusted cwd: the repo the agent works in must not shadow our modules
+    subprocess.Popen([sys.executable, "-I", "-m", "seen_core.skills.scan", root or "", project_id or "none"],
+                     cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      start_new_session=True)
 
 

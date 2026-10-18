@@ -15,6 +15,7 @@ from . import gitdelta, gitutil, paths, pricing, spool
 from .db import ledger_session
 from .db.models import Change, ChangeFile, Project, Session, Skill, SkillInvocation, SkillVersion
 from .invocations import Invocation, reconcile
+from .skills.scan import TRUST
 from .hook import EDIT_TOOLS
 from .transcript import Turn, parse_turn
 
@@ -173,6 +174,8 @@ def _sync_inventory(db: Any, project_id: str | None) -> None:
         if row is None:
             row = Skill(id=s["id"], first_seen=now)
             db.add(row)
+        elif TRUST.get(row.kind or "", 0) > TRUST.get(s["kind"], 0):
+            continue  # never let a lower-trust folder take over a known skill id
         row.kind, row.origin, row.path = s["kind"], s["origin"], s["path"]
         row.description, row.allowed_tools, row.last_seen = s["description"], s["allowed_tools"], now
         if s["kind"] == "project":
