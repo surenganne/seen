@@ -153,17 +153,50 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
     line: dict[str, Any] = {"ev": "turn_start", **_base(p), "transcript_offset": offset, "cwd": cwd, "head": before["head"],
                             "prompt_hmac": secret.keyed(prompt, 64), "prompt_len": len(prompt),
                             "slash": m.group(1) if m else None}
-    if config.load()["pii"]["store_prompt_text"] == "full":
-        line["prompt"] = prompt  # only on explicit opt-in; redacted storage arrives with redact.py
-    spool.append(p["session_id"], line)
     from .memory import session as msess
 
+    cfg = config.load()["pii"]
     st = msess.read(p["session_id"])
+    from .pii.projectcfg import load_project
+
+    pcfg = load_project(st.get("root"))
+    store = cfg["store_prompt_text"]
+    if store == "full":
+        line["prompt"] = prompt
+    elif store == "redacted":
+        from .redact import redact
+
+        line["prompt"] = redact(prompt, allow_values=pcfg["allow_values"], custom_rules=pcfg["custom_rules"])
+    spool.append(p["session_id"], line)
+    warn = None
+    if cfg["mode"] != "off":
+        from .pii.detect import scan
+
+        found = scan(prompt, only=cfg["types"] + ["custom"], allow_values=pcfg["allow_values"],
+                     custom_rules=pcfg["custom_rules"], min_confidence="low")
+        shown = [f for f in found if f.confidence in _at_least(cfg["min_confidence"])]
+        blocked = cfg["mode"] == "block" and bool(shown)
+        if found:
+            spool.append(p["session_id"], {"ev": "pii_prompt", **_base(p), "blocked": bool(blocked),
+                                           "findings": [{"type": f.type, "confidence": f.confidence, "count": f.count,
+                                                         "distinct": f.distinct, "detector": f.detector, "fingerprints": f.fingerprints}
+                                                        for f in found]})
+        what = ", ".join(sorted({f"{f.type} x{f.count}" for f in shown}))
+        if blocked:
+            return Result(code=2, stderr=f"Seen blocked this prompt: it contains {what}. Remove the personal data or secrets "
+                                         "and send it again (PII mode is 'block'; values were not stored).")
+        if shown and cfg["mode"] == "warn":
+            warn = f"Seen: this prompt contains {what}. It will go to the model provider. (Values were not stored.)"
     changed = list(before["numstat"]) + list(before["untracked"])
     text, mline = msess.inject(p["session_id"], st.get("root"), st.get("project_id"), prompt, changed)
     if mline:
         spool.append(p["session_id"], {**mline, **_base(p)})
-    return _context("UserPromptSubmit", text)
+    return _context("UserPromptSubmit", text, warn)
+
+
+def _at_least(level: str) -> set[str]:
+    order = ["low", "medium", "high"]
+    return set(order[order.index(level):]) if level in order else {"medium", "high"}
 
 
 GATE_MSG = ("Seen: project memory did not load for this session, so edits are paused. Read the files in "

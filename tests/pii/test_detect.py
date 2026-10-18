@@ -80,3 +80,10 @@ def test_10k_prompt_under_30ms() -> None:
     for _ in range(5):
         scan(text)
     assert (time.perf_counter() - t) / 5 * 1000 < 30
+
+
+@pytest.mark.parametrize("evil", ["key." * 2500, "a" * 10000 + "key", "token" * 2000 + "=", "x@" * 5000, "1 " * 5000])
+def test_adversarial_input_stays_fast(evil: str) -> None:
+    t = time.perf_counter()
+    scan(evil)
+    assert (time.perf_counter() - t) * 1000 < 100
