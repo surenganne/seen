@@ -317,7 +317,9 @@ def _events_for(session_id: str, i: int, ln: dict[str, Any], pid: str | None) ->
         return [{**ev, "type": "capture.gap", "actor_kind": "hook", "outcome": "failed", "subject": ln.get("hook"),
                  "detail": {"hook": ln.get("hook"), "error": ln.get("error")}}]
     if kind == "pii_prompt":
-        return [{**ev, "event_id": f"{session_id}:{i}:{n}", "type": "pii.finding", "actor_kind": "hook",
+        allow_ev = [{**ev, "event_id": f"{session_id}:{i}:allowlisted", "type": "pii.allowlisted", "actor_kind": "hook",
+                     "detail": {"count": ln["allowlisted"], "source_kind": "prompt"}}] if ln.get("allowlisted") else []
+        return allow_ev + [{**ev, "event_id": f"{session_id}:{i}:{n}", "type": "pii.finding", "actor_kind": "hook",
                  "outcome": "blocked" if ln.get("blocked") else "ok",
                  "detail": {"type": f["type"], "count": f["count"], "confidence": f["confidence"], "destination": "model",
                             "source_kind": "prompt"}} for n, f in enumerate(ln.get("findings") or [])]

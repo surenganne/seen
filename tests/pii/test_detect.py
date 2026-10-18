@@ -87,3 +87,19 @@ def test_adversarial_input_stays_fast(evil: str) -> None:
     t = time.perf_counter()
     scan(evil)
     assert (time.perf_counter() - t) * 1000 < 100
+
+
+@pytest.mark.parametrize("pattern", ["*", "*@*", "*.*", "**", "?*@*"])
+def test_overbroad_allow_patterns_ignored(pattern: str) -> None:
+    assert "email" in types("mail x.person@corp.test.in", allow_values=[pattern])
+
+
+def test_allowlist_never_suppresses_secrets() -> None:
+    assert "secret" in types("AKIAIOSFODNN7EXAMPLA", allow_values=["AKIA*", "akia*"])
+
+
+def test_allowlisted_count_reported() -> None:
+    from seen_core.pii.detect import scan_with_stats
+
+    found, allowed = scan_with_stats("a@corp.test.in b@corp.test.in", allow_values=["*@corp.test.in"])
+    assert not found and allowed == 2

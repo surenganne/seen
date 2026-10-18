@@ -129,13 +129,28 @@ def _issuer(d: str) -> bool:
             or two in (36, 38) or 300 <= three <= 305 or two == 35)
 
 
-def _allowed(value: str, patterns: list[str]) -> bool:
+def usable_patterns(patterns: list[str]) -> list[str]:
+    """A repo-controlled allowlist must not switch detection off: '*', '*@*' and the like are ignored."""
+    return [p for p in patterns if len(re.sub(r"[*?\[\]!.@-]", "", p)) >= 4]
+
+
+def _allowed(typ: str, value: str, patterns: list[str]) -> bool:
+    if typ == "secret":
+        return False  # never allowlist credentials
     lv = value.lower()
     return any(fnmatch.fnmatch(lv, p.lower()) for p in patterns)
 
 
 def scan(text: str, *, only: list[str] | None = None, allow_values: list[str] | None = None,
          custom_rules: list[dict[str, Any]] | None = None, min_confidence: str = "low") -> list[Finding]:
+    return scan_with_stats(text, only=only, allow_values=allow_values, custom_rules=custom_rules, min_confidence=min_confidence)[0]
+
+
+def scan_with_stats(text: str, *, only: list[str] | None = None, allow_values: list[str] | None = None,
+                    custom_rules: list[dict[str, Any]] | None = None, min_confidence: str = "low") -> tuple[list[Finding], int]:
+    """Findings plus how many values the allowlist suppressed (reported, so allowlisting is visible)."""
+    allow = usable_patterns(allow_values or [])
+    allowed = 0
     hits = _hits(text)
     for r in custom_rules or []:
         try:
@@ -152,7 +167,10 @@ def scan(text: str, *, only: list[str] | None = None, allow_values: list[str] | 
     for typ, conf, s, e, val, det in hits:
         if only and typ not in only:
             continue
-        if CONF_RANK[conf] < CONF_RANK[min_confidence] or _allowed(val, allow_values or []):
+        if CONF_RANK[conf] < CONF_RANK[min_confidence]:
+            continue
+        if _allowed(typ, val, allow):
+            allowed += 1
             continue
         if any(s < te and ts < e for ts, te in taken):
             continue
@@ -167,4 +185,4 @@ def scan(text: str, *, only: list[str] | None = None, allow_values: list[str] | 
             seen[key].add(fp)
             f.fingerprints.append(fp)
         f.distinct = len(seen[key])
-    return sorted(found.values(), key=lambda f: (-CONF_RANK[f.confidence], f.type))
+    return sorted(found.values(), key=lambda f: (-CONF_RANK[f.confidence], f.type)), allowed

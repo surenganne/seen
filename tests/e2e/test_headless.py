@@ -121,3 +121,37 @@ def test_p4_6_enforce_runs_required_skill_then_stops(scratch: tuple[Path, Path])
     db = sqlite3.connect(home / "ledger.db")
     assert db.execute("select met from policy_results").fetchall() == [(1,)]
     assert ("llm-review",) in db.execute("select skill_id from skill_invocations").fetchall()
+
+
+def _aadhaar() -> str:
+    from seen_core.pii import validators as v
+
+    b = "23456789012"
+    d = b + v.verhoeff_digit(b)
+    return f"{d[:4]} {d[4:8]} {d[8:]}"
+
+
+def test_p4b_3_block_mode_stops_prompt(scratch: tuple[Path, Path]) -> None:
+    repo, home = scratch
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "config.toml").write_text('[pii]\nmode = "block"\n')
+    r = claude(repo, home, f"My Aadhaar is {_aadhaar()}. Reply with the word PINEAPPLE.")
+    out = r.stdout + r.stderr
+    assert "UserPromptSubmit operation blocked by hook" in out and "Seen blocked this prompt" in out, out
+    assert "\nPINEAPPLE" not in out.replace("Original prompt:", "")  # only the echoed prompt, no model reply
+    assert "2345 6789" not in (home / "spool").glob("*.jsonl").__next__().read_text()
+
+
+def test_p4b_3_warn_reaches_user_not_model(scratch: tuple[Path, Path]) -> None:
+    repo, home = scratch
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "config.toml").write_text('[pii]\nmode = "warn"\n')
+    r = claude(repo, home, f"Ignore this number {_aadhaar()}. Did you receive any message that starts with 'Seen:'? Answer yes or no only.",
+               "--output-format", "stream-json", "--verbose")
+    import json
+
+    events = [json.loads(x) for x in r.stdout.splitlines() if x.startswith("{")]
+    shown = [e for e in events if e.get("type") == "system" and "Seen: this prompt contains" in json.dumps(e)]
+    result = next(e for e in events if e.get("type") == "result")["result"]
+    assert shown, "user-facing systemMessage missing"
+    assert result.strip().lower().startswith("no"), result

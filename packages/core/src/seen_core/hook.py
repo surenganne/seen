@@ -170,14 +170,14 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
     spool.append(p["session_id"], line)
     warn = None
     if cfg["mode"] != "off":
-        from .pii.detect import scan
+        from .pii.detect import scan_with_stats
 
-        found = scan(prompt, only=cfg["types"] + ["custom"], allow_values=pcfg["allow_values"],
-                     custom_rules=pcfg["custom_rules"], min_confidence="low")
+        found, allowlisted = scan_with_stats(prompt, only=cfg["types"] + ["custom"], allow_values=pcfg["allow_values"],
+                                             custom_rules=pcfg["custom_rules"], min_confidence="low")
         shown = [f for f in found if f.confidence in _at_least(cfg["min_confidence"])]
         blocked = cfg["mode"] == "block" and bool(shown)
-        if found:
-            spool.append(p["session_id"], {"ev": "pii_prompt", **_base(p), "blocked": bool(blocked),
+        if found or allowlisted:
+            spool.append(p["session_id"], {"ev": "pii_prompt", **_base(p), "blocked": bool(blocked), "allowlisted": allowlisted,
                                            "findings": [{"type": f.type, "confidence": f.confidence, "count": f.count,
                                                          "distinct": f.distinct, "detector": f.detector, "fingerprints": f.fingerprints}
                                                         for f in found]})
