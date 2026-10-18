@@ -40,21 +40,27 @@ def _count_lines(p: Path) -> int:
 
 
 def snapshot(cwd: str | Path, base: str | None = None) -> Snapshot:
-    top = _git(cwd, "rev-parse", "--show-toplevel")
-    if top is None:
-        return {"head": None, "numstat": {}, "untracked": {}}
-    root = Path(top.strip())
-    head = (_git(root, "rev-parse", "HEAD") or "").strip() or None
+    out0 = _git(cwd, "rev-parse", "--show-toplevel", "HEAD")
+    if out0 is None:  # not a repo, or a repo with no commits yet
+        top = _git(cwd, "rev-parse", "--show-toplevel")
+        if top is None:
+            return {"head": None, "numstat": {}, "untracked": {}}
+        out0 = top
+    parts = out0.split()
+    root = Path(parts[0])
+    head = parts[1] if len(parts) > 1 else None
     ref = base or head
     numstat: dict[str, list[int]] = {}
-    out = _git(root, "diff", "--numstat", "--no-renames", ref) if ref else _git(root, "diff", "--numstat", "--no-renames", "--cached")
+    out, others = gitutil.run_many(root, [("diff", "--numstat", "--no-renames", ref) if ref else
+                                          ("diff", "--numstat", "--no-renames", "--cached"),
+                                          ("ls-files", "--others", "--exclude-standard")])
     for ln in (out or "").splitlines():
         parts = ln.split("\t", 2)
         if len(parts) == 3:
             a, r, path = parts
             numstat[path] = [int(a) if a.isdigit() else 0, int(r) if r.isdigit() else 0]
     untracked: dict[str, int] = {}
-    for path in (_git(root, "ls-files", "--others", "--exclude-standard") or "").splitlines()[:MAX_UNTRACKED]:
+    for path in (others or "").splitlines()[:MAX_UNTRACKED]:
         untracked[path] = _count_lines(root / path)
     return {"head": head, "numstat": numstat, "untracked": untracked}
 

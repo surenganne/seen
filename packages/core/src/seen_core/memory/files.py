@@ -18,6 +18,9 @@ from ..frontmatter import parse
 
 TYPES = ("decision", "convention", "gotcha", "context")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,79}$")
+# repo-relative, no traversal, printable: a file_ref ends up in the model context and in terminals
+REF_RE = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9._@+-][A-Za-z0-9._@+/ -]{0,299}$")
+CTRL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 MAX_BYTES = 64 * 1024
 
 
@@ -42,7 +45,8 @@ class Memory:
 
 
 def _bad(path: Path, scope: str, error: str, id_: str = "") -> Memory:
-    return Memory(id=id_ or path.stem, type="", body="", file_ref=None, verified_at=None, scope=scope, path=str(path), ok=False, error=error)
+    safe = id_ if ID_RE.match(id_ or "") else CTRL.sub("", path.stem)[:80]
+    return Memory(id=safe, type="", body="", file_ref=None, verified_at=None, scope=scope, path=str(path), ok=False, error=error)
 
 
 def _valid_ts(v: str) -> bool:
@@ -77,7 +81,11 @@ def parse_file(path: Path, scope: str) -> Memory:
     if not body.strip():
         return _bad(path, scope, "empty body", mid)
     ref = str(fm.get("file_ref") or "") or None
+    if ref and not REF_RE.match(ref):
+        return _bad(path, scope, "file_ref must be a repo-relative path", mid)
     src = str(fm.get("source_change") or "") or None
+    if src and (CTRL.search(src) or len(src) > 80):
+        return _bad(path, scope, "source_change is invalid", mid)
     return Memory(id=mid, type=typ, body=body.strip() + "\n", file_ref=ref, verified_at=va, scope=scope, path=str(path), source_change=src)
 
 
@@ -105,6 +113,9 @@ def load(root: str | Path | None, personal: Path | None) -> list[Memory]:
 
 
 def _render(fm: dict[str, str | None], body: str) -> str:
+    for k, v in fm.items():
+        if v is not None and CTRL.search(str(v)):
+            raise ValueError(f"front matter value for {k} contains control characters")
     lines = ["---"] + [f"{k}: {v or ''}".rstrip() for k, v in fm.items()] + ["---", body.strip(), ""]
     return "\n".join(lines)
 
@@ -112,6 +123,8 @@ def _render(fm: dict[str, str | None], body: str) -> str:
 def new_memory(folder: Path, *, id: str, type: str, body: str, file_ref: str | None, source_change: str | None = None) -> Path:
     if not ID_RE.match(id) or type not in TYPES or not body.strip():
         raise ValueError("invalid memory: check id, type and body")
+    if file_ref and not REF_RE.match(file_ref):
+        raise ValueError("file_ref must be a repo-relative path")
     from .. import safeio
 
     p = folder / f"{id}.md"

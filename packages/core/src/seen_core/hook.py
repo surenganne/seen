@@ -102,7 +102,22 @@ def _on_session_start(p: dict[str, Any]) -> Result:
         "remote": proj.remote if proj else None, "root": proj.root if proj else None,
     })
     _scan_inventory(proj.root if proj else None, proj.id if proj else None)
-    return Result()
+    from .memory import session as msess
+
+    text, line = msess.inject(p["session_id"], proj.root if proj else None, proj.id if proj else None, "", [])
+    if line:
+        spool.append(p["session_id"], {**line, **_base(p)})
+    return _context("SessionStart", text)
+
+
+def _context(event: str, text: str, system_message: str | None = None) -> Result:
+    """Context for the model uses the JSON form confirmed in Phase 0 (A5); systemMessage reaches the user only (A11)."""
+    out: dict[str, Any] = {}
+    if text:
+        out["hookSpecificOutput"] = {"hookEventName": event, "additionalContext": text}
+    if system_message:
+        out["systemMessage"] = system_message
+    return Result(stdout=json.dumps(out) if out else "")
 
 
 def _scan_inventory(root: str | None, project_id: str | None) -> None:
@@ -141,14 +156,50 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
     if config.load()["pii"]["store_prompt_text"] == "full":
         line["prompt"] = prompt  # only on explicit opt-in; redacted storage arrives with redact.py
     spool.append(p["session_id"], line)
-    return Result()
+    from .memory import session as msess
+
+    st = msess.read(p["session_id"])
+    changed = list(before["numstat"]) + list(before["untracked"])
+    text, mline = msess.inject(p["session_id"], st.get("root"), st.get("project_id"), prompt, changed)
+    if mline:
+        spool.append(p["session_id"], {**mline, **_base(p)})
+    return _context("UserPromptSubmit", text)
+
+
+GATE_MSG = ("Seen: project memory did not load for this session, so edits are paused. Read the files in "
+            "{folder} first (they hold this project's decisions, conventions and gotchas), then retry the edit.")
 
 
 def _on_pre_edit(p: dict[str, Any]) -> Result:
+    from . import config
+    from .memory import session as msess
+
+    ti = p.get("tool_input") or {}
+    target = str(ti.get("file_path") or ti.get("notebook_path") or "")
+    st = msess.read(p["session_id"])
+    root = st.get("root")
+    mem_dir = os.path.join(root, ".seen", "memory") if root else None
+    decision, reason = "allow", "loaded"
+    if mem_dir and os.path.realpath(target).startswith(os.path.realpath(mem_dir) + os.sep):
+        reason = "memory_folder"  # saving memory is always allowed
+    elif not config.load()["memory"]["gate"]:
+        reason = "gate_off"
+    elif st.get("state") == "missed":
+        decision, reason = "block", "memory_not_loaded"
+    elif st.get("state") in (None, "none"):
+        reason = "no_memory"
+    spool.append(p["session_id"], {"ev": "gate", **_base(p), "hook": "pre-edit", "decision": decision, "reason": reason})
+    if decision == "block":
+        return Result(code=2, stderr=GATE_MSG.format(folder=paths.redact_home(str(mem_dir))))
     return Result()
 
 
 def _on_pre_read(p: dict[str, Any]) -> Result:
+    from .memory import session as msess
+
+    target = str((p.get("tool_input") or {}).get("file_path") or "")
+    if target:
+        msess.mark_read(p["session_id"], target)
     return Result()
 
 

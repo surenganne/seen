@@ -126,3 +126,31 @@ def test_old_git_still_works(repo: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     (repo / "a.py").write_text("one\ntwo\nthree\n")
     assert delta(before, snapshot(repo, base=before["head"])) == {"a.py": (1, 0)}
     gitutil.filter_overrides.cache_clear()
+
+
+def test_override_cache_invalidates_when_config_changes(repo: Path, tmp_path: Path) -> None:
+    from seen_core import gitutil
+
+    gitutil.filter_overrides.cache_clear()
+    snapshot(repo)  # warms the on-disk cache with no filters
+    marker = tmp_path / "late"
+    git(repo, "config", "filter.late.clean", f"sh -c 'touch {marker}; cat'")
+    (repo / ".git/info").mkdir(exist_ok=True)
+    (repo / ".git/info/attributes").write_text("* filter=late\n")
+    (repo / "a.py").write_text("changed\n")
+    gitutil.filter_overrides.cache_clear()  # new process
+    snapshot(repo)
+    assert not marker.exists()
+
+
+def test_snapshot_is_fast_in_a_fresh_process(repo: Path) -> None:
+    import os
+    import subprocess
+    import sys
+
+    code = (f"import time; t=time.perf_counter(); from seen_core.gitdelta import snapshot; snapshot({str(repo)!r}); "
+            "print((time.perf_counter()-t)*1000)")
+    run = lambda: float(subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=os.environ, check=True).stdout)  # noqa: E731
+    run()  # first process may fill the on-disk cache
+    ms = sorted(run() for _ in range(5))[2]
+    assert ms < 45, ms

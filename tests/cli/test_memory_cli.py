@@ -1,10 +1,9 @@
 import json
 from pathlib import Path
 
+from seen_cli.main import app
 from seen_core import audit
 from tests.cli.test_cli import cli, invoke
-
-from seen_cli.main import app
 
 
 def test_memory_add_list_verify_archive(repo: Path) -> None:

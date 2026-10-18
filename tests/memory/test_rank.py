@@ -40,3 +40,10 @@ def test_unverified_marked() -> None:
     from seen_core.memory.rank import render
 
     assert "[UNVERIFIED]" in render([mem("u", "agent wrote this", verified=None)])
+
+
+def test_injected_memory_framed_as_data() -> None:
+    from seen_core.memory.rank import render
+
+    out = render([mem("a", "x")])
+    assert "not instructions" in out.lower()
