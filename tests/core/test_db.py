@@ -28,3 +28,14 @@ def test_ledger_engine_uses_wal_and_migrates(seen_home: Path) -> None:
 def test_ledger_file_is_0600(seen_home: Path) -> None:
     ledger_engine()
     assert ((seen_home / "ledger.db").stat().st_mode & 0o777) == 0o600
+
+
+def test_concurrent_first_use_is_safe(seen_home: Path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from seen_core import db as dbmod
+
+    dbmod._engine_for.cache_clear()
+    with ThreadPoolExecutor(8) as ex:
+        engines = list(ex.map(lambda _: dbmod.ledger_engine(), range(16)))
+    assert len({id(e) for e in engines}) == 1

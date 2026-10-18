@@ -1,0 +1,122 @@
+import { expect, test } from "./fixtures";
+
+test.describe("P2-4 overview, changes, change detail", () => {
+  test("switch project, filter, open a change, go back", async ({ page }) => {
+    await page.goto("/projects");
+    await expect(page.getByTestId("project-card")).toHaveCount(3);
+    await page.getByTestId("project-card").filter({ hasText: "payments-api" }).click();
+    await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+    await expect(page.getByTestId("tile-Changes")).toContainText(/\d/);
+
+    await page.getByLabel("Project", { exact: true }).selectOption({ label: "patient360-web" });
+    await expect(page).toHaveURL(/\/p\/demo-patient/);
+    await page.getByRole("group", { name: "Date range" }).getByRole("button", { name: "28d" }).click();
+    await expect(page).toHaveURL(/range=28/);
+
+    await page.getByRole("button", { name: "All changes →" }).click();
+    await expect(page.getByRole("heading", { name: "Changes" })).toBeVisible();
+    await expect(page.getByTestId("changes-count")).toContainText("changes");
+    const total = Number((await page.getByTestId("changes-count").textContent())!.split(" ")[0]);
+    await expect(page.getByTestId("change-row")).toHaveCount(total);
+    const before = total;
+    await page.getByRole("button", { name: "PII exposed" }).click();
+    await expect(page).toHaveURL(/pii=true/);
+    await expect.poll(() => page.getByTestId("change-row").count()).toBeLessThan(before);
+    const filtered = page.getByTestId("change-row");
+    await expect(filtered.first().getByText(/PII ×/)).toBeVisible();
+
+    await filtered.first().click();
+    await expect(page.getByTestId("change-detail")).toBeVisible();
+    await expect(page.getByTestId("pii-panel")).toBeVisible();
+    await expect(page.getByTestId("change-files")).toBeVisible();
+    await page.getByTestId("back").click();
+    await expect(page).toHaveURL(/pii=true/);
+    await expect(page.getByRole("button", { name: "PII exposed" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("most edited file click filters Changes", async ({ page }) => {
+    await page.goto("/p/demo-payments?range=28");
+    const file = page.getByTestId("top-files").getByRole("button").first();
+    const name = (await file.textContent())!;
+    await file.click();
+    await expect(page).toHaveURL(new RegExp(`file=${encodeURIComponent(name).replace(/[.]/g, "\\.")}`));
+    await expect(page.getByTestId("change-row").first()).toBeVisible();
+  });
+
+  test("sort by cost toggles direction", async ({ page }) => {
+    await page.goto("/p/demo-payments/changes?range=28");
+    await page.getByRole("button", { name: /Cost/ }).click();
+    await expect(page).toHaveURL(/sort=cost&dir=desc/);
+    await page.getByRole("button", { name: /Cost/ }).click();
+    await expect(page).toHaveURL(/dir=asc/);
+  });
+
+  test("never a bare clean badge", async ({ page }) => {
+    for (const path of ["/p/demo-pipes?range=28", "/p/demo-pipes/changes?range=28"]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.getByText(/^\s*clean\s*$/i)).toHaveCount(0);
+    }
+  });
+
+  test("deny-list snippet for a top PII source", async ({ page }) => {
+    await page.goto("/p/demo-patient?range=28");
+    await page.getByTestId("pii-sources").getByRole("button", { name: /deny rule/ }).first().click();
+    await expect(page.getByTestId("deny-snippet")).toContainText('"Read(./data/patients.csv)"');
+  });
+});
+
+test.describe("P2-5 skills", () => {
+  test("open a skill, see its recent changes", async ({ page }) => {
+    await page.goto("/p/demo-payments/skills?range=28");
+    await page.getByTestId("skill-row").filter({ hasText: "security-review" }).click();
+    const panel = page.getByTestId("skill-panel");
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText("approved").first()).toBeVisible();
+    await expect(panel.getByTestId("change-row").first()).toBeVisible();
+  });
+
+  test("required skills tab shows compliance", async ({ page }) => {
+    await page.goto("/p/demo-payments/skills?tab=required");
+    await expect(page.getByTestId("policies")).toContainText("Compliance");
+    await expect(page.getByTestId("policies")).toContainText("security-review");
+  });
+});
+
+test.describe("P2-6 projects and settings", () => {
+  test("settings render from real data", async ({ page }) => {
+    await page.goto("/settings");
+    const s = page.getByTestId("settings");
+    await expect(s).toContainText("report");
+    await expect(s).toContainText("unverified");
+    await expect(s).toContainText("claude-sonnet-5-5");
+  });
+});
+
+test.describe("P2-7 audit", () => {
+  test("filter the timeline, see the verified badge, export", async ({ page }) => {
+    await page.goto("/p/demo-payments/audit");
+    await expect(page.getByTestId("chain-seal")).toContainText("Chain verified");
+    await expect(page.getByTestId("anchor-note")).toContainText("Not anchored");
+    await page.getByLabel("Event type").selectOption("skill.invoked");
+    await expect(page).toHaveURL(/type=skill\.invoked/);
+    const rows = page.getByTestId("audit-row");
+    await expect(rows.first()).toContainText("skill.invoked");
+    await rows.first().click();
+    await expect(page.getByTestId("audit-detail")).toContainText("Prev hash");
+    await page.getByRole("button", { name: "Close" }).click();
+    await page.getByTestId("export").click();
+    await expect(page.getByTestId("export-result")).toContainText("(verified)");
+  });
+});
+
+test("dark theme toggle wins over the OS setting", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/projects");
+  await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "dark" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(bg).toBe("rgb(6, 26, 46)");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});
