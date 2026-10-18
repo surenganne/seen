@@ -77,7 +77,22 @@ def _on_session_start(p: dict[str, Any]) -> Result:
         "project_id": proj.id if proj else None, "project_name": proj.name if proj else None,
         "remote": proj.remote if proj else None, "root": proj.root if proj else None,
     })
+    _scan_inventory(proj.root if proj else None, proj.id if proj else None)
     return Result()
+
+
+def _scan_inventory(root: str | None, project_id: str | None) -> None:
+    """Skill hashing takes 0.2-1s on a big install: run it detached, never on the hot path."""
+    if os.environ.get("SEEN_INVENTORY_SYNC"):
+        from .skills.scan import write_inventory
+
+        write_inventory(root, project_id)
+        return
+    import subprocess
+
+    subprocess.Popen([sys.executable, "-m", "seen_core.skills.scan", root or "", project_id or "none"],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
 
 
 def _on_prompt_submit(p: dict[str, Any]) -> Result:

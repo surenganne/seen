@@ -1,4 +1,6 @@
 import subprocess
+
+import pytest
 from pathlib import Path
 
 from seen_core.gitdelta import delta, snapshot
@@ -89,6 +91,20 @@ def test_repo_clean_filter_is_not_executed(repo: Path, tmp_path: Path) -> None:
     git(repo, "config", "filter.evil.clean", f"sh -c 'touch {marker}; cat'")
     git(repo, "config", "filter.evil.process", f"sh -c 'touch {marker}'")
     (repo / ".gitattributes").write_text("* filter=evil\n")
+    (repo / "a.py").write_text("changed\n")
+    snapshot(repo)
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("driver", ["evil", "ev il.x"])
+def test_filter_via_info_attributes_and_odd_names_not_executed(repo: Path, tmp_path: Path, driver: str) -> None:
+    from seen_core import gitutil
+
+    gitutil.filter_overrides.cache_clear()
+    marker = tmp_path / "m"
+    git(repo, "config", f"filter.{driver}.clean", f"sh -c 'touch {marker}; cat'")
+    (repo / ".git/info").mkdir(exist_ok=True)
+    (repo / ".git/info/attributes").write_text(f'* filter="{driver}"\n' if " " in driver else f"* filter={driver}\n")
     (repo / "a.py").write_text("changed\n")
     snapshot(repo)
     assert not marker.exists()

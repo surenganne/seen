@@ -13,7 +13,7 @@ from sqlalchemy import delete, func, select
 
 from . import gitdelta, gitutil, paths, pricing, spool
 from .db import ledger_session
-from .db.models import Change, ChangeFile, Project, Session
+from .db.models import Change, ChangeFile, Project, Session, Skill, SkillVersion
 from .hook import EDIT_TOOLS
 from .transcript import Turn, parse_turn
 
@@ -108,6 +108,7 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.git_head_after = head_after
         row.git_status = ("committed" if head_after != row.git_head_before else "uncommitted") if files else None
         row.mem_state = row.mem_state or "none"
+        _sync_inventory(db, pid)
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
         for path, (a, r) in sorted(files.items()):
             db.add(ChangeFile(change_id=cid, path=path, added=a, removed=r))
@@ -150,3 +151,28 @@ def _user_id() -> str:
     from .identity import user_id
 
     return user_id()
+
+
+def inventory(project_id: str | None) -> list[dict[str, Any]]:
+    f = paths.home() / "cache" / f"inventory-{project_id or 'none'}.json"
+    try:
+        data: list[dict[str, Any]] = json.loads(f.read_text())
+        return data
+    except (OSError, ValueError):
+        return []
+
+
+def _sync_inventory(db: Any, project_id: str | None) -> None:
+    now = spool.now()
+    for s in inventory(project_id):
+        row = db.get(Skill, s["id"])
+        if row is None:
+            row = Skill(id=s["id"], first_seen=now)
+            db.add(row)
+        row.kind, row.origin, row.path = s["kind"], s["origin"], s["path"]
+        row.description, row.allowed_tools, row.last_seen = s["description"], s["allowed_tools"], now
+        if s["kind"] == "project":
+            row.scope_project_id = project_id
+        if db.get(SkillVersion, (s["id"], s["hash"])) is None:
+            db.add(SkillVersion(skill_id=s["id"], hash=s["hash"], first_seen=now))
+    db.flush()
