@@ -14,6 +14,13 @@ COLUMNS = ["seq", "event_id", "occurred_at", "recorded_at", "actor_kind", "actor
            "change_id", "type", "subject", "outcome", "detail", "prev_hash", "hash"]
 
 
+def _cell(v: Any) -> Any:
+    """Spreadsheet apps execute cells that start with = + - @ (CSV injection): neutralise them."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
+    return v
+
+
 def export(base: Path, *, project: str | None, date_from: str | None, date_to: str | None, fmt: str, actor: str,
            extra: dict[str, Any] | None = None) -> Path:
     v = audit.verify()
@@ -25,7 +32,7 @@ def export(base: Path, *, project: str | None, date_from: str | None, date_to: s
             w = csv.DictWriter(f, fieldnames=COLUMNS)
             w.writeheader()
             for e in events:
-                w.writerow({**{k: e.get(k) for k in COLUMNS}, "detail": json.dumps(e["detail"], sort_keys=True)})
+                w.writerow({k: _cell(x) for k, x in {**{k: e.get(k) for k in COLUMNS}, "detail": json.dumps(e["detail"], sort_keys=True)}.items()})
     else:
         with open(out, "w", encoding="utf-8") as f:
             for e in events:
@@ -36,7 +43,7 @@ def export(base: Path, *, project: str | None, date_from: str | None, date_to: s
                 "count": len(events), "first_seq": events[0]["seq"] if events else None,
                 "last_seq": events[-1]["seq"] if events else None, "head_hash": v.head, "head_seq": v.head_seq,
                 "verification": {"ok": v.ok, "count": v.count, "break_seq": v.break_seq, "reason": v.reason, "at": v.verified_at},
-                "anchored": False, "files": {"events": str(out), "changes": str(joined)}, **(extra or {})}
+                "anchored": False, "files": {"events": out.name, "changes": joined.name}, **(extra or {})}
     out.with_suffix(".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     audit.append([{"type": "export.created", "actor_kind": "user", "actor_id": actor, "project_id": project,
                    "subject": out.name, "detail": {"format": fmt, "from": date_from, "to": date_to, "count": len(events),
@@ -83,10 +90,10 @@ def _write_joined(base: Path, *, project: str | None, date_from: str | None, dat
             for r in rows:
                 pairs = [(s, None) for s in r["skills"]] + [(None, p) for p in r["policies"]] or [(None, None)]
                 for s, p in pairs:
-                    w.writerow({"change_id": r["change_id"], "project_id": r["project_id"], "started_at": r["started_at"],
+                    w.writerow({k: _cell(x) for k, x in {"change_id": r["change_id"], "project_id": r["project_id"], "started_at": r["started_at"],
                                 "skill": s and s["skill"], "skill_hash": s and s["hash"], "status_at_run": s and s["status_at_run"],
                                 "approved_by": s and s["approved_by"], "approved_at": s and s["approved_at"],
-                                "policy": p and p["policy"], "policy_met": None if p is None else p["met"]})
+                                "policy": p and p["policy"], "policy_met": None if p is None else p["met"]}.items()})
     else:
         with open(out, "w", encoding="utf-8") as f:
             for r in rows:

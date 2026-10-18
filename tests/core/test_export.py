@@ -41,7 +41,7 @@ def test_export_joins_skills_and_policies_by_change(seen_home: Path, tmp_path: P
     devseed.seed(seen_home)
     out = export.export(tmp_path / "j", project="demo-payments", date_from=None, date_to=None, fmt="ndjson", actor="u_1")
     m = json.loads(out.with_suffix(".manifest.json").read_text())
-    joined = Path(m["files"]["changes"])
+    joined = out.parent / m["files"]["changes"]
     rows = [json.loads(x) for x in joined.read_text().splitlines()]
     assert rows and {"change_id", "started_at", "skills", "policies"} <= set(rows[0])
     tdd = [s for r in rows for s in r["skills"] if s["skill"] == "tdd"]
@@ -56,6 +56,20 @@ def test_csv_join(seen_home: Path, tmp_path: Path) -> None:
 
     devseed.seed(seen_home)
     out = export.export(tmp_path / "k", project="demo-payments", date_from=None, date_to=None, fmt="csv", actor="u_1")
-    joined = Path(json.loads(out.with_suffix(".manifest.json").read_text())["files"]["changes"])
+    joined = out.parent / json.loads(out.with_suffix(".manifest.json").read_text())["files"]["changes"]
     r = next(csv.DictReader(joined.open()))
     assert {"change_id", "skill", "skill_hash", "status_at_run", "approved_by", "policy", "policy_met"} <= set(r)
+
+
+def test_csv_cells_cannot_become_formulas(seen_home: Path, tmp_path: Path) -> None:
+    audit.append([ev(1, subject="=HYPERLINK(\"http://x\")")])
+    out = export.export(tmp_path / "f", project=None, date_from=None, date_to=None, fmt="csv", actor="u_1")
+    row = next(csv.DictReader(out.open()))
+    assert row["subject"].startswith("'=")
+
+
+def test_manifest_has_no_absolute_paths(seen_home: Path, tmp_path: Path) -> None:
+    audit.append([ev(1)])
+    out = export.export(tmp_path / "g", project=None, date_from=None, date_to=None, fmt="ndjson", actor="u_1")
+    m = json.loads(out.with_suffix(".manifest.json").read_text())
+    assert all("/" not in v for v in m["files"].values())
