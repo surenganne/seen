@@ -23,3 +23,8 @@ def test_ledger_engine_uses_wal_and_migrates(seen_home: Path) -> None:
         assert c.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal"
         assert "changes" in sa.inspect(c).get_table_names()
     assert (seen_home / "ledger.db").exists()
+
+
+def test_ledger_file_is_0600(seen_home: Path) -> None:
+    ledger_engine()
+    assert ((seen_home / "ledger.db").stat().st_mode & 0o777) == 0o600

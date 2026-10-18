@@ -46,6 +46,17 @@ def personal_memory_dir(project_id: str) -> Path:
     return home() / "memory" / _safe(project_id)
 
 
+def ensure_dir(p: Path) -> Path:
+    """Create a Seen data dir as 0700: it holds prompts, ledger and keys."""
+    p.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if p.is_relative_to(home()):
+        for d in [p, *p.parents]:
+            if d == home().parent:
+                break
+            os.chmod(d, 0o700)
+    return p
+
+
 def redact_home(path: str) -> str:
     h = os.path.expanduser("~")
     if h and (path == h or path.startswith(h + os.sep)):

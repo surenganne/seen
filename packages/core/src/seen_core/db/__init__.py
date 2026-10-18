@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import cache
 from pathlib import Path
 
@@ -30,6 +31,7 @@ def _sqlite_pragmas(dbapi_conn: object, _rec: object) -> None:
 
 
 def make_engine(url: str) -> sa.Engine:
+    os.umask(0o077)  # -wal/-shm siblings inherit 0600
     eng = sa.create_engine(url)
     if url.startswith("sqlite"):
         sa.event.listen(eng, "connect", _sqlite_pragmas)
@@ -44,7 +46,9 @@ def _engine_for(url: str) -> sa.Engine:
 
 def ledger_url() -> str:
     db = paths.ledger_db()
-    db.parent.mkdir(parents=True, exist_ok=True)
+    paths.ensure_dir(db.parent)
+    if not db.exists():
+        os.close(os.open(db, os.O_CREAT | os.O_WRONLY, 0o600))
     return f"sqlite:///{db}"
 
 
