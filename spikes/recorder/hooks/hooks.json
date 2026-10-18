@@ -1,0 +1,97 @@
+{
+ "description": "spike recorder",
+ "hooks": {
+  "SessionStart": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py SessionStart"
+     }
+    ]
+   }
+  ],
+  "UserPromptSubmit": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py UserPromptSubmit"
+     }
+    ]
+   }
+  ],
+  "PreToolUse": [
+   {
+    "matcher": "*",
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py PreToolUse"
+     }
+    ]
+   }
+  ],
+  "PostToolUse": [
+   {
+    "matcher": "*",
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py PostToolUse"
+     }
+    ]
+   }
+  ],
+  "Stop": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py Stop"
+     }
+    ]
+   }
+  ],
+  "SubagentStop": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py SubagentStop"
+     }
+    ]
+   }
+  ],
+  "SessionEnd": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py SessionEnd"
+     }
+    ]
+   }
+  ],
+  "Notification": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py Notification"
+     }
+    ]
+   }
+  ],
+  "PreCompact": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/bin/rec.py PreCompact"
+     }
+    ]
+   }
+  ]
+ }
+}

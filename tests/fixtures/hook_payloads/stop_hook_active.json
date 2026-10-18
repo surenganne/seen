@@ -1,0 +1,15 @@
+{
+ "background_tasks": [],
+ "cwd": "/work/demo-repo",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "Stop",
+ "last_assistant_message": "greeted",
+ "permission_mode": "acceptEdits",
+ "prompt_id": "a53e14b5-cb6f-4817-ab5f-f26ba55f65f9",
+ "session_crons": [],
+ "session_id": "ff03efba-40f1-414e-b54b-a5b3b28dcad3",
+ "stop_hook_active": true,
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/ff03efba-40f1-414e-b54b-a5b3b28dcad3.jsonl"
+}

@@ -1,0 +1,27 @@
+{
+ "cwd": "/work/demo-repo",
+ "duration_ms": 2,
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PostToolUse",
+ "mcp_server": {
+  "name": "fakecrm",
+  "source": "dynamic"
+ },
+ "permission_mode": "bypassPermissions",
+ "prompt_id": "34009785-eb45-4c6f-8552-db119c549e33",
+ "session_id": "fabee373-28b6-4733-a7b1-3cecbcb58ad4",
+ "tool_input": {
+  "id": "55"
+ },
+ "tool_name": "mcp__fakecrm__lookup_customer",
+ "tool_response": [
+  {
+   "text": "Customer MCP-SENTINEL-55: email mcp.sentinel@fakecrm.test, PAN ABCPE1234F",
+   "type": "text"
+  }
+ ],
+ "tool_use_id": "toolu_01U6RD52Ss46z8wU8LYqRyQe",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/fabee373-28b6-4733-a7b1-3cecbcb58ad4.jsonl"
+}

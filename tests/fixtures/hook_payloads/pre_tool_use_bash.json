@@ -1,0 +1,17 @@
+{
+ "cwd": "/work/demo-repo",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PreToolUse",
+ "permission_mode": "acceptEdits",
+ "prompt_id": "4fbf7573-d110-4138-9304-862666d07480",
+ "session_id": "96462da1-3d4c-41fa-882d-0417486acfba",
+ "tool_input": {
+  "command": "echo \"hello from greet-skill\" >> GREETINGS.txt && cat GREETINGS.txt",
+  "description": "Append greeting to GREETINGS.txt"
+ },
+ "tool_name": "Bash",
+ "tool_use_id": "toolu_01VST9ME5N8TT82SDfi8MSjN",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/96462da1-3d4c-41fa-882d-0417486acfba.jsonl"
+}

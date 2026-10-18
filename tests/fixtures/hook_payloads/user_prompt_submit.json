@@ -1,0 +1,9 @@
+{
+ "cwd": "/work/demo-repo",
+ "hook_event_name": "UserPromptSubmit",
+ "permission_mode": "acceptEdits",
+ "prompt": "Do these in order: 1) read src/calc.py, 2) add a function mul(a,b) to it using the Edit tool, 3) run 'ls src' with Bash, 4) use the greet-skill skill. Then summarise in one sentence.",
+ "prompt_id": "4fbf7573-d110-4138-9304-862666d07480",
+ "session_id": "96462da1-3d4c-41fa-882d-0417486acfba",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/96462da1-3d4c-41fa-882d-0417486acfba.jsonl"
+}

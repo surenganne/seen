@@ -1,0 +1,44 @@
+{
+ "cwd": "/work/demo-repo",
+ "duration_ms": 4,
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PostToolUse",
+ "permission_mode": "acceptEdits",
+ "prompt_id": "4fbf7573-d110-4138-9304-862666d07480",
+ "session_id": "96462da1-3d4c-41fa-882d-0417486acfba",
+ "tool_input": {
+  "file_path": "/work/demo-repo/src/calc.py",
+  "new_string": "    return a + b\n\n\ndef mul(a, b):\n    return a * b\n",
+  "old_string": "    return a + b\n",
+  "replace_all": false
+ },
+ "tool_name": "Edit",
+ "tool_response": {
+  "filePath": "/work/demo-repo/src/calc.py",
+  "newString": "    return a + b\n\n\ndef mul(a, b):\n    return a * b\n",
+  "oldString": "    return a + b\n",
+  "originalFile": "def add(a, b):\n    return a + b\n",
+  "replaceAll": false,
+  "structuredPatch": [
+   {
+    "lines": [
+     " def add(a, b):",
+     "     return a + b",
+     "+",
+     "+",
+     "+def mul(a, b):",
+     "+    return a * b"
+    ],
+    "newLines": 6,
+    "newStart": 1,
+    "oldLines": 2,
+    "oldStart": 1
+   }
+  ],
+  "userModified": false
+ },
+ "tool_use_id": "toolu_01UfL1wnFQKTpUxCTceSrhvz",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/96462da1-3d4c-41fa-882d-0417486acfba.jsonl"
+}

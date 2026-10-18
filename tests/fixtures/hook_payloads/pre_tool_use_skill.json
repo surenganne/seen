@@ -1,0 +1,16 @@
+{
+ "cwd": "/work/demo-repo",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PreToolUse",
+ "permission_mode": "acceptEdits",
+ "prompt_id": "4fbf7573-d110-4138-9304-862666d07480",
+ "session_id": "96462da1-3d4c-41fa-882d-0417486acfba",
+ "tool_input": {
+  "skill": "greet-skill"
+ },
+ "tool_name": "Skill",
+ "tool_use_id": "toolu_01Dm6h66zkRCL9BhiUEezMbw",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/96462da1-3d4c-41fa-882d-0417486acfba.jsonl"
+}

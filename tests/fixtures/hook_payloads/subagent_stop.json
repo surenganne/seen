@@ -1,0 +1,18 @@
+{
+ "agent_id": "ac58bc9ca493f2ae7",
+ "agent_transcript_path": "/home/dev/.claude/projects/-work-demo-repo/92373f7f-f2cb-4fd6-83f7-4a511157b347/subagents/agent-ac58bc9ca493f2ae7.jsonl",
+ "agent_type": "general-purpose",
+ "background_tasks": [],
+ "cwd": "/work/demo-repo",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "SubagentStop",
+ "last_assistant_message": "Ran greet-skill: appended \"hello from greet-skill\" to GREETINGS.txt in the repo root (greeted).",
+ "permission_mode": "acceptEdits",
+ "prompt_id": "3f43779b-6f68-444f-bf79-c78ea5a98a12",
+ "session_crons": [],
+ "session_id": "92373f7f-f2cb-4fd6-83f7-4a511157b347",
+ "stop_hook_active": false,
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/92373f7f-f2cb-4fd6-83f7-4a511157b347.jsonl"
+}

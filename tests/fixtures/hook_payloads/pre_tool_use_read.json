@@ -1,0 +1,16 @@
+{
+ "cwd": "/work/demo-repo",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PreToolUse",
+ "permission_mode": "acceptEdits",
+ "prompt_id": "4fbf7573-d110-4138-9304-862666d07480",
+ "session_id": "96462da1-3d4c-41fa-882d-0417486acfba",
+ "tool_input": {
+  "file_path": "/work/demo-repo/src/calc.py"
+ },
+ "tool_name": "Read",
+ "tool_use_id": "toolu_01Nn16LDBXWucew5UsqxFbn2",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/96462da1-3d4c-41fa-882d-0417486acfba.jsonl"
+}

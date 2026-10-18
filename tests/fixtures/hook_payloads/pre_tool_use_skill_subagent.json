@@ -1,0 +1,18 @@
+{
+ "agent_id": "ac58bc9ca493f2ae7",
+ "agent_type": "general-purpose",
+ "cwd": "/work/demo-repo",
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PreToolUse",
+ "permission_mode": "acceptEdits",
+ "prompt_id": "3f43779b-6f68-444f-bf79-c78ea5a98a12",
+ "session_id": "92373f7f-f2cb-4fd6-83f7-4a511157b347",
+ "tool_input": {
+  "skill": "greet-skill"
+ },
+ "tool_name": "Skill",
+ "tool_use_id": "toolu_01FjqpxFVfWhTqftBWVHwUab",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/92373f7f-f2cb-4fd6-83f7-4a511157b347.jsonl"
+}

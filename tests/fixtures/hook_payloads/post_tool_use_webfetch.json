@@ -1,0 +1,26 @@
+{
+ "cwd": "/work/demo-repo",
+ "duration_ms": 1972,
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PostToolUse",
+ "permission_mode": "bypassPermissions",
+ "prompt_id": "f927cdaf-9301-484c-b2cf-ae989fa7d8b0",
+ "session_id": "e24fc32c-e74a-4937-9fe3-32b0caf443e3",
+ "tool_input": {
+  "prompt": "What is the page title? Reply with the title only.",
+  "url": "https://example.com"
+ },
+ "tool_name": "WebFetch",
+ "tool_response": {
+  "bytes": 577,
+  "code": 200,
+  "codeText": "OK",
+  "durationMs": 1972,
+  "result": "Example Domain",
+  "url": "https://example.com"
+ },
+ "tool_use_id": "toolu_01TPz1tr3JhXUwbgsRvbCup3",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/e24fc32c-e74a-4937-9fe3-32b0caf443e3.jsonl"
+}

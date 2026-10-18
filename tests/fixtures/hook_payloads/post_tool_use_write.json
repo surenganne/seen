@@ -1,0 +1,26 @@
+{
+ "cwd": "/work/demo-repo",
+ "duration_ms": 2,
+ "effort": {
+  "level": "medium"
+ },
+ "hook_event_name": "PostToolUse",
+ "permission_mode": "acceptEdits",
+ "prompt_id": "15a6e004-aefc-4382-9906-90fbfec66c39",
+ "session_id": "4ab6b0b6-e08f-493b-a254-2c9598b85f3f",
+ "tool_input": {
+  "content": "{\n \"cells\": [],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n",
+  "file_path": "/work/demo-repo/allowed/notes.ipynb"
+ },
+ "tool_name": "Write",
+ "tool_response": {
+  "content": "{\n \"cells\": [],\n \"metadata\": {},\n \"nbformat\": 4,\n \"nbformat_minor\": 5\n}\n",
+  "filePath": "/work/demo-repo/allowed/notes.ipynb",
+  "originalFile": null,
+  "structuredPatch": [],
+  "type": "create",
+  "userModified": false
+ },
+ "tool_use_id": "toolu_01PoyDm9UAJo4gEyHFPb4wky",
+ "transcript_path": "/home/dev/.claude/projects/-work-demo-repo/4ab6b0b6-e08f-493b-a254-2c9598b85f3f.jsonl"
+}
