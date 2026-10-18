@@ -281,5 +281,70 @@ def audit_export(project: str = typer.Option(None, help="Project id (default: al
     typer.echo(f"{m['count']} events -> {path} (verified: {m['verification']['ok']}, head {m['head_hash'][:12]})")
 
 
+memory_app = typer.Typer(help="Project memory (.seen/memory)", no_args_is_help=True)
+app.add_typer(memory_app, name="memory")
+
+
+@memory_app.command("add")
+def memory_add(id: str = typer.Option(..., "--id", help="lowercase-id"),
+               type_: str = typer.Option(..., "--type", help="decision | convention | gotcha | context"),
+               text: str = typer.Option(..., "--text", help="The memory itself, one or two sentences"),
+               file_ref: str = typer.Option(None, "--file-ref", help="Repo-relative file this memory is about"),
+               personal: bool = typer.Option(False, "--personal", help="Store under ~/.seen (never committed)")) -> None:
+    """Add a memory file (unverified until someone runs `seen memory verify`)."""
+    from seen_core.memory import service
+
+    pid, root = _project_or_exit()
+    try:
+        p = service.add(root, pid, mid=id, type_=type_, text=text, file_ref=file_ref, personal=personal, actor=user_id())
+    except (ValueError, FileExistsError) as e:
+        typer.echo(f"Not added: {e}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(f"Added {id} -> {paths.redact_home(str(p))} (unverified)")
+
+
+@memory_app.command("list")
+def memory_list() -> None:
+    """Memories with status: verified, unverified, stale or invalid."""
+    from seen_core.memory import service
+
+    pid, root = _project_or_exit()
+    ms = service.all_memories(root, pid)
+    if not ms:
+        typer.echo("No memory files. Add one with `seen memory add`.")
+    for m in ms:
+        st = service.status(m)
+        why = m.error if not m.ok else (m.stale_reason or "")
+        typer.echo(f"{m.id:<32} {st:<10} {m.type or '-':<10} {m.scope:<8} {m.file_ref or ''}  {why}".rstrip())
+
+
+@memory_app.command("verify")
+def memory_verify(mid: str) -> None:
+    """Mark a memory as checked by a human now."""
+    from seen_core.memory import service
+
+    pid, root = _project_or_exit()
+    try:
+        m = service.do_verify(root, pid, mid, user_id())
+    except KeyError:
+        typer.echo(f"No valid memory with id {mid}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(f"Verified {mid} at {m.verified_at}")
+
+
+@memory_app.command("archive")
+def memory_archive(mid: str) -> None:
+    """Move a memory to the archive folder so it is no longer injected."""
+    from seen_core.memory import service
+
+    pid, root = _project_or_exit()
+    try:
+        dest = service.do_archive(root, pid, mid, user_id())
+    except KeyError:
+        typer.echo(f"No valid memory with id {mid}", err=True)
+        raise typer.Exit(2) from None
+    typer.echo(f"Archived {mid} -> {paths.redact_home(str(dest))}")
+
+
 if __name__ == "__main__":
     app()
