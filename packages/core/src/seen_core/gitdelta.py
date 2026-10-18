@@ -8,9 +8,11 @@ are still counted. Known limit: lines a human edits during the turn are counted 
 from __future__ import annotations
 
 import os
-import subprocess
+import stat
 from pathlib import Path
 from typing import Any
+
+from . import gitutil
 
 MAX_UNTRACKED = 2000
 MAX_COUNT_BYTES = 5 * 1024 * 1024
@@ -18,20 +20,19 @@ MAX_COUNT_BYTES = 5 * 1024 * 1024
 Snapshot = dict[str, Any]
 
 
-def _git(cwd: str | Path, *args: str) -> str | None:
-    try:
-        r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=10)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return r.stdout if r.returncode == 0 else None
+_git = gitutil.run
 
 
 def _count_lines(p: Path) -> int:
     try:
-        if p.stat().st_size > MAX_COUNT_BYTES:
-            return 0
-        data = p.read_bytes()
+        st = os.lstat(p)
+        if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_COUNT_BYTES:
+            return 0  # symlinks, fifos, devices: never follow or read
+        with open(p, "rb") as f:
+            data = f.read(MAX_COUNT_BYTES + 1)
     except OSError:
+        return 0
+    if len(data) > MAX_COUNT_BYTES:
         return 0
     if b"\0" in data[:8000]:
         return 0  # binary

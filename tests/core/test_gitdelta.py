@@ -61,3 +61,21 @@ def test_binary_file_touched_with_zero_lines(repo: Path) -> None:
 
 def test_not_a_repo(tmp_path: Path) -> None:
     assert snapshot(tmp_path) == {"head": None, "numstat": {}, "untracked": {}}
+
+
+def test_repo_fsmonitor_config_is_not_executed(repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "pwned"
+    git(repo, "config", "core.fsmonitor", f"touch {marker}; false")
+    snapshot(repo)
+    assert not marker.exists()
+
+
+def test_symlink_and_fifo_not_read(repo: Path, tmp_path: Path) -> None:
+    import os
+
+    big = tmp_path / "outside.txt"
+    big.write_text("x\n" * 10)
+    (repo / "link.txt").symlink_to(big)
+    os.mkfifo(repo / "pipe")
+    s = snapshot(repo)
+    assert s["untracked"].get("link.txt") == 0 and s["untracked"].get("pipe", 0) == 0
