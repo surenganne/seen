@@ -60,6 +60,13 @@ def _cmd0(command: str) -> str | None:
     return None
 
 
+def _write_json(f: Any, obj: Any) -> None:
+    paths.ensure_dir(f.parent)
+    tmp = f.with_suffix(".tmp")
+    tmp.write_text(json.dumps(obj))
+    os.replace(tmp, f)
+
+
 def _on_session_start(p: dict[str, Any]) -> Result:
     from .project import resolve_project
 
@@ -74,10 +81,15 @@ def _on_session_start(p: dict[str, Any]) -> Result:
 
 
 def _on_prompt_submit(p: dict[str, Any]) -> Result:
+    from .gitdelta import snapshot
+
     tp = p.get("transcript_path")
     offset = os.path.getsize(tp) if tp and os.path.exists(tp) else 0
+    cwd = p.get("cwd") or "."
+    before = snapshot(cwd)
+    _write_json(paths.snap_file(p["session_id"]), {"prompt_id": p.get("prompt_id"), "cwd": cwd, "before": before})
     spool.append(p["session_id"], {"ev": "turn_start", **_base(p), "transcript_offset": offset,
-                                   "cwd": p.get("cwd"), "prompt": p.get("prompt") or ""})
+                                   "cwd": cwd, "head": before["head"], "prompt": p.get("prompt") or ""})
     return Result()
 
 
