@@ -38,6 +38,16 @@ def _validate(section: str, key: str, value: Any) -> Any:
     return value
 
 
+def _change_detail(section: str, key: str, old: Any, new: Any) -> dict[str, Any]:
+    """Free-text values (user id, server URL) can hold emails or credentials: log a keyed fingerprint, not the value."""
+    if EDITABLE[section][key] is str and (section, key) not in ENUMS:
+        from seen_core import secret
+
+        return {"key": f"{section}.{key}", "changed": True, "old_fp": secret.keyed(str(old or ""), 12),
+                "new_fp": secret.keyed(str(new), 12)}
+    return {"key": f"{section}.{key}", "old": old, "new": new}
+
+
 def register(app: FastAPI, state: dict[str, Any]) -> None:
     @app.put("/api/settings", response_model=S.Ok)
     def put_settings(body: S.SettingsIn) -> S.Ok:
@@ -54,7 +64,7 @@ def register(app: FastAPI, state: dict[str, Any]) -> None:
             on_disk = {k: v for k, v in current.items() if v != config.DEFAULTS.get(k)}
             safeio.write_text(paths.config_toml(), tomli_w.dumps(on_disk), paths.ensure_dir(paths.home()))
         events = [{"type": "config.changed", "actor_kind": "user", "actor_id": user_id(), "subject": f"{s}.{k}",
-                   "detail": {"key": f"{s}.{k}", "old": o, "new": n}} for s, k, o, n in changes]
+                   "detail": _change_detail(s, k, o, n)} for s, k, o, n in changes]
         audit.append(events or [{"type": "config.changed", "actor_kind": "user", "actor_id": user_id(),
                                  "subject": "settings", "detail": {"key": "settings", "changed": 0}}])
         return S.Ok(detail={"changed": [f"{s}.{k}" for s, k, _, _ in changes]})
