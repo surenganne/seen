@@ -49,3 +49,24 @@ def test_writers_fail_closed_on_corrupt_lockfile(tmp_path: Path) -> None:
     (tmp_path / ".seen/skills.lock.json").write_text('{"approved": {"x": "notalist"}, "blocked": []}')
     with pytest.raises(lock.LockfileError):
         lock.approve(tmp_path, "s", H1)
+
+
+def test_planted_symlinks_never_followed(tmp_path: Path) -> None:
+    import pytest
+
+    victim = tmp_path / "victim.txt"
+    victim.write_text("precious")
+    repo = tmp_path / "r"
+    (repo / ".seen").mkdir(parents=True)
+    (repo / ".seen/skills.lock.lock").symlink_to(victim)
+    (repo / ".seen/skills.lock.tmp").symlink_to(victim)
+    lock.approve(repo, "s", H1)
+    assert victim.read_text() == "precious"
+    evil = tmp_path / "evil"
+    (evil / ".seen").mkdir(parents=True)
+    other = tmp_path / "o"
+    other.mkdir()
+    (evil / ".seen/skills.lock.json").symlink_to(other / "x.json")
+    with pytest.raises(OSError):
+        lock.approve(evil, "s", H1)
+    assert not (other / "x.json").exists()

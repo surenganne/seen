@@ -12,7 +12,7 @@ from pathlib import Path
 import typer
 from sqlalchemy import select
 
-from seen_core import audit, brand, config, ingest, paths
+from seen_core import audit, brand, config, ingest, paths, safeio
 from seen_core.db import ledger_session
 from seen_core.db.models import Change, ChangeFile, Project, Session, SkillInvocation
 from seen_core.identity import user_id
@@ -54,12 +54,13 @@ def init() -> None:
     """Set up .seen/ in this repo and allow memory writes without prompts."""
     pid, root = _project_or_exit()
     s = root / ".seen"
+    safeio.check_no_symlinks(s / "memory", root)
     (s / "memory").mkdir(parents=True, exist_ok=True)
     created = []
     for name, text in ((".gitignore", ".cache/\n*.lock\n"), ("policies.yaml", POLICIES_TEMPLATE), ("pii.yaml", PII_TEMPLATE),
                        ("skills.lock.json", json.dumps({"approved": {}, "blocked": []}, indent=2) + "\n")):
         if not (s / name).exists():
-            (s / name).write_text(text)
+            safeio.write_text(s / name, text, root)
             created.append(name)
     sf = root / ".claude" / "settings.json"
     settings = json.loads(sf.read_text()) if sf.exists() else {}
@@ -67,8 +68,7 @@ def init() -> None:
     added = [r for r in MEMORY_RULES if r not in allow]
     allow.extend(added)
     if added:
-        sf.parent.mkdir(parents=True, exist_ok=True)
-        sf.write_text(json.dumps(settings, indent=2) + "\n")
+        safeio.write_text(sf, json.dumps(settings, indent=2) + "\n", root)
     audit.append([{"type": "config.changed", "actor_kind": "user", "actor_id": user_id(), "project_id": pid,
                    "subject": "project.init", "detail": {"key": "project.init", "old": None,
                                                          "new": {"created": created, "allow_rules_added": len(added)}}}])
