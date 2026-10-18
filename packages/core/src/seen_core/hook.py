@@ -227,13 +227,69 @@ def _on_pre_edit(p: dict[str, Any]) -> Result:
     return Result()
 
 
+PRE_READ_CAP = 256 * 1024
+PRE_READ_CHUNK = 16 * 1024
+
+
 def _on_pre_read(p: dict[str, Any]) -> Result:
+    from . import config
     from .memory import session as msess
 
     target = str((p.get("tool_input") or {}).get("file_path") or "")
-    if target:
-        msess.mark_read(p["session_id"], target)
-    return Result()
+    if not target:
+        return Result()
+    msess.mark_read(p["session_id"], target)
+    cfg = config.load()["pii"]
+    if cfg["mode"] != "block":
+        return Result()  # report/warn: the Stop-time scan records what the read exposed
+    return _pre_read_scan(p, target, cfg, msess.read(p["session_id"]).get("root"))
+
+
+def _pre_read_scan(p: dict[str, Any], target: str, cfg: dict[str, Any], root: str | None) -> Result:
+    import time
+
+    from .pii.detect import scan_with_stats
+    from .pii.projectcfg import load_project
+    from .pii.stopscan import _rel
+
+    pcfg = load_project(root)
+    rel = _rel(target, root)
+    import pathspec
+
+    if rel and pathspec.PathSpec.from_lines("gitignore", pcfg["allow_paths"]).match_file(rel):
+        return Result()
+    try:
+        size = os.path.getsize(target)
+        with open(target, "rb") as fh:
+            data = fh.read(PRE_READ_CAP).decode("utf-8", errors="replace")
+    except OSError:
+        return Result()
+    budget = float(os.environ.get("SEEN_PRE_READ_BUDGET_MS") or 100) / 1000
+    start = time.perf_counter()
+    hits = []
+    for i in range(0, len(data), PRE_READ_CHUNK):
+        if time.perf_counter() - start > budget:
+            return _defer(p, rel, "time")
+        chunk = data[max(0, i - 64): i + PRE_READ_CHUNK]  # overlap so a value split across chunks is still seen
+        found, _ = scan_with_stats(chunk, only=list(cfg["types"]) + ["custom"], allow_values=pcfg["allow_values"],
+                                   custom_rules=pcfg["custom_rules"], min_confidence="high")
+        hits += found
+        if hits:
+            break
+    if not hits:
+        return _defer(p, rel, "size") if size > PRE_READ_CAP else Result()
+    what = ", ".join(sorted({f.type for f in hits}))
+    spool.append(p["session_id"], {"ev": "gate", **_base(p), "hook": "pre-read", "decision": "block", "reason": "pii",
+                                   "path": rel, "types": sorted({f.type for f in hits})})
+    return Result(code=2, stderr=f"Seen blocked reading {rel}: it contains high-confidence {what} (PII mode is 'block'). "
+                                 "Use a redacted or synthetic copy, or ask the user to allowlist the path in .seen/pii.yaml.")
+
+
+def _defer(p: dict[str, Any], rel: str, reason: str) -> Result:
+    spool.append(p["session_id"], {"ev": "pre_read_deferred", **_base(p), "path": rel, "reason": reason})
+    why = "is over 256 KB" if reason == "size" else "took longer than the 100 ms scan budget"
+    return _context("PreToolUse", "", f"Seen: {rel} {why}, so it was not scanned before the read. "
+                                       "It will be scanned after this turn (detect only).")
 
 
 def _on_pre_skill(p: dict[str, Any]) -> Result:
