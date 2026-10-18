@@ -52,8 +52,24 @@ def load_strict(root: str | Path) -> Lockfile:
         raise LockfileError(f"{p} is not valid; fix it by hand before approving or blocking ({e})") from e
 
 
+def _norm(name: str) -> str:
+    return name.strip().lstrip("/").strip().lower()
+
+
+def is_blocked(lk: Lockfile, name: str) -> bool:
+    """Match every alias: '/Name', bare vs plugin-qualified ('plug:skill' blocks 'skill' and vice versa).
+    Fails closed: a bare blocked name also blocks any plugin's skill of that name."""
+    n = _norm(name)
+    if not n:
+        return False
+    for b in (_norm(x) for x in lk.blocked):
+        if n == b or n.rsplit(":", 1)[-1] == b or b.rsplit(":", 1)[-1] == n:
+            return True
+    return False
+
+
 def status(lk: Lockfile, skill_id: str, full_hash: str | None) -> str:
-    if skill_id in lk.blocked:
+    if is_blocked(lk, skill_id):
         return "blocked"
     hashes = lk.approved.get(skill_id) or []
     if full_hash and any(full_hash.startswith(h) for h in hashes):

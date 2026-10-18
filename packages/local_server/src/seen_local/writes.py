@@ -103,6 +103,58 @@ def register(app: FastAPI, state: dict[str, Any]) -> None:
             raise HTTPException(404, "memory not found") from None
         return S.Ok(detail={"archived_to": paths.redact_home(str(dest))})
 
+    def _skill_ctx(sid: str, project: str) -> tuple[str, str, str]:
+        """(repo root, current full hash, current status) or 404."""
+        from sqlalchemy import select
+
+        from seen_core.db import ledger_session
+        from seen_core.db.models import Project, Skill, SkillVersion
+        from seen_core.skills import lock
+
+        with ledger_session() as db:
+            p = db.get(Project, project)
+            sk = db.get(Skill, sid)
+            v = db.scalars(select(SkillVersion).where(SkillVersion.skill_id == sid).order_by(SkillVersion.first_seen.desc())).first()
+        if p is None or not p.root_path or sk is None or v is None:
+            raise HTTPException(404, "skill or project not found")
+        return p.root_path, v.hash, lock.status(lock.load(p.root_path), sid, v.hash)
+
+    def _record_skill(sid: str, project: str, h: str, old: str, new: str) -> None:
+        audit.append([{"type": "approval.skill", "actor_kind": "user", "actor_id": user_id(), "project_id": project,
+                       "subject": sid, "detail": {"skill": sid, "hash": h[:12], "old": old, "new": new}}])
+
+    @app.post("/api/skills/{sid}/approve", response_model=S.Ok)
+    def skill_approve(sid: str, project: str) -> S.Ok:
+        from seen_core.db import ledger_session
+        from seen_core.db.models import SkillVersion
+        from seen_core.skills import lock
+
+        root, h, old = _skill_ctx(sid, project)
+        try:
+            lock.unblock(root, sid)
+            lock.approve(root, sid, h)
+        except lock.LockfileError as e:
+            raise HTTPException(409, str(e)) from None
+        with ledger_session() as db:
+            v = db.get(SkillVersion, (sid, h))
+            if v is not None:
+                v.approved_by, v.approved_at = user_id(), spool.now()
+                db.commit()
+        _record_skill(sid, project, h, old, "approved")
+        return S.Ok(detail={"status": "approved", "hash": h[:7]})
+
+    @app.post("/api/skills/{sid}/block", response_model=S.Ok)
+    def skill_block(sid: str, project: str) -> S.Ok:
+        from seen_core.skills import lock
+
+        root, h, old = _skill_ctx(sid, project)
+        try:
+            lock.block(root, sid)
+        except lock.LockfileError as e:
+            raise HTTPException(409, str(e)) from None
+        _record_skill(sid, project, h, old, "blocked")
+        return S.Ok(detail={"status": "blocked"})
+
     @app.post("/api/audit/export", response_model=S.ExportOut)
     def post_export(body: S.ExportIn) -> S.ExportOut:
         import json

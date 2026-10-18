@@ -101,3 +101,23 @@ def test_p3_5_agent_saves_memory_as_unverified(scratch: tuple[Path, Path]) -> No
 
     new = [m for m in mf.load(repo, None) if m.ok and m.id != "existing"]
     assert new and new[0].verified_at is None and "paise" in new[0].body.lower(), [m.__dict__ for m in mf.load(repo, None)]
+
+
+def test_p4_6_enforce_runs_required_skill_then_stops(scratch: tuple[Path, Path]) -> None:
+    repo, home = scratch
+    (repo / ".claude/skills/llm-review").mkdir(parents=True)
+    (repo / ".claude/skills/llm-review/SKILL.md").write_text(
+        "---\nname: llm-review\ndescription: Use when asked to review LLM code. Replies 'reviewed'.\n---\nReply 'reviewed'. Do not use tools.\n")
+    (repo / ".seen").mkdir()
+    (repo / ".seen/policies.yaml").write_text(
+        '- id: pol-llm\n  title: Review LLM code\n  paths: ["llm/**"]\n  require_skill: llm-review\n  mode: enforce\n')
+    r = claude(repo, home, "Create llm/prompt.py containing the line PROMPT = 'hi' using the Write tool. Then reply 'done.'")
+    assert r.returncode == 0, r.stderr[-1500:]
+    import json
+
+    spool = [json.loads(x) for f in (home / "spool").glob("*.jsonl") for x in f.read_text().splitlines()]
+    stop_blocks = [x for x in spool if x.get("ev") == "gate" and x.get("hook") == "stop"]
+    assert len(stop_blocks) == 1  # exactly once: no loop
+    db = sqlite3.connect(home / "ledger.db")
+    assert db.execute("select met from policy_results").fetchall() == [(1,)]
+    assert ("llm-review",) in db.execute("select skill_id from skill_invocations").fetchall()

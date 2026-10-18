@@ -134,7 +134,7 @@ def finish_turn(session_id: str) -> dict[str, Any]:
             inv.status = lock.status(lk, inv.skill_id, inv.hash)
         _write_invocations(db, cid, invs)
         pols = policy.load(root)
-        results = policy.evaluate(pols, sorted(files), {i.skill_id for i in invs})
+        results = policy.evaluate(pols, sorted(files), {i.skill_id for i in invs if i.status != "blocked"})
         _write_policies(db, cid, pid, pols, results)
         db.commit()
     audit_spool(session_id)

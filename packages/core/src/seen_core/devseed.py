@@ -129,7 +129,9 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
             first = _iso(now - timedelta(days=days + 5))
             db.add(Skill(id=sid, kind=kind, origin=origin, path=f"~/.claude/skills/{sid}" if kind == "user" else None,
                          description=f"{sid.replace('-', ' ').capitalize()} skill", first_seen=first, last_seen=_iso(now)))
-            db.add(SkillVersion(skill_id=sid, hash=skill_hash[sid], first_seen=first))
+            approved_now = kind != "sideload" and sid not in ("quick-sql-helper", "release-notes", "tdd")
+            db.add(SkillVersion(skill_id=sid, hash=skill_hash[sid], first_seen=first,
+                                approved_by="u_demo" if approved_now else None, approved_at=first if approved_now else None))
             if sid == "tdd":
                 db.add(SkillVersion(skill_id=sid, hash="0000000" + "a" * 57, first_seen=_iso(now - timedelta(days=days + 20)),
                                     approved_by="u_demo", approved_at=_iso(now - timedelta(days=days + 19))))

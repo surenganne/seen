@@ -107,3 +107,36 @@ def test_blocked_skill_refused_at_pre_skill(repo: Path, tmp_path: Path) -> None:
     assert res.code == 2 and "blocked" in res.stderr
     gate = [x for x in spool.read("sess-1") if x["ev"] == "gate"]
     assert gate[-1]["decision"] == "block" and gate[-1]["hook"] == "pre-skill"
+
+
+@pytest.mark.parametrize("asked", ["greet-skill", " /Greet-Skill ", "myplug:greet-skill"])
+def test_block_matches_name_variants(repo: Path, tmp_path: Path, asked: str) -> None:
+    from seen_core.skills import lock
+
+    lock.block(repo, "greet-skill")
+    r = Replay(repo, tmp_path)
+    r.start()
+    r.prompt()
+    assert r.fire("pre-skill", "pre_tool_use_skill", tool_input={"skill": asked}).code == 2
+
+
+def test_plugin_qualified_block_matches_bare_request(repo: Path, tmp_path: Path) -> None:
+    from seen_core.skills import lock
+
+    lock.block(repo, "sec:review")
+    r = Replay(repo, tmp_path)
+    r.start()
+    r.prompt()
+    assert r.fire("pre-skill", "pre_tool_use_skill", tool_input={"skill": "review"}).code == 2
+
+
+def test_blocked_attempt_never_satisfies_policy(repo: Path, tmp_path: Path) -> None:
+    from seen_core.skills import lock
+
+    policies(repo, "report")
+    lock.block(repo, "greet-skill")
+    r = turn(repo, tmp_path, skill=True)
+    r.model_works()  # transcript still holds the attempted Skill tool_use
+    r.stop()
+    assert [m for _, m in rows("select policy_id, met from policy_results")] == [0]
+    assert not [x for x in spool.read("sess-1") if x["ev"] == "skill_start"]
