@@ -19,3 +19,7 @@ def test_security_headers(client: TestClient) -> None:
 def test_state_change_needs_seen_header(client: TestClient) -> None:
     r = client.put("/api/settings", json={"pii": {"mode": "warn"}}, headers={"Host": "localhost"})
     assert r.status_code == 403
+
+
+def test_testserver_host_not_allowed(client: TestClient) -> None:
+    assert client.get("/api/projects", headers={"Host": "testserver"}).status_code == 400

@@ -52,7 +52,7 @@ SECURITY_HEADERS = {"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosnif
 
 def allowed_hosts() -> list[str]:
     extra = [h.strip() for h in os.environ.get("SEEN_ALLOWED_HOSTS", "").split(",") if h.strip()]
-    return ["127.0.0.1", "localhost", "testserver", *extra]
+    return ["127.0.0.1", "localhost", "[::1]", *extra]
 
 
 def create_app(web_dist: Path | None = None) -> FastAPI:
