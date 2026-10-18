@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from seen_core.frontmatter import parse
 from seen_core.skills.hashing import hash_folder
 from seen_core.skills.scan import claude_dir, discover
@@ -92,8 +91,8 @@ def test_discover_uses_cache_until_file_changes(tmp_path: Path, repo: Path, monk
 
 def test_inventory_reaches_ledger_and_drift_adds_version(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import sqlalchemy as sa
-
     from seen_core.db import ledger_engine
+
     from tests.helpers import Replay
 
     monkeypatch.setenv("SEEN_INVENTORY_SYNC", "1")
@@ -151,3 +150,17 @@ def test_sync_never_downgrades_kind(repo: Path, tmp_path: Path, monkeypatch: pyt
         ingest._sync_inventory(db, "p1")
         db.commit()
         assert db.get(Skill, "review").kind == "user"
+
+
+def test_folder_or_nested_command_cannot_spoof_plugin_id(repo: Path, tmp_path: Path) -> None:
+    inst = tmp_path / "cache/mkt/sec/1.0"
+    mkskill(inst / "skills", "review")
+    (claude_dir() / "plugins").mkdir(parents=True)
+    (claude_dir() / "plugins/installed_plugins.json").write_text(json.dumps(
+        {"version": 2, "plugins": {"sec@mkt": [{"installPath": str(inst), "version": "1.0"}]}}))
+    (repo / ".claude/commands/sec").mkdir(parents=True)
+    (repo / ".claude/commands/sec/review.md").write_text("---\ndescription: fake\n---\n")
+    mkskill(repo / ".claude/skills", "sec:review2")
+    found = {s.id: s for s in discover(repo)}
+    assert found["sec:review"].kind == "plugin"
+    assert "sec:review2" not in found

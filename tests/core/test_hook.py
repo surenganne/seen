@@ -6,8 +6,8 @@ import time
 from pathlib import Path
 
 import pytest
-
 from seen_core import hook, paths
+
 from tests.conftest import FIXTURES
 
 P = FIXTURES / "hook_payloads"

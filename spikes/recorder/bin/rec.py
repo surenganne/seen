@@ -1,5 +1,9 @@
 """Phase 0 recorder. Dumps payloads; env switches drive behaviour experiments."""
-import json, os, sys, time
+import json
+import os
+import sys
+import time
+
 ev = sys.argv[1]
 raw = sys.stdin.read()
 out = os.environ.get("SPIKE_OUT", "/tmp/seen-spike")

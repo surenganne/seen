@@ -67,11 +67,14 @@ def check_detail(detail: Any, path: str = "detail") -> None:
             if str(k).lower() in FORBIDDEN_KEYS:
                 raise ValueError(f"audit {path}.{k}: content keys are not allowed")
             check_detail(v, f"{path}.{k}")
-    elif isinstance(detail, list):
+    elif isinstance(detail, list | tuple):
         for i, v in enumerate(detail):
             check_detail(v, f"{path}[{i}]")
-    elif isinstance(detail, str) and len(detail) > MAX_STR:
-        raise ValueError(f"audit {path}: string longer than {MAX_STR} chars (content is not allowed)")
+    elif isinstance(detail, str):
+        if len(detail) > MAX_STR:
+            raise ValueError(f"audit {path}: string longer than {MAX_STR} chars (content is not allowed)")
+    elif detail is not None and not isinstance(detail, int | float | bool):
+        raise ValueError(f"audit {path}: unsupported type {type(detail).__name__}")
 
 
 def append(events: Iterable[dict[str, Any]], conn: sqlite3.Connection | None = None) -> list[dict[str, Any]]:
@@ -79,6 +82,10 @@ def append(events: Iterable[dict[str, Any]], conn: sqlite3.Connection | None = N
     evs = list(events)
     for e in evs:
         check_detail(e.get("detail") or {})
+        for k in ("subject", "actor_id", "project_id", "session_id", "change_id", "type", "outcome", "event_id"):
+            v = e.get(k)
+            if v is not None and (not isinstance(v, str) or len(v) > MAX_STR):
+                raise ValueError(f"audit {k}: must be a short string")
     c = conn or connect()
     own = conn is None
     out = []

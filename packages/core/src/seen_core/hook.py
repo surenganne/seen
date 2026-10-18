@@ -67,12 +67,28 @@ def _write_json(f: Any, obj: Any) -> None:
     os.replace(tmp, f)
 
 
+def _file_hash(f: Any) -> str | None:
+    import hashlib
+
+    try:
+        return hashlib.sha256(f.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
 def _on_session_start(p: dict[str, Any]) -> Result:
+    from pathlib import Path
+
+    from . import brand
     from .project import resolve_project
 
     proj = resolve_project(p.get("cwd") or ".")
+    seen_dir = Path(proj.root) / ".seen" if proj else None
     spool.append(p["session_id"], {
         "ev": "session_start", "source": p.get("source"), "cwd": paths.redact_home(p.get("cwd") or ""),
+        "plugin_version": brand.VERSION, "config_hash": _file_hash(paths.config_toml()),
+        "lock_hash": _file_hash(seen_dir / "skills.lock.json") if seen_dir else None,
+        "policies_hash": _file_hash(seen_dir / "policies.yaml") if seen_dir else None,
         "transcript_path": p.get("transcript_path"),
         "project_id": proj.id if proj else None, "project_name": proj.name if proj else None,
         "remote": proj.remote if proj else None, "root": proj.root if proj else None,
@@ -105,8 +121,19 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
     cwd = p.get("cwd") or "."
     before = snapshot(cwd)
     _write_json(paths.snap_file(p["session_id"]), {"prompt_id": p.get("prompt_id"), "cwd": cwd, "before": before})
-    spool.append(p["session_id"], {"ev": "turn_start", **_base(p), "transcript_offset": offset,
-                                   "cwd": cwd, "head": before["head"], "prompt": p.get("prompt") or ""})
+    import hashlib
+    import re
+
+    from . import config
+
+    prompt = p.get("prompt") or ""
+    m = re.match(r"^/([\w:.-]+)", prompt.strip())
+    line: dict[str, Any] = {"ev": "turn_start", **_base(p), "transcript_offset": offset, "cwd": cwd, "head": before["head"],
+                            "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(), "prompt_len": len(prompt),
+                            "slash": m.group(1) if m else None}
+    if config.load()["pii"]["store_prompt_text"] == "full":
+        line["prompt"] = prompt  # only on explicit opt-in; redacted storage arrives with redact.py
+    spool.append(p["session_id"], line)
     return Result()
 
 

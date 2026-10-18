@@ -73,7 +73,7 @@ def _add_usage(turn: Turn, msg: dict[str, Any]) -> None:
     if model not in turn.models:
         turn.models.append(model)
     acc = turn.usage.setdefault(model, {"tok_in": 0, "tok_out": 0, "tok_cache_read": 0, "tok_cache_write": 0, "cw_5m": 0, "cw_1h": 0})
-    cc = u.get("cache_creation") if isinstance(u.get("cache_creation"), dict) else {}
+    cc: dict[str, Any] = u["cache_creation"] if isinstance(u.get("cache_creation"), dict) else {}
     acc["tok_in"] += int(u.get("input_tokens") or 0)
     acc["tok_out"] += int(u.get("output_tokens") or 0)
     acc["tok_cache_read"] += int(u.get("cache_read_input_tokens") or 0)
@@ -88,7 +88,7 @@ def _walk(turn: Turn, lines: list[dict[str, Any]], seen: set[str], subagent: boo
         t = d.get("type")
         if d.get("version") and not turn.version:
             turn.version = str(d["version"])
-        msg = d.get("message") if isinstance(d.get("message"), dict) else {}
+        msg: dict[str, Any] = d["message"] if isinstance(d.get("message"), dict) else {}
         if t == "assistant":
             # one line per content block, same message id repeated: count usage once, read every block
             mid = msg.get("id")
@@ -100,7 +100,8 @@ def _walk(turn: Turn, lines: list[dict[str, Any]], seen: set[str], subagent: boo
                 if not isinstance(c, dict):
                     continue
                 if c.get("type") == "tool_use":
-                    name, ti = str(c.get("name")), c.get("input") if isinstance(c.get("input"), dict) else {}
+                    name = str(c.get("name"))
+                    ti: dict[str, Any] = c["input"] if isinstance(c.get("input"), dict) else {}
                     ref = ti.get("file_path") or ti.get("url") or ""
                     tool_names[str(c.get("id"))] = (name, str(ref))
                     if name == "Skill" and ti.get("skill"):

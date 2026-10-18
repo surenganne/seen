@@ -1,12 +1,11 @@
-import json
 from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
-
 from seen_core.db import ledger_engine
 from seen_core.invocations import reconcile
 from seen_core.transcript import parse_turn
+
 from tests.conftest import FIXTURES
 from tests.core.test_skills import mkskill
 from tests.helpers import Replay

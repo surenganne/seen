@@ -18,6 +18,7 @@ class Invocation:
     hash: str | None
     kind: str
     tool_use_id: str | None = None
+    status: str | None = None  # approval status at that moment (filled from the lockfile)
 
 
 def reconcile(spool_lines: list[dict[str, Any]], turn: Turn, prompt: str, inventory: dict[str, dict[str, Any]]) -> list[Invocation]:

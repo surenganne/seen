@@ -120,9 +120,13 @@ def _plugins() -> list[tuple[str, str, Path]]:
 def discover(repo_root: str | Path | None) -> list[SkillEntry]:
     cache = _load_cache()
     found: dict[str, SkillEntry] = {}
+    plugins = _plugins()
+    plugin_names = {p for p, _, _ in plugins}
 
     def add(kind: str, base: Path, prefix: str = "", origin: str | None = None) -> None:
         for name, target, md in _candidates(base):
+            if kind != "plugin" and (target.is_dir() and ":" in target.name or name.split(":", 1)[0] in plugin_names and ":" in name):
+                continue  # would look like another plugin's namespaced id
             try:
                 fm, _ = parse(_read_md(md))
                 h = _hash(target, cache)
@@ -143,7 +147,7 @@ def discover(repo_root: str | Path | None) -> list[SkillEntry]:
     add("user", claude_dir())
     if repo_root:
         add("project", Path(repo_root) / ".claude")
-    for plugin, version, install in _plugins():
+    for plugin, version, install in plugins:
         add("plugin", install, prefix=f"{plugin}:", origin=f"{plugin}@{version}")
     try:
         paths.ensure_dir(_cache_file().parent)

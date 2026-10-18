@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-
 from seen_core import pricing
 from seen_core.transcript import parse_turn
+
 from tests.conftest import FIXTURES
 
 TR = FIXTURES / "transcripts"

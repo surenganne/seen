@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import sqlalchemy as sa
-
 from seen_core.db import ledger_engine, upgrade
 
 TABLES = {"projects", "sessions", "changes", "change_files", "change_memories", "skills", "skill_versions",
@@ -12,7 +11,7 @@ def test_upgrade_head_creates_all_tables(tmp_path: Path) -> None:
     url = f"sqlite:///{tmp_path / 'l.db'}"
     upgrade(url)
     insp = sa.inspect(sa.create_engine(url))
-    assert TABLES <= set(insp.get_table_names())
+    assert set(insp.get_table_names()) >= TABLES
     cols = {c["name"] for c in insp.get_columns("changes")}
     assert {"tok_cache_write", "price_version", "pii_state", "mem_state", "git_status", "synced_at"} <= cols
 
