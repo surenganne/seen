@@ -11,7 +11,8 @@ from pathlib import Path
 
 _SAFE = ["-c", "core.fsmonitor=false", "-c", f"core.hooksPath={os.devnull}", "-c", "diff.external=",
          "-c", "core.pager=cat", "-c", "protocol.allow=never", "-c", "core.sshCommand=false",
-         "-c", f"core.attributesFile={os.devnull}"]
+         "-c", f"core.attributesFile={os.devnull}", "-c", "submodule.recurse=false",
+         "-c", "diff.ignoreSubmodules=all", "-c", "status.submoduleSummary=false"]
 _ENV = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0", "GIT_ATTR_NOSYSTEM": "1"}
 
 
@@ -26,10 +27,14 @@ def _raw(cwd: str | Path, args: list[str], timeout: float) -> str | None:
 
 @lru_cache(maxsize=64)
 def filter_overrides(cwd: str) -> tuple[str, ...]:
-    """Replace every configured filter driver with identity cat (clean/smudge run on diff)."""
-    out = _raw(cwd, [*_SAFE, "config", "--get-regexp", r"^filter\."], 5) or ""
-    names = {ln.split(" ", 1)[0].split(".")[1] for ln in out.splitlines() if ln.count(".") >= 2}
+    """Two layers: read attributes from the empty tree (no in-repo .gitattributes can pick a
+    driver), and replace every configured filter driver with identity cat anyway."""
     args: list[str] = []
+    empty = (_raw(cwd, [*_SAFE, "hash-object", "-t", "tree", os.devnull], 5) or "").strip()
+    if empty:
+        args += ["--attr-source", empty]
+    out = _raw(cwd, [*_SAFE, "config", "-z", "--name-only", "--get-regexp", r"^filter\."], 5) or ""
+    names = {k[len("filter."):k.rindex(".")] for k in out.split("\0") if k.startswith("filter.") and k.count(".") >= 2}
     for n in sorted(names):
         args += ["-c", f"filter.{n}.clean=cat", "-c", f"filter.{n}.smudge=cat",
                  "-c", f"filter.{n}.process=", "-c", f"filter.{n}.required=false"]
@@ -38,5 +43,5 @@ def filter_overrides(cwd: str) -> tuple[str, ...]:
 
 def run(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
     if args and args[0] == "diff":
-        args = ("diff", "--no-ext-diff", "--no-textconv", *args[1:])
+        args = ("diff", "--no-ext-diff", "--no-textconv", "--ignore-submodules=all", *args[1:])
     return _raw(cwd, [*_SAFE, *filter_overrides(str(cwd)), *args], timeout)
