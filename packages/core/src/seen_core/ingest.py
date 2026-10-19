@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 from datetime import datetime
 from typing import Any
 
@@ -29,7 +28,7 @@ from .db.models import (
 from .hook import EDIT_TOOLS
 from .identity import user_id as _uid
 from .invocations import Invocation, reconcile
-from .redact import redact
+from .redact import redact, summarise
 from .skills import lock
 from .skills.scan import TRUST
 from .transcript import Turn, parse_turn
@@ -37,11 +36,6 @@ from .transcript import Turn, parse_turn
 
 def change_id(session_id: str, prompt_id: str | None, t: str) -> str:
     return "ch_" + hashlib.sha1(f"{session_id}|{prompt_id or t}".encode()).hexdigest()[:16]
-
-
-def summarise(text: str) -> str:
-    first = re.split(r"(?<=[.!?])\s|\n", text.strip(), maxsplit=1)[0].strip()
-    return first[:120]
 
 
 def _secs(a: str | None, b: str | None) -> int | None:
@@ -93,13 +87,13 @@ def finish_turn(session_id: str) -> dict[str, Any]:
     tp = start.get("transcript_path") or ts.get("transcript_path")
     t = parse_turn(tp, int(ts.get("transcript_offset") or 0)) if tp else Turn()
     cost, price_version = pricing.cost(t.usage)
-    last = (end or {}).get("last_message") or t.last_text
+    end_summary = (end or {}).get("summary")
 
     with ledger_session() as db:
         pid = start.get("project_id")
         if pid and db.get(Project, pid) is None:
             db.add(Project(id=pid, name=start.get("project_name"), remote=start.get("remote"),
-                           root_path=start.get("root"), created_at=start.get("t")))
+                           root_path=start.get("project_root") or start.get("root"), created_at=start.get("t")))
         sess = db.get(Session, session_id)
         if sess is None:
             sess = Session(id=session_id, project_id=pid, started_at=start.get("t") or ts["t"], tool="claude-code",
@@ -116,7 +110,7 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.ended_at = (end or {}).get("t") or spool.now()
         row.duration_s = _secs(row.started_at, row.ended_at)
         row.prompt_text = ts.get("prompt")  # already redacted (or omitted) at prompt-submit per store_prompt_text
-        row.summary = redact(summarise(last)) if last else None
+        row.summary = end_summary or (redact(summarise(t.last_text)) if t.last_text else None)
         row.model = _main_model(t)
         row.tok_in, row.tok_out = _sum(t, "tok_in"), _sum(t, "tok_out")
         row.tok_cache_read, row.tok_cache_write = _sum(t, "tok_cache_read"), _sum(t, "tok_cache_write")
@@ -171,24 +165,46 @@ def finish_turn(session_id: str) -> dict[str, Any]:
             "block_reason": policy.block_reason(missed[0], sorted(files)) if missed else None}
 
 
+SPOOL_KEEP_DAYS = 7
+
+
 def finish_session(session_id: str) -> None:
+    from . import config
+
     audit_spool(session_id)
     audit.record_head()
     sweep_incomplete()
+    root = next((ln.get("root") for ln in spool.read(session_id) if ln.get("ev") == "session_start"), None)
     with ledger_session() as db:
         sess = db.get(Session, session_id)
-        if sess is None:
-            return
-        sess.ended_at = spool.now()
-        for ch in db.scalars(select(Change).where(Change.session_id == session_id, Change.git_status.is_not(None))):
-            ch.git_status = _reconcile(ch, db)
-        db.commit()
+        if sess is not None:
+            sess.ended_at = spool.now()
+            for ch in db.scalars(select(Change).where(Change.session_id == session_id, Change.git_status.is_not(None))):
+                ch.git_status = _reconcile(ch, db, root)
+            db.commit()
+    audit.prune_older_than(int(config.load()["audit"]["retention_days"]))
+    cleanup_spools(keep=session_id)
 
 
-def _reconcile(ch: Change, db: Any) -> str:
-    """committed | uncommitted | reverted, checked against the repo now."""
-    root = None
-    if ch.project_id and (p := db.get(Project, ch.project_id)):
+def cleanup_spools(keep: str, max_age_days: int = SPOOL_KEEP_DAYS) -> None:
+    """Ended sessions are fully in the ledger and audit chain: drop their spool and snapshots after a grace period."""
+    import time
+
+    d = paths.home() / "spool"
+    for f in d.glob("*.jsonl") if d.is_dir() else []:
+        sid = f.stem
+        if sid == keep or time.time() - f.stat().st_mtime < max_age_days * 86400:
+            continue
+        if not any(ln.get("ev") == "session_end" for ln in spool.read(sid)):
+            continue  # sweep_incomplete owns these
+        snap = paths.snap_file(sid)
+        for p in (f, snap, snap.with_suffix(".mem.json"), snap.with_suffix(".audit-pos")):
+            p.unlink(missing_ok=True)
+
+
+def _reconcile(ch: Change, db: Any, root: str | None = None) -> str:
+    """committed | uncommitted | reverted, checked against the session's own checkout (worktree) now."""
+    if not root and ch.project_id and (p := db.get(Project, ch.project_id)):
         root = p.root_path
     if not root:
         return ch.git_status or "uncommitted"
@@ -278,9 +294,12 @@ def _fresh(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ids = [e["event_id"] for e in events]
     if not ids:
         return []
+    have: set[str] = set()
     c = audit.connect()
     try:
-        have = {r[0] for r in c.execute(f"SELECT event_id FROM audit_events WHERE event_id IN ({','.join('?' * len(ids))})", ids)}
+        for i in range(0, len(ids), 500):  # SQLite caps bound parameters
+            chunk = ids[i:i + 500]
+            have |= {r[0] for r in c.execute(f"SELECT event_id FROM audit_events WHERE event_id IN ({','.join('?' * len(chunk))})", chunk)}
     finally:
         c.close()
     return [e for e in events if e["event_id"] not in have]
@@ -337,11 +356,21 @@ def _events_for(session_id: str, i: int, ln: dict[str, Any], pid: str | None) ->
     return []  # skill_start, turn_end: summarised by skill.invoked / turn.end
 
 
+def _pos_file(session_id: str) -> Any:
+    return paths.snap_file(session_id).with_suffix(".audit-pos")
+
+
 def audit_spool(session_id: str) -> None:
+    """Convert spool lines not yet in the chain. Deterministic ids keep it idempotent if the mark is lost."""
     lines = spool.read(session_id)
     pid = next((ln.get("project_id") for ln in lines if ln.get("ev") == "session_start"), None)
-    events = [e for i, ln in enumerate(lines) for e in _events_for(session_id, i, ln, pid)]
+    try:
+        start = int(_pos_file(session_id).read_text())
+    except (OSError, ValueError):
+        start = 0
+    events = [e for i, ln in enumerate(lines) if i >= start for e in _events_for(session_id, i, ln, pid)]
     audit.append(_fresh(events))
+    _pos_file(session_id).write_text(str(len(lines)))
 
 
 def sweep_incomplete(max_age_s: float = 6 * 3600) -> None:
@@ -402,7 +431,13 @@ def _write_policies(db: Any, cid: str, pid: str | None, pols: list[policy.Policy
         db.add(PolicyResult(change_id=cid, policy_id=f"{pid}:{pol_id}", met=int(met)))
 
 
+def _statuses(db: Any, cid: str) -> dict[str, str]:
+    """Statuses people set (test_data, allowlisted) must survive re-ingest of the same change."""
+    return {f.id: f.status for f in db.scalars(select(PiiFinding).where(PiiFinding.change_id == cid)) if f.status}
+
+
 def _write_prompt_pii(db: Any, cid: str, turn_lines: list[dict[str, Any]]) -> None:
+    keep = _statuses(db, cid)
     db.execute(delete(PiiFinding).where(PiiFinding.change_id == cid, PiiFinding.source_kind == "prompt"))
     total, blocked = 0, False
     for ln in turn_lines:
@@ -412,10 +447,11 @@ def _write_prompt_pii(db: Any, cid: str, turn_lines: list[dict[str, Any]]) -> No
         for i, f in enumerate(ln.get("findings") or []):
             total += int(f["count"])
             key = f"{cid}:prompt:{i}:{f['type']}"
-            db.add(PiiFinding(id="pf_" + hashlib.sha1(key.encode()).hexdigest()[:16],
+            fid = "pf_" + hashlib.sha1(key.encode()).hexdigest()[:16]
+            db.add(PiiFinding(id=fid,
                               change_id=cid, type=f["type"], confidence=f["confidence"], count=f["count"],
                               distinct_count=f["distinct"], source_kind="prompt", source_ref="Prompt", destination="model",
-                              detector=f["detector"], status="open", fingerprints_json=json.dumps(f["fingerprints"])))
+                              detector=f["detector"], status=keep.get(fid, "open"), fingerprints_json=json.dumps(f["fingerprints"])))
     row = db.get(Change, cid)
     _set_pii_state(db, row, blocked)
 
@@ -452,11 +488,14 @@ def _stop_scan(t: Turn, start: dict[str, Any], lines: list[dict[str, Any]], turn
 
 
 def _write_stop_pii(db: Any, cid: str, rows: list[Any]) -> None:
+    keep = _statuses(db, cid)
     db.execute(delete(PiiFinding).where(PiiFinding.change_id == cid, PiiFinding.source_kind != "prompt"))
     for r in rows:
         key = f"{cid}:{r.source_kind}:{r.source_ref}:{r.type}:{r.confidence}:{r.destination}"
-        db.add(PiiFinding(id="pf_" + hashlib.sha1(key.encode()).hexdigest()[:16], change_id=cid, type=r.type, confidence=r.confidence,
+        fid = "pf_" + hashlib.sha1(key.encode()).hexdigest()[:16]
+        db.add(PiiFinding(id=fid, change_id=cid, type=r.type, confidence=r.confidence,
                           count=r.count, distinct_count=r.distinct, source_kind=r.source_kind, source_ref=r.source_ref,
-                          destination=r.destination, detector=r.detector, status="open", fingerprints_json=json.dumps(r.fingerprints)))
+                          destination=r.destination, detector=r.detector, status=keep.get(fid, "open"),
+                          fingerprints_json=json.dumps(r.fingerprints)))
     row = db.get(Change, cid)
     _set_pii_state(db, row, row.pii_state == "blocked")

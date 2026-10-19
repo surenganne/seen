@@ -12,14 +12,14 @@ from pathlib import Path
 _SAFE = ["-c", "core.fsmonitor=false", "-c", f"core.hooksPath={os.devnull}", "-c", "diff.external=",
          "-c", "core.pager=cat", "-c", "protocol.allow=never", "-c", "core.sshCommand=false",
          "-c", f"core.attributesFile={os.devnull}", "-c", "submodule.recurse=false",
-         "-c", "diff.ignoreSubmodules=all", "-c", "status.submoduleSummary=false"]
+         "-c", "diff.ignoreSubmodules=all", "-c", "status.submoduleSummary=false", "-c", "core.quotePath=false"]
 _ENV = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0", "GIT_ATTR_NOSYSTEM": "1"}
 
 
 def _raw(cwd: str | Path, args: list[str], timeout: float) -> str | None:
     try:
         r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=timeout,
-                           env={**os.environ, **_ENV})
+                           encoding="utf-8", errors="surrogateescape", env={**os.environ, **_ENV})
     except (OSError, subprocess.TimeoutExpired):
         return None
     return r.stdout if r.returncode == 0 else None
@@ -146,7 +146,7 @@ def run_many(cwd: str | Path, calls: list[tuple[str, ...]], timeout: float = 10)
     for args in calls:
         try:
             procs.append(subprocess.Popen(_argv(cwd, args), cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                          text=True, env={**os.environ, **_ENV}))
+                                          text=True, encoding="utf-8", errors="surrogateescape", env={**os.environ, **_ENV}))
         except OSError:
             procs.append(None)
     out: list[str | None] = []

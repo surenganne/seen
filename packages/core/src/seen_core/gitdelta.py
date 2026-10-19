@@ -17,7 +17,8 @@ from . import gitutil
 
 MAX_UNTRACKED = 2000
 _SHA = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
-MAX_COUNT_BYTES = 5 * 1024 * 1024
+MAX_COUNT_BYTES = 1024 * 1024  # bigger files are generated data: line counts are noise
+UNTRACKED_BUDGET = 20 * 1024 * 1024  # total bytes read per snapshot, then counts are 0
 
 Snapshot = dict[str, Any]
 
@@ -62,8 +63,18 @@ def snapshot(cwd: str | Path, base: str | None = None) -> Snapshot:
             a, r, path = parts
             numstat[path] = [int(a) if a.isdigit() else 0, int(r) if r.isdigit() else 0]
     untracked: dict[str, int] = {}
+    budget = UNTRACKED_BUDGET
     for path in (others or "").splitlines()[:MAX_UNTRACKED]:
-        untracked[path] = _count_lines(root / path)
+        p = root / path
+        try:
+            size = os.lstat(p).st_size
+        except OSError:
+            size = 0
+        if size > budget:
+            untracked[path] = 0
+            continue
+        budget -= min(size, MAX_COUNT_BYTES)
+        untracked[path] = _count_lines(p)
     return {"head": head, "numstat": numstat, "untracked": untracked}
 
 
