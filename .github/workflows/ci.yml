@@ -1,5 +1,8 @@
 name: ci
-on: [push, pull_request]
+on:
+  push: { branches: [main] }  # a branch with an open PR is covered by the pull_request run: no double runs
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:

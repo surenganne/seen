@@ -20,10 +20,10 @@
   `seen doctor`) instead of retried forever; the team server validates and caps ingest, limits body size, counts
   successful requests in its throttle and supports `SEEN_TEAM_PROXY_HOPS`; `sync.server` must be https (or localhost).
   Ledger migration 0004: run `seen upgrade`.
-- **CI audit gates:** a new `audit` workflow (every push and PR, plus weekly) runs pip-audit on the lockfile,
+- **CI audit gates:** a new `audit` workflow (every pull request and push to `main`, plus weekly) runs pip-audit on the lockfile,
   `npm audit` on production dependencies, gitleaks over the full history, and trivy on the dashboard and team images;
   `ci` gains a Postgres job for the team server, concurrency groups, timeouts and caches; Dependabot covers uv, npm,
-  Actions and Docker. Base images move to `python:3.12.15-slim-bookworm` (the old pin carried fixable OpenSSL CVEs).
+  Actions and Docker. Base images move to `python:3.12.15-slim-bookworm` (the old pin carried fixable OpenSSL CVEs). `ci` runs on pull requests and pushes to `main` only (no double runs per push); Dependabot ignores major and minor jumps of the python and node base images.
 - **Accessibility and e2e:** axe runs on every dashboard page in both themes, on desktop and phone; new
   Playwright checks cover titles, the main landmark, a skip link, keyboard access to table rows, the error and empty
   states and reflow at 320px. Fixed along the way: scrollable tables are keyboard focusable regions, clickable rows
