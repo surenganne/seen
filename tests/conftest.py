@@ -14,6 +14,7 @@ def seen_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("SEEN_HOME", str(home))
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude-config"))
     monkeypatch.setenv("SEEN_ORG_SKILLS_DIRS", str(tmp_path / "org-skills"))
+    monkeypatch.setenv("SEEN_NO_UPDATE_CHECK", "1")  # tests never reach the network
     return home
 
 

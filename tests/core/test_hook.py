@@ -167,3 +167,17 @@ def test_session_outside_git_repo_is_not_recorded(tmp_path: Path, seen_home: Pat
     assert not (seen_home / "ledger.db").exists() or "secret plan" not in (seen_home / "ledger.db").read_bytes().decode(errors="ignore")
     ingest.cleanup_spools(keep="other", max_age_days=0)
     assert not list((seen_home / "snap").glob("sess-plain*"))
+
+
+def test_hook_log_keeps_type_not_message_or_home_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_core import hook
+
+    monkeypatch.setenv("HOME", "/Users/dev")
+    value = "sentinel-" + "value-9876"
+    try:
+        int(value)
+    except ValueError:
+        hook._log_exception("PreToolUse")
+    log = paths.hook_log().read_text()
+    assert "ValueError" in log and "sentinel-value-9876" not in log
+    assert oct(paths.hook_log().stat().st_mode & 0o777) == "0o600"

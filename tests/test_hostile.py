@@ -188,3 +188,19 @@ def test_ordinary_rules_still_allowed(pat: str) -> None:
     from seen_core.pii.projectcfg import safe_pattern
 
     assert safe_pattern(pat)
+
+
+@pytest.mark.parametrize("pat", [r".*.*.*y", r"\d+\d+\d+x", r"\w+\s*\w+\s*\w+!"])
+def test_sequential_unbounded_repeats_rejected(pat: str) -> None:
+    from seen_core.pii.projectcfg import safe_pattern
+
+    assert not safe_pattern(pat)
+
+
+def test_slow_custom_rule_is_cut_off_not_hung() -> None:
+    """Two unbounded repeats still go cubic under search(): a deadline, not only the static check, must protect the hook."""
+    from seen_core.pii.detect import scan
+
+    t = time.perf_counter()
+    scan("x" * 60000, only=["custom"], custom_rules=[{"id": "slow", "pattern": r".*.*y"}])
+    assert time.perf_counter() - t < 2
