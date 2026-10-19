@@ -469,6 +469,12 @@ export interface components {
             session_id: string | null;
             /** Skills */
             skills: components["schemas"]["SkillRun"][];
+            /**
+             * Source
+             * @default live
+             * @enum {string}
+             */
+            source: "live" | "imported";
             /** Started At */
             started_at: string | null;
             /** Summary */
@@ -867,6 +873,12 @@ export interface components {
             last_event_at: string | null;
             /** Models */
             models: string[];
+            /**
+             * Source
+             * @default live
+             * @enum {string}
+             */
+            source: "live" | "imported";
             /** Started At */
             started_at: string | null;
             /**

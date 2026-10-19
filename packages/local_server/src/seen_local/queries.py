@@ -260,7 +260,9 @@ def change_detail(db: DB, cid: str, prompt_storage: str) -> S.ChangeDetail | Non
     mems = {fm.get("id") or f.stem: fm for f, fm in _memory_files(proj.root_path if proj else None)}
     pols = {p.id: p for p in db.scalars(select(Policy).where(Policy.project_id == c.project_id))}
     kinds = dict(db.execute(select(Skill.id, Skill.kind)).all())
+    sess = db.get(Session, c.session_id) if c.session_id else None
     return S.ChangeDetail(
+        source="imported" if sess is not None and sess.source == "imported" else "live",
         id=c.id, project_id=c.project_id, session_id=c.session_id, seq=c.seq, started_at=c.started_at, ended_at=c.ended_at,
         duration_s=c.duration_s, summary=c.summary, prompt_text=c.prompt_text, prompt_storage=prompt_storage, model=c.model,
         tool=r.tool, tokens=S.Tokens(input=c.tok_in, out=c.tok_out, cache_read=c.tok_cache_read, cache_write=c.tok_cache_write),
@@ -381,8 +383,11 @@ def sessions(db: DB, pid: str) -> list[S.SessionOut]:
         n, calls, last = stats.get(s.id, (0, 0, None))
         cs = by_session.get(s.id, [])
         last = max([x for x in (last, s.started_at, *(c.ended_at or c.started_at for c in cs)) if x], default=None)
-        status = "ended" if s.ended_at else "active" if last and last >= cutoff else "incomplete"
-        out.append(S.SessionOut(id=s.id, started_at=s.started_at, ended_at=s.ended_at, status=status, last_event_at=last,
+        recent = bool(last and last >= cutoff)
+        # an imported transcript that has gone quiet has ended; only live sessions can be cut off mid-way
+        status = "ended" if s.ended_at or (s.source == "imported" and not recent) else "active" if recent else "incomplete"
+        out.append(S.SessionOut(id=s.id, started_at=s.started_at, ended_at=s.ended_at, status=status,
+                                source="imported" if s.source == "imported" else "live", last_event_at=last,
                                 tool=s.tool, tool_version=s.tool_version, models=sorted({c.model for c in cs if c.model}),
                                 turns=len(cs), files=files[s.id], tool_calls=calls, events=n,
                                 cost_usd=round(sum(c.cost_usd or 0 for c in cs), 4)))

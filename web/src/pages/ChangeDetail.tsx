@@ -1,4 +1,4 @@
-import { ArrowLeft, Brain, Bot, FileCode2, Lock, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowLeft, Brain, Bot, FileCode2, History, Lock, ShieldAlert, Sparkles } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useChange } from "../api/hooks";
 import { MarkTestData } from "../components/PiiActions";
@@ -36,6 +36,13 @@ export function ChangeDetail() {
           {c.skills.some((s) => s.status && s.status !== "approved") && <Badge tone="warning">unapproved skill</Badge>}
         </div>
       </div>
+
+      {c.source === "imported" && (
+        <Note tone="info" icon={History} testId="imported-note">
+          Imported from the Claude Code transcript with <span className="mono">seen import</span>. Tokens, cost, tools, skills and prompt PII are exact;
+          line counts come from the edit inputs, and git status and memory state were not observed.
+        </Note>
+      )}
 
       {high && (
         <div data-testid="pii-banner">

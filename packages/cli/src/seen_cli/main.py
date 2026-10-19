@@ -127,6 +127,20 @@ def status() -> None:
                             else f"CHAIN BROKEN at seq {v.break_seq} ({v.reason})"))
 
 
+@app.command("import")
+def import_cmd(dry_run: bool = typer.Option(False, "--dry-run", help="Count what would be imported, write nothing")) -> None:
+    """Record this repo's past Claude Code sessions from their transcripts (sessions already recorded are skipped)."""
+    from seen_core import backfill
+
+    _project_or_exit()
+    r = backfill.import_project(Path.cwd(), dry_run=dry_run)
+    verb = "Would import" if dry_run else "Imported"
+    typer.echo(f"{verb} {r.sessions} sessions, {r.changes} changes, API-equivalent cost ≈ ${r.cost_usd:.2f}; "
+               f"{r.skipped} already recorded.")
+    if r.sessions and not dry_run:
+        typer.echo("Imported sessions have no git status or memory state; line counts come from edit inputs.")
+
+
 @app.command("ingest")
 def ingest_cmd(session: str = typer.Option(..., help="Session id to (re)ingest")) -> None:
     """Re-run ingest for a session's current turn (idempotent)."""

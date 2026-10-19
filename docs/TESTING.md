@@ -229,6 +229,21 @@ Expected:
 
 ---
 
+## Part 9b. Import past sessions
+
+```bash
+cd "$SEEN_TEST/demo"
+seen import --dry-run      # counts only, writes nothing
+seen import                # records sessions from ~/.claude/projects/<this repo>/*.jsonl
+seen import                # again: imports nothing new
+```
+
+- [ ] The dry run and the real run report the same session and change counts; `seen audit verify` still passes.
+- [ ] Sessions shows the imported sessions with an **imported** tag; a session still running stays **active**.
+- [ ] Change detail for an imported change shows the "Imported from the Claude Code transcript" note; tokens and
+      cost match the transcript, git status is empty.
+- [ ] Sessions recorded live (Part 9) are listed as already recorded and are not changed.
+
 ## Part 10. Memory with a real session
 
 ```bash

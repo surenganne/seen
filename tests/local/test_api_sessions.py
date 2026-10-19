@@ -43,3 +43,12 @@ def test_sessions_list_status_and_counts(client: TestClient) -> None:
 
 def test_sessions_unknown_project(client: TestClient) -> None:
     assert client.get("/api/projects/nope/sessions").status_code == 404
+
+
+def test_quiet_imported_session_reads_as_ended(client: TestClient) -> None:
+    old = datetime.now(UTC) - timedelta(hours=2)
+    with ledger_session() as db:
+        db.add(Session(id="imp-quiet", project_id=PID, started_at=_iso(old), source="imported"))
+        db.commit()
+    items = {s["id"]: s for s in client.get(f"/api/projects/{PID}/sessions").json()}
+    assert items["imp-quiet"]["status"] == "ended" and items["imp-quiet"]["source"] == "imported"

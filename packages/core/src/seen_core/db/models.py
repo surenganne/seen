@@ -30,6 +30,7 @@ class Session(Base):
     tool: Mapped[str] = mapped_column(T, default="claude-code", server_default="claude-code")
     tool_version: Mapped[str | None] = mapped_column(T)
     user_id: Mapped[str | None] = mapped_column(T)
+    source: Mapped[str] = mapped_column(T, default="live", server_default="live")  # live | imported
 
 
 class Change(Base):

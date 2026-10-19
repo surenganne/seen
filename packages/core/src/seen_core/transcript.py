@@ -38,12 +38,12 @@ class Turn:
     models: list[str] = field(default_factory=list)
 
 
-def _lines(path: Path, offset: int) -> list[dict[str, Any]]:
+def _lines(path: Path, offset: int, end: int | None = None) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     try:
         with open(path, "rb") as f:
             f.seek(offset)
-            raw = f.read()
+            raw = f.read(-1 if end is None else max(0, end - offset))
     except OSError:
         return out
     for ln in raw.splitlines():
@@ -132,13 +132,13 @@ def _walk(turn: Turn, lines: list[dict[str, Any]], seen: set[str], subagent: boo
                     turn.scan_texts.append(("prompt", "", str(c.get("text") or "")))
 
 
-def parse_turn(transcript: str | Path, offset: int) -> Turn:
+def parse_turn(transcript: str | Path, offset: int, end: int | None = None) -> Turn:
     path = Path(transcript)
     turn = Turn()
     seen: set[str] = set()
     tools: dict[str, tuple[str, str]] = {}
     agents: list[str] = []
-    _walk(turn, _lines(path, offset), seen, False, tools, agents)
+    _walk(turn, _lines(path, offset, end), seen, False, tools, agents)
     subdir = path.with_suffix("") / "subagents"
     for aid in agents:
         f = subdir / f"agent-{re.sub(r'[^A-Za-z0-9_-]', '', aid)}.jsonl"
