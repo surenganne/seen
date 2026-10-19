@@ -67,10 +67,13 @@ figures. Hierarchy comes from size and weight steps, not extra typefaces. No all
 
 ## The mark
 
-`components/Eyes.tsx` and `assets/brand/eyes.svg`: two round eyes on a transparent background, white
-sclera, Minfy-orange rim, blue iris (`#5AA9E6 → #1F5F99 → #0A2540`), navy pupil and a double glint.
-Idle: looks around and blinks. Alert (open high-confidence PII or a missed rule): stops, stares ahead, rim
-and iris turn crimson, pupil narrows. Static, mono and PNG variants live in `assets/brand/`.
+`components/Eyes.tsx` and `assets/brand/eyes.svg`: two round eyes with brows on a transparent background,
+white sclera, Minfy-orange rim and brows, blue iris (`#5AA9E6 → #1F5F99 → #0A2540`), navy pupil and a double
+glint. The colours never change, so the mark reads the same everywhere. Idle: looks around, blinks and lifts
+its brows now and then. Alert (the selected project has open high-confidence PII or a missed rule): stops,
+stares ahead with the brows drawn down, pupil narrows; the accessible name becomes "Seen: needs attention".
+Project cards always show the idle mark; their status is the "Needs attention" badge. Static, mono and PNG
+variants live in `assets/brand/`.
 
 ## Motion
 

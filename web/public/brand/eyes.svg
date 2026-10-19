@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Seen">
-  <!-- Seen mark: two round eyes, transparent background. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -6 64 64" role="img" aria-label="Seen">
+  <!-- Seen mark: two round eyes with brows, transparent background. -->
   <defs>
     <radialGradient id="iris" cx="40%" cy="35%" r="70%">
       <stop offset="0" stop-color="#5AA9E6"/><stop offset=".6" stop-color="#1F5F99"/><stop offset="1" stop-color="#0A2540"/>
@@ -9,13 +9,17 @@
   </defs>
   <style>
     .rim { fill: #FFFFFF; stroke: #E85D26; stroke-width: 2.6; }
+    .brow { fill: none; stroke: #E85D26; stroke-width: 3; stroke-linecap: round; animation: brow 7s cubic-bezier(.25,1,.5,1) infinite; }
     .eye { transform-box: fill-box; transform-origin: center; animation: blink 5.4s infinite; }
     .look { animation: look 7s cubic-bezier(.25,1,.5,1) infinite; }
     @keyframes look { 0%,16% { transform: translate(0,0) } 22%,38% { transform: translate(-4.5px,.8px) }
       44%,60% { transform: translate(4.5px,-.6px) } 66%,82% { transform: translate(1px,3px) } 88%,100% { transform: translate(0,0) } }
+    @keyframes brow { 0%,40%,62%,100% { transform: translateY(0) } 46%,56% { transform: translateY(-1.8px) } }
     @keyframes blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.1) } }
-    @media (prefers-reduced-motion: reduce) { .eye, .look { animation: none } }
+    @media (prefers-reduced-motion: reduce) { .eye, .look, .brow { animation: none } }
   </style>
+  <path class="brow" d="M6.5 12.5 Q16 5.5 26 10"/>
+  <path class="brow" d="M38 10 Q48 5.5 57.5 12.5"/>
   <g class="eye">
     <circle class="rim" cx="17" cy="32" r="13.5"/>
     <g clip-path="url(#l)"><g class="look"><circle cx="17" cy="32" r="7.2" fill="url(#iris)"/><circle cx="17" cy="32" r="3.4" fill="#061629"/><circle cx="19.6" cy="29.2" r="1.8" fill="#FFFFFF"/><circle cx="14.6" cy="34.6" r="0.8" fill="#FFFFFF"/></g></g>
