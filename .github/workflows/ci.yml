@@ -9,7 +9,8 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run mypy packages/core/src
-      - run: uv run pytest -m "not e2e and not pg"
+      - run: uv run pytest
+      - run: uv run python -c "import seen_core.hook"  # hook imports cleanly with the workspace install
       - run: uv run python scripts/pii_benchmark.py --check
       - run: uv run python scripts/gen_openapi.py --check
   web:
@@ -23,4 +24,21 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run check:api
       - run: npm run build
+  browser-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: uv sync --frozen
+      - run: cd web && npm ci && npx playwright install --with-deps chromium
+      - run: cd web && npx playwright test
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build dashboard
+      - run: docker compose --profile test run --rm tests
