@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -68,6 +69,9 @@ def load_strict(root: str | Path) -> Lockfile:
         raise LockfileError(f"{p} is not valid; fix it by hand before approving or blocking ({e})") from e
 
 
+_VALID = re.compile(r"[0-9a-f]{7,64}")
+
+
 def _norm(name: str) -> str:
     return name.strip().lstrip("/").strip().lower()
 
@@ -88,7 +92,8 @@ def status(lk: Lockfile, skill_id: str, full_hash: str | None) -> str:
     if is_blocked(lk, skill_id):
         return "blocked"
     hashes = lk.approved.get(skill_id) or []
-    if full_hash and any(full_hash.startswith(h) for h in hashes):
+    # a stored hash must be 7+ lowercase hex characters: "" is a prefix of everything and would approve any version
+    if full_hash and any(_VALID.fullmatch(h) and full_hash.startswith(h) for h in hashes):
         return "approved"
     return "changed" if hashes else "unreviewed"
 

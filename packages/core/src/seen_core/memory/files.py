@@ -138,10 +138,13 @@ def new_memory(folder: Path, *, id: str, type: str, body: str, file_ref: str | N
 def _rewrite(path: Path, **changes: str | None) -> None:
     from .. import safeio
 
+    # root is the repo (like new_memory): a symlinked .seen or .seen/memory is refused before anything is read or written
+    root = path.parent.parent.parent if path.parent.name == "memory" else path.parent
+    safeio.check_no_symlinks(path, root)
     text = path.read_text()
     fm, body = parse(text)
     fm.update(changes)
-    safeio.write_text(path, _render({k: (None if v is None else str(v)) for k, v in fm.items()}, body), path.parent)
+    safeio.write_text(path, _render({k: (None if v is None else str(v)) for k, v in fm.items()}, body), root)
 
 
 def verify(path: Path, now: str) -> None:

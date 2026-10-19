@@ -81,6 +81,8 @@ def append(events: Iterable[dict[str, Any]], conn: sqlite3.Connection | None = N
     """Append events in one BEGIN IMMEDIATE transaction. Returns the stored rows."""
     evs = list(events)
     for e in evs:
+        if e.get("type") == "audit.checkpoint" and conn is None:
+            raise ValueError("audit.checkpoint is written only by the retention prune")  # it vouches for missing rows
         check_detail(e.get("detail") or {})
         for k in ("subject", "actor_id", "project_id", "session_id", "change_id", "type", "outcome", "event_id"):
             v = e.get(k)
@@ -96,6 +98,8 @@ def append(events: Iterable[dict[str, Any]], conn: sqlite3.Connection | None = N
         seq, prev = (last[0], last[1]) if last else (0, ZERO)
         now = spool.now()
         for e in evs:
+            if e.get("event_id") and c.execute("SELECT 1 FROM audit_events WHERE event_id=?", (e["event_id"],)).fetchone():
+                continue  # deterministic ids make a repeated ingest a no-op; checked under the write lock, so a race cannot fail the batch
             seq += 1
             row = {"seq": seq, "event_id": e.get("event_id") or uuid.uuid4().hex, "occurred_at": e.get("occurred_at") or now,
                    "recorded_at": now, "actor_kind": e.get("actor_kind", "system"), "actor_id": e.get("actor_id"),
@@ -144,6 +148,19 @@ def _heads() -> dict[int, str]:
     return out
 
 
+def _checkpoints(c: sqlite3.Connection) -> list[tuple[int, str]]:
+    """(pruned_to_seq, last_pruned_hash) of every well-formed checkpoint; a malformed one vouches for nothing."""
+    out = []
+    for (d,) in c.execute("SELECT detail_json FROM audit_events WHERE type='audit.checkpoint'"):
+        try:
+            x = json.loads(d)
+            if isinstance(x["pruned_to_seq"], int) and isinstance(x["last_pruned_hash"], str):
+                out.append((x["pruned_to_seq"], x["last_pruned_hash"]))
+        except (ValueError, KeyError, TypeError):
+            continue
+    return out
+
+
 def verify() -> VerifyResult:
     c = connect()
     try:
@@ -153,8 +170,7 @@ def verify() -> VerifyResult:
         for vals in cur:
             row = dict(zip([*FIELDS, "hash"], vals, strict=True))
             if prev is None:  # first remaining row: genesis, or the hash a prune checkpoint recorded
-                cps = c.execute("SELECT detail_json FROM audit_events WHERE type='audit.checkpoint'").fetchall()
-                checkpoints |= {json.loads(d)["last_pruned_hash"] for (d,) in cps}
+                checkpoints |= {h for _s, h in _checkpoints(c)}
                 if row["prev_hash"] not in checkpoints:
                     return VerifyResult(False, count, head, last_seq, row["seq"], ZERO, row["prev_hash"], "bad genesis", spool.now())
             elif row["prev_hash"] != prev or row["seq"] != last_seq + 1:
@@ -164,7 +180,13 @@ def verify() -> VerifyResult:
                 return VerifyResult(False, count, head, last_seq, row["seq"], expect, row["hash"], "row edited", spool.now())
             prev, last_seq, head = row["hash"], row["seq"], row["hash"]
             count += 1
+        # a checkpoint can only vouch for rows that are really gone: the range below the first remaining row. A claim
+        # beyond that (a forged checkpoint hiding a truncated tail) is clamped to what is actually missing.
+        first = c.execute("SELECT min(seq) FROM audit_events").fetchone()[0] or 1
+        pruned_to = min(max((t for t, _h in _checkpoints(c)), default=0), first - 1)
         for seq, h in sorted(_heads().items()):  # recorded heads catch tail truncation
+            if seq <= pruned_to:
+                continue  # retention removed it on purpose; the checkpoint vouches for that range
             got = c.execute("SELECT hash FROM audit_events WHERE seq=?", (seq,)).fetchone()
             if got is None or got[0] != h:
                 return VerifyResult(False, count, head, last_seq, last_seq + 1 if got is None else seq, h,
