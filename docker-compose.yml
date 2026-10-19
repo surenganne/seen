@@ -1,11 +1,13 @@
 # Seen local stack. Ports avoid common defaults (47821 API+dashboard, 47822 Vite).
-#   docker compose up -d                        dashboard on mock data      http://127.0.0.1:47821
+#   seen docker-sync && docker compose up -d   dashboard on your REAL data  http://127.0.0.1:47821
+#   seen docker-sync --watch 300 --restart      keep it near-live (host loop; snapshot, then restart the dashboard)
 #   docker compose --profile dev up -d          + Vite dev server (HMR)     http://127.0.0.1:47822
 #   docker compose --profile test run --rm tests            Python lint/type/unit suite in a container
 #   docker compose --profile test run --rm e2e              Playwright against a throwaway seeded test DB
-# Your real ~/.seen is NOT served from Docker: SQLite WAL locking does not cross the Docker Desktop VM, so a container
-# reading the live ledger while host hooks write sees a 'malformed' database (ADR 0008). Run it on the host instead:
-#   SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open
+# The container never opens the live ~/.seen: SQLite WAL locking does not cross the Docker Desktop VM (ADR 0008).
+# It serves a consistent snapshot in ~/.seen-docker (ADR 0011). Mock data (SEEN_DEV_SEED) is for the test stacks only.
+# Writes made in the container dashboard (settings, skill approvals) go to the snapshot and are lost on refresh;
+# change those on the host dashboard (`seen serve`).
 name: seen
 
 services:
@@ -13,10 +15,9 @@ services:
     build: { context: ., target: app }
     image: seen-dashboard:dev
     environment:
-      SEEN_HOME: /data
-      SEEN_DEV_SEED: "1"
+      SEEN_HOME: /snap/current
       SEEN_ALLOWED_HOSTS: dashboard
-    volumes: [seen-dev-data:/data]
+    volumes: ["${SEEN_SNAPSHOT_DIR:-${HOME}/.seen-docker}:/snap"]
     ports: ["127.0.0.1:47821:47821"]
     restart: unless-stopped
 
@@ -64,6 +65,5 @@ services:
     depends_on: { dashboard-test: { condition: service_healthy } }
 
 volumes:
-  seen-dev-data:
   seen-web-node-modules:
   seen-e2e-node-modules:

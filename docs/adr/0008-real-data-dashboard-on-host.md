@@ -1,6 +1,6 @@
 # 0008: Serve the real ledger from the host, not from Docker
 
-Status: accepted, 2026-10-19. Supersedes the `local` profile in ADR 0004.
+Status: accepted, 2026-10-19. Partly superseded by 0011 (snapshot copies are now the Docker route; the live ledger still never goes in a container). Supersedes the `local` profile in ADR 0004.
 
 Observed: the `dashboard-local` container (bind-mounting `~/.seen`) returned HTTP 500
 `database disk image is malformed` on `/api/changes/{cid}` while host hooks were writing, although
