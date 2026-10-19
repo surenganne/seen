@@ -1,9 +1,10 @@
 import { Activity, Bot, Brain, ChevronRight, FileClock, FolderGit2, LayoutDashboard, ListChecks, Monitor, Moon, Settings as Cog, ShieldCheck, ShieldAlert, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useProjects, useVerify } from "../api/hooks";
 import { useRange, withRange } from "../lib/nav";
 import { Eyes } from "./Eyes";
+import { Loading } from "./ui";
 
 type Theme = "light" | "dark" | "system";
 
@@ -164,7 +165,9 @@ export function Layout() {
           </div>
         </header>
         <main id="content" tabIndex={-1} className="content">
-          <Outlet />
+          <Suspense fallback={<div className="page"><Loading what="Loading page" /></div>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

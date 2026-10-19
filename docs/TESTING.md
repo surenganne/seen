@@ -120,7 +120,7 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 - [ ] Click payments-api: you land on its Overview, and the rail's Project select now shows payments-api. The rail eyes stop wandering and stare with lowered brows (alert), because this project has open findings.
 
 **Overview**
-- [ ] Six summary tiles: Changes, Cost, Tokens, Memory loaded, Policy missed, Changes with PII exposure. Tiles that need attention are tinted with an icon.
+- [ ] Six summary tiles: Changes, Cost, Tokens, Memory loaded, Policy missed, Changes with PII exposure. Tiles that need attention are tinted with an icon. Each tile's label is a link (the whole tile is the click target) to the changes behind the number: Cost and Tokens open the list sorted by that column, Memory loaded opens the turns where memory was not loaded, Policy missed and PII exposure open their filtered lists. The date range stays selected.
 - [ ] Switch the date range 7d → 14d → 28d: every figure and the chart update, and the URL keeps `range=`.
 - [ ] Cost per day: hover a bar to see the tooltip. Click "Table view" to see the same numbers as a table.
 - [ ] Needs attention: each item has a Review button that opens Changes with the matching filter applied.
