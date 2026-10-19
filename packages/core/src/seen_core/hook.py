@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import stat
 import sys
 import traceback
 from dataclasses import dataclass
@@ -266,11 +267,19 @@ def _pre_read_scan(p: dict[str, Any], target: str, cfg: dict[str, Any], root: st
 
     pcfg = load_project(root)
     rel = _rel(target, root)
-    if path_allowed(rel, pcfg["allow_paths"]):
-        return Result()
     try:
-        size = os.path.getsize(target)
-        with open(target, "rb") as fh:
+        if path_allowed(rel, pcfg["allow_paths"]):
+            return Result()
+    except Exception:  # noqa: BLE001 - a matcher that cannot run must never switch the block off: scan the file
+        pass
+    try:
+        # O_NONBLOCK: opening a planted FIFO must not hang the hook; only a regular file is read
+        fd = os.open(target, os.O_RDONLY | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as fh:
+            st = os.fstat(fh.fileno())
+            if not stat.S_ISREG(st.st_mode):
+                return Result()
+            size = st.st_size
             data = fh.read(PRE_READ_CAP).decode("utf-8", errors="replace")
     except OSError:
         return Result()

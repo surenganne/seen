@@ -84,3 +84,14 @@ def test_overbroad_allow_paths_do_not_disable_pre_read_block(repo: Path, tmp_pat
     (repo / ".seen/pii.yaml").write_text(f'allow_paths: ["{pattern}"]\n')
     r = setup(repo, tmp_path, seen_home)
     assert read(r, repo / "pay.csv").code == 2
+
+
+def test_a_broken_allowlist_matcher_fails_closed(repo: Path, tmp_path: Path, seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_core.pii import stopscan
+
+    def boom(*_a: object, **_k: object) -> bool:
+        raise ImportError("pathspec missing")
+
+    monkeypatch.setattr(stopscan, "path_allowed", boom)
+    (repo / "pay.csv").write_text(f"id,card\n1,{card()}\n")
+    assert read(setup(repo, tmp_path, seen_home), repo / "pay.csv").code == 2  # still scanned and blocked

@@ -11,4 +11,9 @@
 - **Erasure (DPDP, ADR 0012):** `seen purge`; team server key list, revoke and expiry, and user and project delete.
 - **Upgrade flow (ADR 0013):** `seen version`, `seen upgrade`, `/seen:upgrade`, skew checks and an update notice in
   `seen doctor`, `scripts/bump_version.py`, and a test that keeps every version in step.
+- **Core correctness:** `audit verify` no longer reports tampering after a retention prune; `secret.key` is created
+  once under races; parallel hooks no longer lose or corrupt session state; a planted FIFO cannot hang the pre-read
+  scan, and a broken allowlist matcher fails closed; lockfile approvals ignore empty or malformed hashes; a streamed
+  message is billed at its largest usage and a resumed subagent is counted only for the turn it ran in; racing
+  ingests no longer drop an audit batch; memory rewrites refuse a symlinked `.seen/memory`.
 - Architecture diagram: `docs/architecture.html`.
