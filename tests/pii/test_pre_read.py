@@ -74,3 +74,12 @@ def test_symlink_to_outside_not_followed(repo: Path, tmp_path: Path, seen_home: 
     (repo / "link.csv").symlink_to(secret)
     r = setup(repo, tmp_path, seen_home)
     assert read(r, repo / "link.csv").code in (0, 2)  # decided on content Claude would read; never crashes
+
+
+@pytest.mark.parametrize("pattern", ["**", "*", "**/*", "*.csv"])
+def test_overbroad_allow_paths_do_not_disable_pre_read_block(repo: Path, tmp_path: Path, seen_home: Path, pattern: str) -> None:
+    (repo / "pay.csv").write_text(f"1,{card()}\n")
+    (repo / ".seen").mkdir()
+    (repo / ".seen/pii.yaml").write_text(f'allow_paths: ["{pattern}"]\n')
+    r = setup(repo, tmp_path, seen_home)
+    assert read(r, repo / "pay.csv").code == 2

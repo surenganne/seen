@@ -250,13 +250,11 @@ def _pre_read_scan(p: dict[str, Any], target: str, cfg: dict[str, Any], root: st
 
     from .pii.detect import scan_with_stats
     from .pii.projectcfg import load_project
-    from .pii.stopscan import _rel
+    from .pii.stopscan import _rel, path_allowed
 
     pcfg = load_project(root)
     rel = _rel(target, root)
-    import pathspec
-
-    if rel and pathspec.PathSpec.from_lines("gitignore", pcfg["allow_paths"]).match_file(rel):
+    if path_allowed(rel, pcfg["allow_paths"]):
         return Result()
     try:
         size = os.path.getsize(target)
