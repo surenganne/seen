@@ -100,8 +100,10 @@ def test_dev_seed_into_explicit_home(tmp_path: Path) -> None:
 
 
 def test_dev_seed_refuses_real_home(monkeypatch: pytest.MonkeyPatch) -> None:
-    r = cli.invoke(app, ["dev-seed", "--home", str(Path("~/.seen").expanduser())])
-    assert r.exit_code != 0 and not (Path("~/.seen").expanduser() / "ledger.db").exists()
+    real = Path("~/.seen").expanduser() / "ledger.db"
+    before = real.stat().st_mtime_ns if real.exists() else None  # a real install may already have a ledger
+    r = cli.invoke(app, ["dev-seed", "--home", str(real.parent)])
+    assert r.exit_code != 0 and (real.stat().st_mtime_ns if real.exists() else None) == before
 
 
 def test_serve_starts_and_answers(tmp_path: Path) -> None:

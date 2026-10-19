@@ -45,3 +45,12 @@ def test_settings_validation(client: TestClient) -> None:
     assert client.put("/api/settings", json={"pii": {"mode": "yolo"}}, headers=h).status_code == 422
     assert client.put("/api/settings", json={"audit": {"retention_days": -1}}, headers=h).status_code == 422
     assert client.put("/api/settings", json={"pii": {"nope": True}}, headers=h).status_code == 422
+
+
+def test_export_project_cannot_escape_exports_dir(client: TestClient, seeded) -> None:  # type: ignore[no-untyped-def]
+    h = {"X-Seen-Request": "1"}
+    for bad in ("x/../../../escape", "../escape", "a\\b", "", "x" * 200):
+        r = client.post("/api/audit/export", json={"project": bad, "format": "csv"}, headers=h)
+        assert r.status_code == 422, (bad, r.status_code)
+    assert not list(seeded.rglob("escape*"))
+    assert client.post("/api/audit/export", json={"project": "demo-payments"}, headers=h).status_code == 200

@@ -1,0 +1,10 @@
+# gitleaks: secret scanning for this repo (run: gitleaks git -v / gitleaks dir -v).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic, seeded test data for the PII detector benchmark (scripts/gen_pii_corpus.py) and detector unit tests"
+paths = [
+  '''tests/fixtures/pii_corpus/.*''',
+  '''tests/pii/.*''',
+]

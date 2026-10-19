@@ -32,3 +32,6 @@ web/test-results/
 deploy/.env
 # autoharness auto-learned skills: review before committing (CLAUDE.md section 5)
 .claude/skills/
+
+# local security-audit reports (gstack /cso)
+.gstack/

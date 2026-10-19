@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProjectOut(BaseModel):
@@ -290,7 +290,7 @@ class VerifyOut(BaseModel):
 
 
 class ExportIn(BaseModel):
-    project: str | None = None
+    project: str | None = Field(None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")  # becomes part of a file name
     date_from: str | None = None
     date_to: str | None = None
     format: Literal["csv", "ndjson"] = "ndjson"

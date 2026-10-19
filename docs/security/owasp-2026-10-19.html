@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Seen OWASP Top 10 review, 19 Oct 2026</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  :root { --orange: #E85D26; --navy: #0A2540; --navy2: #1A3A5C; --ink: #333333; --muted: #5b6573; --line: #d9dee5; --soft: #F5F5F5; }
+  * { box-sizing: border-box; }
+  body { font-family: "IBM Plex Sans", Helvetica, Arial, sans-serif; color: var(--ink); font-size: 10pt; line-height: 1.45; margin: 0; }
+  header { background: var(--navy); color: #fff; padding: 18px 20px; border-radius: 6px; }
+  header h1 { margin: 0 0 4px; font-size: 18pt; font-weight: 600; }
+  header p { margin: 0; color: #F5F5F5; }
+  header .bar { width: 64px; height: 4px; background: var(--orange); margin: 10px 0 0; }
+  h2 { color: var(--navy); font-size: 12.5pt; margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 9pt; }
+  th { text-align: left; background: var(--navy2); color: #fff; font-weight: 500; padding: 5px 7px; }
+  td { padding: 5px 7px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  code { font-family: "IBM Plex Mono", Menlo, monospace; font-size: 8.5pt; }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 8pt; font-weight: 600; }
+  .pass { background: #e3f4ea; color: #1d6b3c; } .fixed { background: #fde9df; color: #a33f12; } .open { background: #fff3d6; color: #7a5300; }
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+  .summary div { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .summary b { display: block; font-size: 15pt; color: var(--navy); }
+  .muted { color: var(--muted); font-size: 8.5pt; }
+  .note { border: 1px solid var(--line); background: var(--soft); border-radius: 6px; padding: 8px 10px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Seen: OWASP Top 10 review</h1>
+  <p>Repository github.com/surenganne/seen · branch build/seen-v1 · 19 Oct 2026 (IST) · gstack /cso --owasp, daily mode (8/10 gate)</p>
+  <div class="bar"></div>
+</header>
+
+<div class="summary">
+  <div><b>0</b>confirmed findings at the 8/10 gate</div>
+  <div><b>3</b>below-gate defects fixed, test first</div>
+  <div><b>2</b>decision items for the owner</div>
+  <div><b>0</b>known CVEs (npm, pip-audit)</div>
+</div>
+
+<h2>Scope and method</h2>
+<p>Local dashboard API (FastAPI on 127.0.0.1), team server skeleton (FastAPI + Postgres), Claude Code hooks and CLI (stdlib Python),
+React dashboard, Dockerfiles and Compose, GitHub Actions. Phases: architecture model, dependency supply chain, CI/CD, OWASP A01–A10,
+false-positive filtering. Every candidate was scored by an independent verifier that saw only the file and line. Fixes were reproduced
+on the live Docker stack.</p>
+
+<h2>Baseline checks (ExampleOrg §5.1)</h2>
+<table>
+  <tr><th>Check</th><th>Result</th><th>Evidence</th></tr>
+  <tr><td>Secrets (A02/A07)</td><td><span class="pill pass">pass</span></td><td>Team server refuses to start in production with a bootstrap key under 32 characters (test). <code>deploy/.env</code> is generated at 0600 and gitignored. Token-shaped strings in history are seeded synthetic benchmark data; <code>.gitleaks.toml</code> added with that allowlist.</td></tr>
+  <tr><td>Auth throttling (A07/A04)</td><td><span class="pill pass">pass</span></td><td>Per-client-IP limit (8 failures / 60 s); once locked, even a correct key waits, so the lockout is not an oracle. No per-account lockout. Keys are 256-bit random.</td></tr>
+  <tr><td>Security headers (A05)</td><td><span class="pill pass">pass</span></td><td>Live <code>curl</code>: <code>X-Frame-Options: DENY</code>, CSP with <code>script-src 'self'</code>, <code>frame-ancestors 'none'</code>, <code>object-src 'none'</code>, <code>nosniff</code>, <code>Referrer-Policy</code>, <code>Permissions-Policy</code>, no server banner. Playwright fails on any CSP violation.</td></tr>
+  <tr><td>Containers (A05)</td><td><span class="pill pass">pass</span></td><td>Dashboard image runs as non-root (live <code>id -u</code> → 10001). The team image declares <code>USER seen</code> (not run live: it needs <code>deploy/.env</code>). Ports published on 127.0.0.1 only.</td></tr>
+  <tr><td>Supply chain (A06/A08)</td><td><span class="pill pass">pass</span></td><td><code>npm audit</code> (prod and dev): 0. <code>pip-audit</code> on 84 locked runtime packages and dev group: 0. <code>uv.lock</code> and <code>package-lock.json</code> tracked; images use <code>uv sync --frozen</code> and <code>npm ci</code>.</td></tr>
+  <tr><td>Access control (A01/A07)</td><td><span class="pill pass">pass</span></td><td>Bootstrap key compared with <code>hmac.compare_digest</code> on bytes; API keys stored as SHA-256; project scoping and member-only detail on every team route. Local writes need <code>X-Seen-Request</code> (live: 403 without it); DNS rebinding blocked (live: 400 for a foreign Host).</td></tr>
+  <tr><td>Injection (A03)</td><td><span class="pill pass">pass</span></td><td>All SQL parameterised (the only f-strings interpolate a constant column list). No <code>eval</code>/<code>exec</code>/<code>pickle</code>/<code>shell=True</code>/unsafe YAML. Git runs through a wrapper that disables fsmonitor, hooks, external diff, pager, protocols and ssh. Config-supplied regexes go through a deny-by-default ReDoS check. CSV export neutralises formula cells. No HTML escape hatches in the UI.</td></tr>
+  <tr><td>SSRF (A10)</td><td><span class="pill pass">pass</span></td><td>The only outbound call is <code>seen sync</code> to a server URL from local config; plain http is refused except for localhost.</td></tr>
+  <tr><td>Logging (A09)</td><td><span class="pill pass">pass</span></td><td>Append-only, hash-chained audit trail (UPDATE/DELETE rejected by triggers); every state-changing route writes an event (route-walk test); no PII values, prompts or secrets in events (verified on the real ledger).</td></tr>
+  <tr><td>PII at rest (DPDP)</td><td><span class="pill open">decision</span></td><td>See decision item 2.</td></tr>
+</table>
+
+<h2>Fixed in this review (below the gate, real defects)</h2>
+<table>
+  <tr><th>#</th><th>OWASP</th><th>Defect</th><th>Fix and proof</th></tr>
+  <tr><td>1</td><td>A01</td><td><code>POST /api/audit/export</code> built the file name from an unvalidated <code>project</code> string, so <code>x/../../../escape</code> wrote outside <code>~/.seen/exports</code>. Reachable only by the same-origin page or a same-user process (verifier 3/10).</td><td><code>ExportIn.project</code> now matches <code>^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$</code>. Test <code>test_export_project_cannot_escape_exports_dir</code> RED → GREEN; live container returns 422.</td></tr>
+  <tr><td>2</td><td>A05</td><td>Team server served <code>/docs</code>, <code>/redoc</code> and <code>/openapi.json</code> without a key in production (verifier 3/10; every data route still required a key).</td><td>Disabled when <code>APP_ENV=production</code>. Test <code>test_production_hides_api_docs</code> RED → GREEN.</td></tr>
+  <tr><td>3</td><td>A08</td><td>CI used the third-party <code>astral-sh/setup-uv</code> on a mutable tag and had no <code>permissions:</code> block (verifier 5/10; no secrets in CI, no <code>pull_request_target</code>, no script injection).</td><td>All actions pinned to commit SHAs (tag kept as a comment); workflow token set to <code>contents: read</code>.</td></tr>
+</table>
+<p class="muted">Also fixed: <code>test_dev_seed_refuses_real_home</code> assumed no real ledger existed; it now asserts the real ledger is unchanged. <code>.gstack/</code> (local audit reports) is now gitignored.</p>
+
+<h2>Decision items for the owner</h2>
+<table>
+  <tr><th>#</th><th>Item</th><th>Risk</th><th>Options</th></tr>
+  <tr><td>1</td><td>Local dashboard read API has no login (<code>seen_local/app.py</code>).</td><td>On a shared multi-user host, another OS account can read change summaries, memory text, paths and stored prompt text over 127.0.0.1, bypassing the 0700 <code>~/.seen</code>. No web or remote path (verifier 5/10). Documented in the README.</td><td>A) per-launch token set by <code>seen serve --open</code> (cookie, constant-time check); B) Unix socket at 0600; C) accept for single-user laptops and keep documenting it.</td></tr>
+  <tr><td>2</td><td>Prompt text at rest (<code>changes.prompt_text</code>).</td><td>Default <code>redacted</code> stores structured identifiers as <code>[TYPE]</code>; names and free text are not detected. <code>full</code> mode stores raw prompts in plaintext SQLite (0600). No field-level or database encryption.</td><td>A) keep <code>redacted</code> default and require FileVault/BitLocker on dev machines; B) add SQLCipher or field-level encryption for <code>prompt_text</code>; C) default to <code>off</code>.</td></tr>
+</table>
+
+<h2>Gates after fixes</h2>
+<p>ruff clean · mypy clean · pytest 378 passed · PII benchmark ok · OpenAPI and web client regenerated and in sync · web lint, typecheck, Vitest 10 passed · Docker real-data dashboard healthy.</p>
+
+<div class="note"><b>Disclaimer.</b> This is an AI-assisted scan for common vulnerability patterns. It is not comprehensive and is not a substitute for a
+professional security audit or penetration test. For production systems handling personal data, engage a qualified security firm.</div>
+</body>
+</html>
