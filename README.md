@@ -76,7 +76,7 @@ contributor accepts the workspace trust dialog:
 
 ```bash
 seen report --days 7          # what changed, what it cost, which skills ran
-seen serve --open             # dashboard on http://127.0.0.1:47821 (from a clone; see below)
+seen serve --open             # the dashboard on your real data (needs a web build once: see Dashboard)
 seen memory add --id refund-idempotency --type decision --file-ref src/payments/refund.py \
   --text "Refunds carry an idempotency key; retries reuse it."
 seen memory list | verify <id> | archive <id>
@@ -88,6 +88,34 @@ seen docker-sync --watch 300 --restart   # keep the Docker dashboard's copy of ~
 seen audit export --format csv --from 2026-10-01 --to 2026-10-31
 ```
 
+## Dashboard
+
+A local web UI over the same ledger: **Projects** and **Overview** (cost, tokens, skills, PII, memory coverage),
+**Changes** and **Sessions** (every agent turn, with the files, skills and findings behind each number),
+**Memory**, **Skills** (versions and approvals), **Audit** (the hash-chained trail, with verify and export) and
+**Settings** (PII detection is editable; sync and retention are shown). Summaries link to the rows behind them.
+
+The UI is a built bundle that is not packaged with the CLI, so build it once from a clone:
+
+```bash
+git clone https://github.com/surenganne/seen && cd seen
+(cd web && npm ci && npm run build)
+```
+
+Then pick how to run it:
+
+| | Command | URL | Data |
+|---|---|---|---|
+| **On the host** (recommended) | `SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open` | http://127.0.0.1:47825 | Your real `~/.seen`, live |
+| From a clone | `uv run seen serve --open` (finds `web/dist` itself; default port 47821) | http://127.0.0.1:47821 | Your real `~/.seen`, live |
+| In Docker | `seen docker-sync && docker compose up -d --build` | http://127.0.0.1:47821 | A snapshot of `~/.seen`, refreshed by `seen docker-sync --watch 300 --restart` |
+| UI development | `docker compose --profile dev up -d` | http://127.0.0.1:47822 | The Docker dashboard's data, with hot reload |
+
+The dashboard has no login: it binds to 127.0.0.1 only, rejects other `Host` headers and requires a custom header
+on every write, and `seen serve` refuses a non-loopback address unless you pass `--allow-remote` (containers only).
+Do not publish its port beyond localhost. `seen dev-seed --home <scratch dir>` fills a throwaway home with generated
+data for trying the UI; it refuses `~/.seen`.
+
 ## Docker
 
 Hooks and the CLI run on the host (that is where Claude Code and your repos are). Docker runs the dashboard,
@@ -98,7 +126,7 @@ the test suites and the team server. Ports avoid the common defaults.
 | `seen docker-sync && docker compose up -d --build` | Dashboard on a snapshot of your real `~/.seen` ([ADR 0011](docs/adr/0011-real-data-snapshot-in-docker.md)) | http://127.0.0.1:47821 |
 | `seen docker-sync --watch 300 --restart` (host) | Keep the container near-live: snapshot every 5 minutes, then restart the dashboard | |
 | `docker compose --profile dev up -d` | Plus the Vite dev server with hot reload | http://127.0.0.1:47822 |
-| `SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open` (on the host, not Docker) | Live (not snapshot) dashboard on your real `~/.seen`. The container never opens the live ledger: SQLite WAL locking does not cross the Docker Desktop VM ([ADR 0008](docs/adr/0008-real-data-dashboard-on-host.md)) | http://127.0.0.1:47825 |
+| (host dashboard) | The container never opens the live ledger: SQLite WAL locking does not cross the Docker Desktop VM ([ADR 0008](docs/adr/0008-real-data-dashboard-on-host.md)); see Dashboard above | |
 | `docker compose --profile test run --rm tests` | Python lint, types and unit tests | |
 | `docker compose --profile test run --rm e2e` | Playwright against a throwaway, freshly seeded test database (tmpfs) | |
 | `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (Phase 5 skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 |
@@ -107,9 +135,7 @@ Development data never touches your real ledger: `seen dev-seed` only writes int
 `SEEN_HOME`, every test gets its own temporary one, and the team test suite uses a separate
 `seen_team_test` database.
 
-The dashboard UI ships as a built bundle. From a `uv tool` install, point Seen at one:
-`git clone https://github.com/surenganne/seen && (cd seen/web && npm ci && npm run build)`, then
-`SEEN_WEB_DIST=$PWD/seen/web/dist seen serve --open`. Or use the Docker dashboard below, which needs nothing on the host.
+The Docker dashboard needs nothing on the host except the CLI (`seen docker-sync`); the image builds the UI itself.
 
 ## Develop
 
@@ -145,13 +171,29 @@ Issues and pull requests: <https://github.com/surenganne/seen>.
 
 - **Tamper-evident, not tamper-proof.** Someone with write access to this machine can rebuild the audit chain.
   It catches bugs, partial edits and clumsy tampering. Anchoring chain heads on a team server (`seen sync`)
-  makes rewriting local history detectable.
+  makes rewriting local history detectable. Retention pruning is recorded as a checkpoint that can only vouch
+  for rows that are really gone.
 - **Coverage.** Only sessions where the plugin ran are recorded; gaps are recorded as `capture.gap` and
-  `session.incomplete`. Enable the plugin through managed settings for whole teams.
-- **PII detection** finds structured identifiers (Aadhaar, PAN, cards, IBAN, email, phone, UPI, DOB, GSTIN,
-  secrets…). It misses names, addresses and free-text health details unless the optional Presidio tier is on.
-  Seen shows exposure; it cannot un-send what already reached the model provider. It is evidence for a
-  privacy review, not a compliance control, and makes no claim about DPDP, GDPR or HIPAA compliance.
+  `session.incomplete`. Sessions that start outside a git repository record nothing (PII block mode still
+  applies there). Sessions that installed plugins start in the background are recorded but shown apart from
+  your own. Enable the plugin through managed settings for whole teams.
+- **PII detection** finds structured identifiers (Aadhaar, PAN, cards, IBAN, email, phone, UPI, DOB, GSTIN, public
+  IP addresses, secrets and tokens…). It misses names, addresses and free-text health details unless the optional
+  Presidio tier is on. Seen shows exposure; it cannot un-send what already reached the model provider. It is
+  evidence for a privacy review, not a compliance control, and makes no claim about DPDP, GDPR or HIPAA compliance.
+  In block mode a file over 256 KB, or one that takes longer than the 100 ms scan budget, is read first and scanned
+  after the turn (detect only). A custom rule that cannot finish in time blocks the prompt rather than being skipped.
+- **Data at rest.** The local ledger (SQLite) and the team database (Postgres) are not encrypted by Seen: use disk
+  encryption, and decide whether you also want database encryption. `seen purge` and the team server's delete routes
+  erase data (bytes, not just rows); the audit trail keeps a record of each erasure, counts only.
 - **Cost** is an API-equivalent estimate from a price table marked unverified until the owner confirms it.
-- **Memory** is text the model treats as guidance. Review `.seen/memory/` like code (a CODEOWNERS rule helps)
-  and never store secrets or client data there.
+- **Memory** is text the model treats as guidance, and repo memory is injected automatically (there is no per-repo
+  opt-in yet): treat a repository you did not write as untrusted. Review `.seen/memory/` like code (a CODEOWNERS
+  rule helps) and never store secrets or client data there.
+- **The dashboard** has no login (see Dashboard). The Docker copy is a snapshot: it is as old as the last
+  `seen docker-sync`, and settings or approvals changed there are lost on refresh. It aims for WCAG 2.2 AA, but
+  automated accessibility checks are not in CI yet, so that is a target, not a verified claim.
+- **The team server** is a Phase 5 skeleton: no SSO, schema changes outside Alembic, and no scheduled retention.
+  Sync is off by default and sends only the metadata you switch on; per-person detail stays private to that person.
+- **Network.** Hooks never touch it. `seen doctor` and `seen upgrade` make one anonymous request to GitHub to look
+  for a newer release; set `SEEN_NO_UPDATE_CHECK=1` to stop it.

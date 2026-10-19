@@ -279,3 +279,28 @@ test.describe("changes grouped by session, with paging", () => {
     await expect(page.getByRole("button", { name: /Clear session filter/ })).toBeVisible();
   });
 });
+
+
+test.describe("the mark watches the pointer", () => {
+  const gaze = (page: import("@playwright/test").Page) =>
+    page.locator(".eyes:visible").first().locator(".eyes-look").first().getAttribute("transform");
+  const dx = async (page: import("@playwright/test").Page) => Number(/translate\((-?[\d.]+)/.exec((await gaze(page)) ?? "")?.[1] ?? "0");
+
+  for (const path of ["/projects", "/settings"]) {
+    test(`eyes on ${path} follow the mouse left and right`, async ({ page, isMobile }) => {
+      test.skip(isMobile, "no pointer on a phone");
+      await page.goto(path);
+      await expect(page.locator(".eyes:visible").first()).toBeVisible();
+      await page.mouse.move(1200, 400);
+      await expect.poll(() => dx(page), { timeout: 4000 }).toBeGreaterThan(1.5);
+      await page.mouse.move(2, 400);
+      await expect.poll(() => dx(page), { timeout: 4000 }).toBeLessThan(0.5);
+    });
+  }
+
+  test("eyes are present on a project page too", async ({ page }) => {
+    await page.goto("/projects");
+    await page.getByTestId("project-card").first().click();
+    await expect(page.locator(".eyes:visible").first()).toBeVisible();
+  });
+});

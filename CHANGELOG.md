@@ -24,4 +24,4 @@
   `npm audit` on production dependencies, gitleaks over the full history, and trivy on the dashboard and team images;
   `ci` gains a Postgres job for the team server, concurrency groups, timeouts and caches; Dependabot covers uv, npm,
   Actions and Docker. Base images move to `python:3.12.15-slim-bookworm` (the old pin carried fixable OpenSSL CVEs).
-- Architecture diagram: `docs/architecture.html`.
+- **The mark watches the pointer:** the eyes in the rail (topbar on a phone) follow the mouse and keyboard focus anywhere on the page, then go back to glancing; they stay still under reduced motion. The architecture diagram (`docs/architecture.html`) now has a light skin.
