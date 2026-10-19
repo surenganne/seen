@@ -91,7 +91,8 @@ def _on_session_start(p: dict[str, Any]) -> Result:
     from .project import resolve_project
 
     proj = resolve_project(p.get("cwd") or ".")
-    seen_dir = Path(proj.root) / ".seen" if proj else None
+    root = (proj.worktree or proj.root) if proj else None  # a worktree has its own .seen/* and files
+    seen_dir = Path(root) / ".seen" if root else None
     spool.append(p["session_id"], {
         "ev": "session_start", "source": p.get("source"), "cwd": paths.redact_home(p.get("cwd") or ""),
         "plugin_version": brand.VERSION, "config_hash": _file_hash(paths.config_toml()),
@@ -99,12 +100,12 @@ def _on_session_start(p: dict[str, Any]) -> Result:
         "policies_hash": _file_hash(seen_dir / "policies.yaml") if seen_dir else None,
         "transcript_path": p.get("transcript_path"),
         "project_id": proj.id if proj else None, "project_name": proj.name if proj else None,
-        "remote": proj.remote if proj else None, "root": proj.root if proj else None,
+        "remote": proj.remote if proj else None, "root": root, "project_root": proj.root if proj else None,
     })
-    _scan_inventory(proj.root if proj else None, proj.id if proj else None)
+    _scan_inventory(root, proj.id if proj else None)
     from .memory import session as msess
 
-    text, line = msess.inject(p["session_id"], proj.root if proj else None, proj.id if proj else None, "", [])
+    text, line = msess.inject(p["session_id"], root, proj.id if proj else None, "", [])
     if line:
         spool.append(p["session_id"], {**line, **_base(p)})
     return _context("SessionStart", text)
@@ -322,8 +323,12 @@ def _on_post_tool(p: dict[str, Any]) -> Result:
 
 
 def _on_stop(p: dict[str, Any]) -> Result:
+    from .redact import redact, summarise
+
+    last = p.get("last_assistant_message") or ""
+    # never the raw reply: it routinely echoes what the user typed
     spool.append(p["session_id"], {"ev": "turn_end", **_base(p), "stop_hook_active": bool(p.get("stop_hook_active")),
-                                   "last_message": (p.get("last_assistant_message") or "")[:2000]})
+                                   "summary": redact(summarise(last)) if last else ""})
     from . import ingest  # heavy imports only here, once per turn
 
     r = ingest.finish_turn(p["session_id"])

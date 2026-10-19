@@ -16,7 +16,8 @@ class Project:
     id: str
     name: str
     remote: str | None
-    root: str
+    root: str  # main checkout (shared by all worktrees)
+    worktree: str = ""  # this checkout: where .seen/* and the files being edited live
 
 
 def _git(cwd: str | Path, *args: str) -> str | None:
@@ -46,4 +47,5 @@ def resolve_project(cwd: str | Path) -> Project | None:
     remote = normalise_remote(remote_url) if remote_url else None
     key = remote or main_root
     name = (remote.rsplit("/", 1)[-1] if remote else Path(main_root).name) or "project"
-    return Project(id=hashlib.sha1(key.encode()).hexdigest()[:12], name=name, remote=remote, root=main_root)
+    return Project(id=hashlib.sha1(key.encode()).hexdigest()[:12], name=name, remote=remote, root=main_root,
+                   worktree=os.path.realpath(top))

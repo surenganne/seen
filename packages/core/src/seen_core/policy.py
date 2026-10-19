@@ -24,7 +24,8 @@ def load(root: str | Path | None) -> list[Policy]:
         return []
     f = Path(root) / ".seen" / "policies.yaml"
     try:
-        data = yaml.safe_load(f.read_text()) if f.is_file() and not f.is_symlink() else []
+        ok = f.is_file() and not f.is_symlink() and f.stat().st_size <= 256 * 1024
+        data = yaml.safe_load(f.read_text()) if ok else []
     except (OSError, yaml.YAMLError):
         return []
     out = []

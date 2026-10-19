@@ -5,6 +5,7 @@ custom_rules as a block list of flat mappings. Anything else is ignored."""
 from __future__ import annotations
 
 import os
+import re
 import stat
 from pathlib import Path
 from typing import Any
@@ -75,5 +76,20 @@ def load_project(root: str | Path | None) -> dict[str, Any]:
             if ":" in s and cfg["custom_rules"]:
                 k, _, v = s.partition(":")
                 cfg["custom_rules"][-1][k.strip()] = _scalar(v)
-    cfg["custom_rules"] = [r for r in cfg["custom_rules"] if r.get("pattern")]
+    cfg["custom_rules"] = [r for r in cfg["custom_rules"] if safe_pattern(str(r.get("pattern") or ""))]
     return cfg
+
+
+# a quantified group that itself contains a quantifier or an alternation: (a+)+, (a|aa)*, (\w+\s?){2,}
+_NESTED = re.compile(r"\((?:[^()\\]|\\.)*(?:[+*]|\{\d*,\d*\}|\|)(?:[^()\\]|\\.)*\)(?:[+*]|\{\d*,\d*\})")
+
+
+def safe_pattern(p: str) -> bool:
+    """Repo regexes run on every prompt and Python's re has no timeout: refuse catastrophic shapes."""
+    if not p or len(p) > 200 or _NESTED.search(p) or re.search(r"\\[1-9]", p):
+        return False
+    try:
+        re.compile(p)
+    except re.error:
+        return False
+    return True

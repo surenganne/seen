@@ -1,0 +1,1 @@
+{"action": "create", "reason": "Seen build executed SEEN_BUILD_PLAN tasks with per-commit task IDs, a progress.md Ruling log, red-green TDD fixes, a full real-Claude e2e pass, and a whole-branch review before closing. This sequence is the phase-gate routine a future session must follow.", "evidence": "references/evidence-162c26a8.md"}

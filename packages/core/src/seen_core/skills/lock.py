@@ -33,10 +33,26 @@ def _parse(text: str) -> Lockfile:
     return Lockfile(approved={str(k): list(v) for k, v in approved.items()}, blocked=list(blocked))
 
 
+MAX_LOCK_BYTES = 1024 * 1024
+
+
+def _read_safe(p: Path) -> str:
+    """Repo file: regular, not a symlink (could point at /dev/zero), size-capped."""
+    import os
+    import stat
+
+    st = os.lstat(p)
+    if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_LOCK_BYTES:
+        raise ValueError(f"{p} is not a regular file under 1 MB")
+    fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as fh:
+        return fh.read(MAX_LOCK_BYTES).decode("utf-8", errors="replace")
+
+
 def load(root: str | Path) -> Lockfile:
     """Lenient read for status display. Writers use load_strict."""
     try:
-        return _parse(path(root).read_text())
+        return _parse(_read_safe(path(root)))
     except (OSError, ValueError, TypeError, AttributeError):
         return Lockfile()
 
@@ -44,11 +60,11 @@ def load(root: str | Path) -> Lockfile:
 def load_strict(root: str | Path) -> Lockfile:
     p = path(root)
     safeio.check_no_symlinks(p, Path(root))
-    if not p.exists():
+    if not p.exists() and not p.is_symlink():
         return Lockfile()
     try:
-        return _parse(p.read_text())
-    except (ValueError, TypeError, AttributeError) as e:
+        return _parse(_read_safe(p))
+    except (OSError, ValueError, TypeError, AttributeError) as e:
         raise LockfileError(f"{p} is not valid; fix it by hand before approving or blocking ({e})") from e
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 from .pii.detect import scan
@@ -22,3 +23,9 @@ def redact(text: str, *, allow_values: list[str] | None = None, custom_rules: li
     red = "".join(out)
     home = os.path.expanduser("~")
     return red.replace(home + "/", "~/").replace(home, "~") if home and home != "/" else red
+
+
+def summarise(text: str) -> str:
+    """First sentence of the assistant's final message, trimmed to 120 characters (plan 9.4)."""
+    first = re.split(r"(?<=[.!?])\s|\n", text.strip(), maxsplit=1)[0].strip()
+    return first[:120]
