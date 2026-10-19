@@ -409,6 +409,15 @@
             "title": "Skills",
             "type": "array"
           },
+          "source": {
+            "default": "live",
+            "enum": [
+              "live",
+              "imported"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
           "started_at": {
             "anyOf": [
               {
@@ -1802,6 +1811,15 @@
             },
             "title": "Models",
             "type": "array"
+          },
+          "source": {
+            "default": "live",
+            "enum": [
+              "live",
+              "imported"
+            ],
+            "title": "Source",
+            "type": "string"
           },
           "started_at": {
             "anyOf": [

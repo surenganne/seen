@@ -12,6 +12,7 @@ class SessionOut(BaseModel):
     started_at: str | None
     ended_at: str | None
     status: Literal["active", "ended", "incomplete"]
+    source: Literal["live", "imported"] = "live"
     last_event_at: str | None
     tool: str
     tool_version: str | None
@@ -194,6 +195,7 @@ class PiiFindingOut(BaseModel):
 
 class ChangeDetail(BaseModel):
     id: str
+    source: Literal["live", "imported"] = "live"
     project_id: str | None
     session_id: str | None
     seq: int | None

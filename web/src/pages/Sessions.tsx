@@ -41,7 +41,7 @@ export function Sessions() {
                     <tr key={s.id} className="clickable" tabIndex={0} onClick={() => select(s.id)} onKeyDown={(e) => e.key === "Enter" && select(s.id)}
                       aria-selected={open === s.id} data-testid="session-row" data-status={s.status}>
                       <td className="mono">{short(s.id, 8)}<div className="meta">{s.tool}{s.tool_version ? ` ${s.tool_version}` : ""}</div></td>
-                      <td>{STATUS[s.status]}</td>
+                      <td><span className="checks">{STATUS[s.status]}{s.source === "imported" && <span className="tag" title="Recorded afterwards from the Claude Code transcript">imported</span>}</span></td>
                       <td className="when">{when(s.started_at)}</td>
                       <td className="when">{when(s.last_event_at)}</td>
                       <td className="mono small">{s.models.join(", ") || "—"}</td>
@@ -74,7 +74,7 @@ function SessionDrawer({ pid, id, s, onClose }: { pid: string; id: string; s?: S
       <div className="drawer-body">
         {s && (
           <dl className="kv">
-            <dt>Status</dt><dd>{STATUS[s.status]}</dd>
+            <dt>Status</dt><dd className="checks">{STATUS[s.status]}{s.source === "imported" && <span className="tag">imported</span>}</dd>
             <dt>Started</dt><dd className="mono">{when(s.started_at)}</dd>
             <dt>Ended</dt><dd className="mono">{s.ended_at ? when(s.ended_at) : "—"}</dd>
             <dt>Model</dt><dd className="mono">{s.models.join(", ") || "—"}</dd>

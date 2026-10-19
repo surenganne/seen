@@ -60,6 +60,7 @@ seen memory add --id refund-idempotency --type decision --file-ref src/payments/
   --text "Refunds carry an idempotency key; retries reuse it."
 seen memory list | verify <id> | archive <id>
 seen skills scan | list
+seen import --dry-run         # past sessions from Claude Code transcripts (before the plugin was installed)
 seen audit verify
 seen audit export --format csv --from 2026-10-01 --to 2026-10-31
 ```
