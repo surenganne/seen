@@ -1,17 +1,17 @@
 {
   "description": "Seen capture, audit, PII scan and memory gate",
   "hooks": {
-    "SessionStart":     [{"hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook session-start"}]}],
-    "UserPromptSubmit": [{"hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook prompt-submit"}]}],
+    "SessionStart":     [{"hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" session-start"}]}],
+    "UserPromptSubmit": [{"hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" prompt-submit"}]}],
     "PreToolUse": [
-      {"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook pre-edit"}]},
-      {"matcher":"Skill","hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook pre-skill"}]},
-      {"matcher":"Read","hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook pre-read"}]}
+      {"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" pre-edit"}]},
+      {"matcher":"Skill","hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" pre-skill"}]},
+      {"matcher":"Read","hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" pre-read"}]}
     ],
     "PostToolUse": [
-      {"matcher":"*","hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook post-tool"}]}
+      {"matcher":"*","hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" post-tool"}]}
     ],
-    "Stop":       [{"hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook stop"}]}],
-    "SessionEnd": [{"hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook session-end"}]}]
+    "Stop":       [{"hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" stop"}]}],
+    "SessionEnd": [{"hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" session-end"}]}]
   }
 }

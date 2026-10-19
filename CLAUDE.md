@@ -19,3 +19,5 @@
 - Repo files (.seen/*, .claude/*, git config) are untrusted input: write through `seen_core.safeio`, run git through `seen_core.gitutil`, never follow symlinks out of the repo.
 - Gates: `uv run ruff check . && uv run mypy packages/core/src && uv run pytest` (real-Claude e2e is opt-in: `uv run pytest -m e2e tests/e2e`), `uv run python scripts/pii_benchmark.py --check`, `uv run python scripts/gen_openapi.py --check`; web: `npm run lint && npm run typecheck && npm test && npm run check:api && npx playwright test`.
 - After changing an API route or schema: `uv run python scripts/gen_openapi.py && (cd web && npm run gen:api)`.
+- Repo: https://github.com/surenganne/seen (CI: .github/workflows/ci.yml). Install hints point at `uv tool install git+https://github.com/surenganne/seen#subdirectory=packages/cli` until seen-cli is on PyPI.
+- UI follows DESIGN.md and PRODUCT.md: tokens only from web/src/styles/tokens.css (OKLCH, WCAG 2.2 AA in light and dark), IBM Plex Sans/Mono, lucide icons, no side stripes or eyebrows. Keep test ids and accessible names stable; the manual check list is docs/TESTING.md.
