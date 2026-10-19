@@ -69,3 +69,23 @@ def test_payload_respects_switches(repo: Path, tmp_path: Path, seen_home: Path) 
 
 def test_disabled_sync_sends_nothing(seen_home: Path) -> None:
     assert sync.build_batch() == {"changes": [], "audit_heads": [], "audit": []}
+
+
+def test_audit_sync_uses_per_type_detail_allowlist(repo: Path, tmp_path: Path, seen_home: Path) -> None:
+    rp = Replay(repo, tmp_path)
+    rp.start()
+    rp.prompt("hello")
+    rp.fire("post-tool", "post_tool_use_edit", tool_input={"file_path": str(repo / "a.py")})
+    rp.model_works()
+    rp.stop()
+    audit.append([{"type": "custom.weird", "actor_kind": "system", "detail": {"anything": "x"}}])
+    paths.ensure_dir(seen_home)
+    paths.config_toml().write_text("[sync]\nenabled = true\nsend_audit = true\n")
+    events = sync.build_batch()["audit"]
+    blob = json.dumps(events)
+    assert "prompt_hmac" not in blob and "content_hash" not in blob and '"hashes"' not in blob
+    tool = next(e for e in events if e["type"] == "tool.call")
+    assert set(tool["detail"]) <= {"tool", "cmd0", "skill"}
+    assert next(e for e in events if e["type"] == "custom.weird")["detail"] == {}
+    paths.config_toml().write_text("[sync]\nenabled = true\nsend_audit = true\nsend_paths = true\n")
+    assert "path" in next(e for e in sync.build_batch()["audit"] if e["type"] == "tool.call")["detail"]
