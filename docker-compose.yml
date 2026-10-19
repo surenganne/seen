@@ -1,9 +1,11 @@
-# Seen local stack. Ports avoid common defaults (47821 API+dashboard, 47822 Vite, 47825 real data).
+# Seen local stack. Ports avoid common defaults (47821 API+dashboard, 47822 Vite).
 #   docker compose up -d                        dashboard on mock data      http://127.0.0.1:47821
 #   docker compose --profile dev up -d          + Vite dev server (HMR)     http://127.0.0.1:47822
 #   docker compose --profile test run --rm tests            Python lint/type/unit suite in a container
 #   docker compose --profile test run --rm e2e              Playwright against a throwaway seeded test DB
-#   docker compose --profile local up -d dashboard-local    your real ~/.seen (read/write)  http://127.0.0.1:47825
+# Your real ~/.seen is NOT served from Docker: SQLite WAL locking does not cross the Docker Desktop VM, so a container
+# reading the live ledger while host hooks write sees a 'malformed' database (ADR 0008). Run it on the host instead:
+#   SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open
 name: seen
 
 services:
@@ -60,20 +62,6 @@ services:
       CI: "1"
     volumes: [./web:/web, seen-e2e-node-modules:/web/node_modules]
     depends_on: { dashboard-test: { condition: service_healthy } }
-
-  dashboard-local:
-    profiles: [local]
-    image: seen-dashboard:dev
-    build: { context: ., target: app }
-    user: "${SEEN_UID:-10001}"
-    environment:
-      SEEN_HOME: ${HOME}/.seen
-      SEEN_DEV_SEED: "0"
-    # same absolute paths as the host, so project roots stored in the ledger resolve inside the container
-    volumes:
-      - ${HOME}/.seen:${HOME}/.seen
-      - ${SEEN_REPOS:-${HOME}/repos}:${SEEN_REPOS:-${HOME}/repos}
-    ports: ["127.0.0.1:47825:47821"]
 
 volumes:
   seen-dev-data:
