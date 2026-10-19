@@ -22,7 +22,8 @@ dev = ["pytest==9.1.1", "pytest-asyncio==1.4.0", "hypothesis==6.170.1", "ruff==0
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -p no:cacheprovider -m \"not e2e and not pg\""
-markers = ["e2e: needs a real Claude Code session (manual or nightly)", "pg: needs the Postgres test container"]
+markers = ["e2e: needs a real Claude Code session (manual or nightly)", "pg: needs the Postgres test container",
+           "perf: host latency gate (hooks run on the developer machine); skipped in containers"]
 
 [tool.ruff]
 line-length = 110

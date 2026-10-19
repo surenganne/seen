@@ -87,6 +87,7 @@ def test_unknown_event_is_noop(repo: Path) -> None:
     assert run("bogus", payload("stop", repo)).code == 0
 
 
+@pytest.mark.perf
 def test_hook_latency_p95(repo: Path, tmp_path: Path) -> None:
     body = json.dumps(payload("post_tool_use_edit", repo)).encode()
     env = {"SEEN_HOME": str(tmp_path / "h"), "PATH": "/usr/bin:/bin"}

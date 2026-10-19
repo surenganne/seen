@@ -35,9 +35,9 @@ services:
     build: { context: ., target: test }
     image: seen-tests:dev
     tmpfs: ["/tmp:exec"]
-    # Docker Desktop's VM starts processes several times slower than the host, where hooks really run.
-    # Host latency gates stay strict; the plan's 150 ms hook p95 gate is not scaled.
-    environment: { SEEN_PERF_FACTOR: "2.5" }
+    # Latency gates (-m perf) run on the host and in the native CI job, where hooks really run;
+    # container process start times say nothing about them.
+    command: ["sh", "-c", "ruff check . && mypy packages/core/src && python scripts/gen_openapi.py --check && pytest -m 'not e2e and not pg and not perf'"]
 
   # Isolated test database: tmpfs, seeded fresh on every start, never the dev or real data.
   dashboard-test:
