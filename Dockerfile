@@ -1,7 +1,7 @@
 # Seen dashboard image. Hooks and the CLI run on the host (Claude Code lives there);
 # this image runs the local API + web build, and the test suite, in isolation.
 
-FROM node:22.20.0-alpine AS web
+FROM node:26.12.0-alpine AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
