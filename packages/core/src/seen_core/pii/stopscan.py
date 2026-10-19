@@ -62,18 +62,23 @@ def usable_paths(patterns: list[str]) -> list[str]:
     return out
 
 
+def path_allowed(rel: str, allow_paths: list[str]) -> bool:
+    """The one allow_paths matcher (pre-read gate and Stop scan must agree)."""
+    rel = os.path.normpath(rel) if rel else rel
+    if not rel or rel.startswith(("..", "/", "~")):
+        return False
+    return pathspec.PathSpec.from_lines("gitignore", usable_paths(allow_paths)).match_file(rel)
+
+
 class Collector:
     def __init__(self, cfg: dict[str, Any], pcfg: dict[str, Any]) -> None:
         self.cfg, self.pcfg = cfg, pcfg
         self.rows: dict[tuple[str, str, str, str, str], Row] = {}
         self.allowlisted = 0
-        self.allow_paths = pathspec.PathSpec.from_lines("gitignore", usable_paths(pcfg.get("allow_paths") or []))
+        self.allow = list(pcfg.get("allow_paths") or [])
 
     def path_allowed(self, rel: str) -> bool:
-        rel = os.path.normpath(rel) if rel else rel
-        if not rel or rel.startswith(("..", "/", "~")):
-            return False
-        return self.allow_paths.match_file(rel)
+        return path_allowed(rel, self.allow)
 
     def add(self, text: str, kind: str, ref: str, dest: str) -> None:
         if not text:
@@ -81,6 +86,10 @@ class Collector:
         found, allowed = scan_with_stats(text, only=list(self.cfg["types"]) + ["custom"], allow_values=self.pcfg.get("allow_values"),
                                          custom_rules=self.pcfg.get("custom_rules"), min_confidence="low")
         self.allowlisted += allowed
+        if self.cfg.get("engine") == "presidio":
+            from . import ner  # ingest only: hooks never reach this branch
+
+            found = found + ner.scan(text)
         for f in found:
             self._merge(f, kind, ref, dest)
 
