@@ -154,7 +154,7 @@ export function ChangeDetail() {
                       <td className="mono">{p.type}</td>
                       <td className="num">{p.count} <span className="muted tiny">({p.distinct_count} distinct)</span></td>
                       <td><Badge tone={p.confidence === "high" ? "critical" : p.confidence === "medium" ? "warning" : "neutral"}>{p.confidence}</Badge></td>
-                      <td>{SOURCE[p.source_kind ?? ""] ?? p.source_kind} <div className="path muted tiny">{p.source_ref}</div></td>
+                      <td>{SOURCE[p.source_kind ?? ""] ?? p.source_kind}{p.source_ref && p.source_ref !== SOURCE[p.source_kind ?? ""] && <div className="path muted tiny">{p.source_ref}</div>}</td>
                       <td>{DEST[p.destination ?? ""] ?? p.destination}</td>
                       <td>{p.status === "open" ? <span className="checks"><Badge tone="warning">open</Badge><MarkTestData id={p.id} /></span>
                         : <Badge tone="neutral">{p.status?.replace("_", " ")}</Badge>}</td>

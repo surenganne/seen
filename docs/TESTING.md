@@ -264,15 +264,16 @@ claude -p "Add a multiply function to calc.py." --permission-mode acceptEdits
 
 ## Part 12. PII detection modes
 
-Use synthetic values only: the public Visa test card `4111 1111 1111 1111` and a made-up PAN `ABCPE1234F`.
-Never test with real personal data.
+Use synthetic values only: a made-up PAN `ABCPE1234F` and an email on a fictional domain. Never test with real personal
+data. Public test card numbers such as `4111 1111 1111 1111` are deliberately ignored by the detector (they are
+test data by definition), and `example.com` addresses are allowlisted by `seen init`, so neither raises a finding.
 
 ```bash
 cd "$SEEN_TEST/demo"
-claude -p "Card 4111 1111 1111 1111 belongs to PAN ABCPE1234F. Reply OK."
+claude -p "Customer PAN ABCPE1234F, contact jane.doe@fictional-corp.in. Made-up test values. Reply OK."
 ```
 
-- [ ] `report` mode (default): the session runs. Change detail lists `card` and `pan` with counts, source Prompt and destination Model. The stored prompt is redacted (`[CARD]`, `[PAN]`).
+- [ ] `report` mode (default): the session runs. Change detail lists `email` and `pan` (medium confidence) with counts, source Prompt and destination Model. The stored prompt reads `Customer PAN [PAN], contact [EMAIL]. …`.
 - [ ] Settings → PII Mode `warn`, run again: Claude Code shows a Seen warning, and the prompt is still sent.
 - [ ] Mode `block`, run again: the prompt is stopped before it reaches the model.
 - [ ] Put the same values in `data/customers.csv` and ask Claude to read it: the finding's source is File read, and Overview offers a deny rule for that path.
