@@ -16,4 +16,8 @@
   scan, and a broken allowlist matcher fails closed; lockfile approvals ignore empty or malformed hashes; a streamed
   message is billed at its largest usage and a resumed subagent is counted only for the turn it ran in; racing
   ingests no longer drop an audit batch; memory rewrites refuse a symlinked `.seen/memory`.
+- **Sync robustness (ADR 0014):** permanently rejected batches are parked (`seen sync --retry-failed`, shown in
+  `seen doctor`) instead of retried forever; the team server validates and caps ingest, limits body size, counts
+  successful requests in its throttle and supports `SEEN_TEAM_PROXY_HOPS`; `sync.server` must be https (or localhost).
+  Ledger migration 0004: run `seen upgrade`.
 - Architecture diagram: `docs/architecture.html`.

@@ -48,7 +48,7 @@ def _change(db: Any, c: Change, s: dict[str, Any]) -> dict[str, Any]:
 # memory contents, unknown keys) is dropped. Path keys additionally need send_paths.
 AUDIT_DETAIL = {
     "session.start": {"plugin_version", "source"}, "session.end": {"reason"}, "session.incomplete": {"last_seq"},
-    "capture.gap": {"hook", "error"}, "turn.start": {"prompt_len", "slash"},
+    "capture.gap": {"hook"}, "turn.start": {"prompt_len", "slash"},
     "turn.end": {"tok_in", "tok_out", "tok_cache_read", "tok_cache_write", "cost_usd", "price_version", "files"},
     "memory.injected": {"tokens"}, "gate.decision": {"hook", "decision", "reason"}, "file.changed": {"path", "added", "removed"},
     "tool.call": {"tool", "cmd0", "skill", "path"}, "skill.invoked": {"skill", "hash", "trigger", "status"},
@@ -152,7 +152,7 @@ def enqueue() -> dict[str, Any] | None:
     body = json.dumps(b, sort_keys=True, separators=(",", ":"))
     with ledger_session() as db:
         if any(json.loads(o.payload_json or "{}").get("_body") == body for o in db.scalars(select(Outbox).where(Outbox.sent_at.is_(None)))):
-            return None  # same batch already waiting
+            return None  # same batch already waiting (or parked as rejected: it is retried only on request)
         db.add(Outbox(kind="batch", payload_json=json.dumps({"_body": body, "_key": hashlib.sha256(body.encode()).hexdigest()[:40]}),
                       created_at=spool.now(), attempts=0))
         db.commit()
@@ -184,16 +184,24 @@ def _http(url: str, headers: dict[str, str], body: bytes) -> tuple[int, dict[str
         return 0, {}
 
 
-def push(transport: Transport | None = None, now_offset_s: float = 0) -> dict[str, int]:
+RETRYABLE = {0, 408, 425, 429}  # 0 = no answer; every 5xx is retryable too. Other 4xx will not change by waiting.
+
+
+def push(transport: Transport | None = None, now_offset_s: float = 0, retry_dead: bool = False) -> dict[str, int]:
     import json
     from urllib.parse import urlparse
 
     url, key = _server()
+    if retry_dead:
+        with ledger_session() as db:
+            for o in db.scalars(select(Outbox).where(Outbox.dead_at.is_not(None), Outbox.sent_at.is_(None))):
+                o.dead_at, o.last_status, o.attempts = None, None, 0
+            db.commit()
     enqueue()
     send = transport or _http
-    sent = failed = 0
+    sent = failed = dead = 0
     with ledger_session() as db:
-        pending = list(db.scalars(select(Outbox).where(Outbox.sent_at.is_(None)).order_by(Outbox.id)))
+        pending = list(db.scalars(select(Outbox).where(Outbox.sent_at.is_(None), Outbox.dead_at.is_(None)).order_by(Outbox.id)))
         for o in pending:
             if not _due(o, now_offset_s):
                 continue
@@ -213,11 +221,18 @@ def push(transport: Transport | None = None, now_offset_s: float = 0) -> dict[st
                 audit.append([{"type": "sync.batch", "actor_kind": "system", "subject": "batch",
                                "detail": {"kind": "batch", "count": len(ids), "server": urlparse(url).netloc,
                                           "ack": "duplicate" if resp.get("duplicate") else "accepted"}}])
-            else:
+            elif status in RETRYABLE or status >= 500:
                 o.attempts = (o.attempts or 0) + 1
                 failed += 1
                 db.commit()
-    return {"sent": sent, "failed": failed}
+            else:  # a permanent rejection (bad key, wrong project, too large, invalid): park it, tell the user, keep the data owed
+                o.dead_at, o.last_status = spool.now(), status
+                dead += 1
+                db.commit()
+                audit.append([{"type": "sync.batch", "actor_kind": "system", "subject": "batch",
+                               "detail": {"kind": "batch", "count": len(json.loads(meta["_body"])["changes"]),
+                                          "server": urlparse(url).netloc, "ack": "rejected", "status": status}}])
+    return {"sent": sent, "failed": failed, "dead": dead}
 
 
 def _anchor_file() -> Any:

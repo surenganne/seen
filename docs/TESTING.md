@@ -368,6 +368,8 @@ uv run pytest -m pg                                     # team tests against the
 - [ ] The `pg` suite passes. It uses the `seen_team_test` database, not the team data.
 - [ ] Sync check: mint a member key through `POST /api/keys` with the admin key from `deploy/.env` (read it into a variable; do not paste it into chat or tickets). Set `[sync] enabled = true` and `server = "http://127.0.0.1:47824"` in `$SEEN_HOME/config.toml`, export the member key as `SEEN_TEAM_API_KEY`, and run `seen sync`. It reports the batch and `audit anchored through seq N`, and the local audit trail records a `sync.batch` event.
 - [ ] Only metadata syncs: no prompts, diffs, file contents or PII values.
+- [ ] Wrong key: with a bad `SEEN_TEAM_API_KEY`, `seen sync` reports `1 rejected by the server (parked ...)` once and does not retry it on the next run. `seen doctor` shows the parked batch. After fixing the key, `seen sync --retry-failed` sends it.
+- [ ] Settings → sync server: `http://example.com` and `https://user:pw@host` are refused; `https://team.example.com` and `http://localhost:47824` are accepted.
 
 ---
 

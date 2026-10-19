@@ -50,3 +50,14 @@ def test_doctor_flags_skew_and_available_update(monkeypatch: pytest.MonkeyPatch,
     monkeypatch.setattr(upgrade, "latest_release", lambda **_k: "9.9.9")
     out = cli.invoke(app, ["doctor"]).output
     assert "!!  " in out and "0.0.1" in out and "9.9.9" in out and "seen upgrade" in out
+
+
+def test_doctor_reports_parked_sync_batches() -> None:
+    from seen_core.db import ledger_session
+    from seen_core.db.models import Outbox
+
+    with ledger_session() as db:
+        db.add(Outbox(kind="batch", payload_json="{}", created_at="2026-10-19T00:00:00Z", dead_at="2026-10-19T00:01:00Z", last_status=403))
+        db.commit()
+    out = cli.invoke(app, ["doctor"]).output
+    assert "!!  sync: 1 batch(es) rejected by the server (last status 403)" in out and "--retry-failed" in out
