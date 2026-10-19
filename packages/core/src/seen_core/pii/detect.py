@@ -67,6 +67,7 @@ _WELL_KNOWN_IPS = {"8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "9.9.9.9", "208.6
 _ASSIGN = re.compile(r"(?i)(?<![\w.-])['\"]?[\w.-]{0,40}?(?:key|secret|token|passwd|password|pwd|credential)[\w-]{0,20}['\"]?[ \t]{0,4}[:=][ \t]{0,4}['\"]?([A-Za-z0-9/+_=.$!#@%^&*~-]{12,256})")
 CTX_WINDOW = 32
 CUSTOM_RULE_SECONDS = 0.25
+TIMEOUT_DETECTOR = "custom:timeout"
 
 
 @dataclass
@@ -232,6 +233,7 @@ def scan_with_stats(text: str, *, only: list[str] | None = None, allow_values: l
     allow = usable_patterns(allow_values or [])
     allowed = 0
     hits = _hits(text)
+    timeouts = 0
     for r in custom_rules or []:
         try:
             rx = re.compile(str(r["pattern"]))
@@ -242,7 +244,7 @@ def scan_with_stats(text: str, *, only: list[str] | None = None, allow_values: l
             with _deadline(CUSTOM_RULE_SECONDS):
                 hits += [("custom", str(conf), m.start(), m.end(), m.group(0), f"custom:{r.get('id', 'rule')}") for m in rx.finditer(text)]
         except TimeoutError:
-            continue  # a rule that cannot finish in time is skipped for this text, never allowed to hang the prompt
+            timeouts += 1  # never allowed to hang the prompt; handled below, fail closed
     # the same span is one identifier: keep the highest-confidence, most specific claim on it
     hits.sort(key=lambda h: (-(h[3] - h[2]), -CONF_RANK[h[1]], h[0] == "phone", h[2]))  # longest claim on a span wins
     taken: list[tuple[int, int]] = []
@@ -269,4 +271,9 @@ def scan_with_stats(text: str, *, only: list[str] | None = None, allow_values: l
             seen[key].add(fp)
             f.fingerprints.append(fp)
         f.distinct = len(seen[key])
+    if timeouts and (not only or "custom" in only):
+        # fail closed: a rule that could not finish means this text was not fully checked. High confidence so block mode
+        # stops it and warn mode says so; redact() masks the whole text and the stored prompt is never the raw one.
+        found[("custom", "high", TIMEOUT_DETECTOR)] = Finding(type="custom", confidence="high", detector=TIMEOUT_DETECTOR,
+                                                              count=timeouts, distinct=timeouts, spans=[(0, len(text))])
     return sorted(found.values(), key=lambda f: (-CONF_RANK[f.confidence], f.type)), allowed

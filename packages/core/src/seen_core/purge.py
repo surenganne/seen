@@ -4,6 +4,7 @@ file is vacuumed, so a deleted prompt does not linger in free pages."""
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -27,6 +28,25 @@ CHILDREN = (ChangeFile, ChangeMemory, SkillInvocation, PolicyResult, PiiFinding)
 
 def _run(db: sa.orm.Session, stmt: sa.Delete) -> int:
     return int(db.execute(stmt).rowcount)  # type: ignore[attr-defined]  # DML results are CursorResult
+
+
+def _purge_outbox(db: sa.orm.Session, before: str | None, project: str | None, everything: bool) -> int:
+    """Queued sync payloads hold the same data as the ledger rows, so they must go too or the next sync resurrects it.
+    A batch that carries any change of the purged project is dropped whole; unsent changes of other projects in it
+    are queued again by the next sync (a change is only marked synced when its batch is acknowledged)."""
+    scope = [Outbox.created_at < before] if before else []
+    if everything or (before and not project):
+        return _run(db, sa.delete(Outbox).where(*scope))
+    ids = []
+    for o in db.scalars(sa.select(Outbox).where(*scope)):
+        try:
+            body = json.loads(json.loads(o.payload_json or "{}").get("_body") or "{}")
+            hit = any(c.get("project_id") == project for c in body.get("changes", []))
+        except (ValueError, AttributeError, TypeError):
+            hit = True  # unreadable payload: erase rather than keep what cannot be checked
+        if hit:
+            ids.append(o.id)
+    return sum(_run(db, sa.delete(Outbox).where(Outbox.id.in_(ids[i:i + 500]))) for i in range(0, len(ids), 500))
 
 
 def _chunks(ids: Sequence[str], n: int = 500) -> list[Sequence[str]]:
@@ -64,9 +84,7 @@ def purge(*, before: str | None = None, project: str | None = None, everything: 
         res["projects"] = 0
         if project and not before or everything:
             res["projects"] = _run(db, sa.delete(Project).where(*([Project.id == project] if project else [])))
-        res["outbox"] = 0
-        if before or everything:  # queued payloads are not project-tagged: cleared by age or wholesale only
-            res["outbox"] = _run(db, sa.delete(Outbox).where(*([Outbox.created_at < before] if before else [])))
+        res["outbox"] = _purge_outbox(db, before, project, everything)
         if dry_run:
             db.rollback()
             return res
