@@ -177,6 +177,8 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
 
     @app.post("/api/sync")
     def sync(body: BatchIn, k: Key, s: Db, x_idempotency_key: str = Header(..., max_length=128)) -> dict[str, Any]:
+        if k.role != "member" or not k.user_id:
+            raise HTTPException(403, "only member keys (bound to a user) can send changes")
         prior = s.scalars(sa.select(TeamBatch).where(TeamBatch.key_id == k.id, TeamBatch.idempotency_key == x_idempotency_key)).first()
         if prior:
             return {**json.loads(prior.response), "duplicate": True}
@@ -188,7 +190,7 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
             raise HTTPException(403, "this install id belongs to another key")
         for c in body.changes:
             can_see(k, c.project_id)
-            if k.role == "member" and c.user_id != k.user_id:
+            if c.user_id != k.user_id:
                 raise HTTPException(403, "member keys can only send their own changes")
             old = s.get(TeamChange, c.id)
             if old is not None and (old.project_id != c.project_id or old.writer_key != k.id):

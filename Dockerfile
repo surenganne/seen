@@ -33,6 +33,7 @@ RUN uv sync --frozen
 COPY tests/ tests/
 COPY scripts/ scripts/
 COPY web/openapi.json web/openapi.json
+COPY docs/ docs/
 COPY plugin/ plugin/
 RUN useradd --uid 10001 --create-home seen && chown -R seen /app
 USER seen

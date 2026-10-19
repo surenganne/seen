@@ -141,3 +141,11 @@ def test_change_ids_cannot_be_overwritten_across_projects_or_writers(team: TestC
     b = batch(pid="p2")
     b["install_id"] = "inst-2"
     assert team.post("/api/sync", json=b, headers={"Authorization": f"Bearer {p2}", "X-Idempotency-Key": "1"}).status_code == 409
+
+
+@pytest.mark.parametrize("role", ["lead", "admin"])
+def test_only_member_keys_write(team: TestClient, role: str) -> None:
+    k = make_key(team, "p1" if role == "lead" else None, role)
+    r = team.post("/api/sync", json=batch(), headers={"Authorization": f"Bearer {k}", "X-Idempotency-Key": "z"})
+    assert r.status_code == 403
+    assert team.post("/api/sync", json=batch(), headers={**admin(team), "X-Idempotency-Key": "b"}).status_code == 403
