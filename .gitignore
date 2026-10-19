@@ -29,3 +29,4 @@ web/test-results/
 **/.claude/autoharness/
 **/.claude/logs/
 **/.claude/tmp/
+deploy/.env

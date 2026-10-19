@@ -38,9 +38,28 @@ Range = Annotated[int, Query(alias="range", description="7, 14 or 28 days")]
 
 
 def _verify() -> S.VerifyOut:
+    import sqlite3
+
+    from seen_core import sync
+
     v = audit.verify()
-    return S.VerifyOut(ok=v.ok, count=v.count, head=v.head, head_seq=v.head_seq, break_seq=v.break_seq, expected=v.expected,
-                       found=v.found, reason=v.reason, verified_at=v.verified_at, anchored=False, anchor_note=ANCHOR_NOTE)
+    ok, reason, brk, note, anchored = v.ok, v.reason, v.break_seq, ANCHOR_NOTE, False
+    a = sync.anchor()
+    if a:
+        anchored = True
+        note = (f"Anchored on {a.get('server')} through seq {a['seq']} ({str(a.get('at'))[:10]}). "
+                "Rewriting local history before that point is detectable.")
+        try:
+            con = sqlite3.connect(f"file:{paths.audit_db()}?mode=ro", uri=True)
+            row = con.execute("SELECT hash FROM audit_events WHERE seq = ?", (a["seq"],)).fetchone()
+            con.close()
+        except sqlite3.Error:
+            row = None
+        if row is None or row[0] != a["hash"]:
+            ok, brk = False, a["seq"]
+            reason = "anchored head differs from the local chain: local history was rewritten after anchoring"
+    return S.VerifyOut(ok=ok, count=v.count, head=v.head, head_seq=v.head_seq, break_seq=brk, expected=a["hash"] if a and not ok else v.expected,
+                       found=v.found, reason=reason, verified_at=v.verified_at, anchored=anchored, anchor_note=note)
 
 
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "

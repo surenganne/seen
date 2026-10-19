@@ -1,0 +1,46 @@
+# Seen team stack (Phase 5 skeleton). Ports off the defaults: Postgres 47823, team server 47824.
+#   sh deploy/init-env.sh                                     generate deploy/.env (random secrets)
+#   docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d
+#   docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env --profile test run --rm team-tests
+name: seen-team
+
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    environment:
+      POSTGRES_USER: seen
+      POSTGRES_DB: seen_team
+      POSTGRES_PASSWORD: ${SEEN_TEAM_DB_PASSWORD:?run deploy/init-env.sh first}
+    volumes:
+      - seen-team-pg:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    ports: ["127.0.0.1:47823:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seen -d seen_team"]
+      interval: 5s
+      retries: 20
+
+  team:
+    build: { context: .., dockerfile: deploy/Dockerfile.team }
+    image: seen-team:dev
+    environment:
+      SEEN_TEAM_DATABASE_URL: postgresql+psycopg://seen:${SEEN_TEAM_DB_PASSWORD:?run deploy/init-env.sh first}@postgres:5432/seen_team
+      SEEN_TEAM_BOOTSTRAP_KEY: ${SEEN_TEAM_BOOTSTRAP_KEY:?run deploy/init-env.sh first}
+      APP_ENV: production
+    ports: ["127.0.0.1:47824:47824"]
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: unless-stopped
+
+  team-tests:
+    profiles: [test]
+    image: seen-team:dev
+    build: { context: .., dockerfile: deploy/Dockerfile.team }
+    user: root
+    environment:
+      SEEN_TEAM_TEST_URL: postgresql+psycopg://seen:${SEEN_TEAM_DB_PASSWORD:?run deploy/init-env.sh first}@postgres:5432/seen_team_test
+      APP_ENV: test
+    command: sh -c "uv sync --frozen --package seen-team --group dev >/dev/null && .venv/bin/pytest -p no:cacheprovider -o addopts='' tests/team/test_team.py -q"
+    depends_on: { postgres: { condition: service_healthy } }
+
+volumes:
+  seen-team-pg:

@@ -11,9 +11,9 @@ from typing import Any
 
 from sqlalchemy import select
 
-from . import audit, config, paths
+from . import audit, config, paths, spool
 from .db import ledger_session
-from .db.models import Change, ChangeFile, PiiFinding, PolicyResult, Session, Skill, SkillInvocation
+from .db.models import Change, ChangeFile, Outbox, PiiFinding, PolicyResult, Session, Skill, SkillInvocation
 
 
 def _change(db: Any, c: Change, s: dict[str, Any]) -> dict[str, Any]:
@@ -93,4 +93,148 @@ def build_batch(limit: int = 500) -> dict[str, Any]:
     with ledger_session() as db:
         rows = list(db.scalars(select(Change).where(Change.synced_at.is_(None)).order_by(Change.started_at).limit(limit)))
         changes = [_change(db, c, s) for c in rows]
-    return {"changes": changes, "audit_heads": heads(), "audit": _audit_events(s, limit) if s["send_audit"] else []}
+    done = (anchor() or {}).get("seq") or 0
+    return {"changes": changes, "audit_heads": [h for h in heads() if h["seq"] > done],
+            "audit": _audit_events(s, limit) if s["send_audit"] else []}
+
+
+# ---- outbox worker (Phase 5): enqueue the allowlisted batch, send with retry and idempotency keys
+
+class SyncError(RuntimeError):
+    pass
+
+
+Transport = Any  # callable(url, headers, body) -> (status, json)
+
+
+def install_id() -> str:
+    """Random per-install id for anchoring; never derived from the user or host."""
+    import secrets
+
+    f = paths.home() / "install_id"
+    try:
+        v = f.read_text().strip()
+        if v:
+            return v
+    except OSError:
+        pass
+    paths.ensure_dir(f.parent)
+    v = "inst_" + secrets.token_hex(12)
+    f.write_text(v + "\n")
+    return v
+
+
+def _server() -> tuple[str, str]:
+    import os
+    from urllib.parse import urlparse
+
+    s = config.load()["sync"]
+    url = str(s.get("server") or "").rstrip("/")
+    u = urlparse(url)
+    if not url or u.scheme not in ("https", "http") or not u.hostname:
+        raise SyncError("Set [sync] server = \"https://...\" in ~/.seen/config.toml")
+    if u.scheme == "http" and u.hostname not in ("localhost", "127.0.0.1", "::1"):
+        raise SyncError("Refusing to send the API key over plain http; use https (http is allowed for localhost only)")
+    key = os.environ.get(str(s.get("api_key_env") or "SEEN_TEAM_API_KEY"), "")
+    if not key:
+        raise SyncError(f"Set the API key in the {s.get('api_key_env') or 'SEEN_TEAM_API_KEY'} environment variable (never in config)")
+    return url, key
+
+
+def enqueue() -> dict[str, Any] | None:
+    import hashlib
+    import json
+
+    b = build_batch()
+    if not b["changes"] and not b["audit_heads"]:
+        return None
+    b["install_id"] = install_id()
+    body = json.dumps(b, sort_keys=True, separators=(",", ":"))
+    with ledger_session() as db:
+        if any(json.loads(o.payload_json or "{}").get("_body") == body for o in db.scalars(select(Outbox).where(Outbox.sent_at.is_(None)))):
+            return None  # same batch already waiting
+        db.add(Outbox(kind="batch", payload_json=json.dumps({"_body": body, "_key": hashlib.sha256(body.encode()).hexdigest()[:40]}),
+                      created_at=spool.now(), attempts=0))
+        db.commit()
+    return b
+
+
+def _due(o: Outbox, now_offset_s: float) -> bool:
+    from datetime import UTC, datetime, timedelta
+
+    if not o.attempts:
+        return True
+    created = datetime.fromisoformat((o.created_at or spool.now()).replace("Z", "+00:00"))
+    backoff = timedelta(seconds=min(3600, 30 * 2 ** (o.attempts - 1)))
+    return datetime.now(UTC) + timedelta(seconds=now_offset_s) >= created + backoff
+
+
+def _http(url: str, headers: dict[str, str], body: bytes) -> tuple[int, dict[str, Any]]:
+    import json
+    import urllib.error
+    import urllib.request
+
+    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (scheme checked in _server)
+            return r.status, json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        return e.code, {}
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return 0, {}
+
+
+def push(transport: Transport | None = None, now_offset_s: float = 0) -> dict[str, int]:
+    import json
+    from urllib.parse import urlparse
+
+    url, key = _server()
+    enqueue()
+    send = transport or _http
+    sent = failed = 0
+    with ledger_session() as db:
+        pending = list(db.scalars(select(Outbox).where(Outbox.sent_at.is_(None)).order_by(Outbox.id)))
+        for o in pending:
+            if not _due(o, now_offset_s):
+                continue
+            meta = json.loads(o.payload_json or "{}")
+            status, resp = send(f"{url}/api/sync", {"Authorization": f"Bearer {key}", "X-Idempotency-Key": meta["_key"],
+                                                    "Content-Type": "application/json"}, meta["_body"].encode())
+            if 200 <= status < 300:
+                o.sent_at = spool.now()
+                body = json.loads(meta["_body"])
+                ids = [c["id"] for c in body["changes"]]
+                for c in db.scalars(select(Change).where(Change.id.in_(ids))):
+                    c.synced_at = o.sent_at
+                if resp.get("anchored"):
+                    _write_anchor({**resp["anchored"], "at": o.sent_at, "server": urlparse(url).netloc})
+                sent += 1
+                db.commit()
+                audit.append([{"type": "sync.batch", "actor_kind": "system", "subject": "batch",
+                               "detail": {"kind": "batch", "count": len(ids), "server": urlparse(url).netloc,
+                                          "ack": "duplicate" if resp.get("duplicate") else "accepted"}}])
+            else:
+                o.attempts = (o.attempts or 0) + 1
+                failed += 1
+                db.commit()
+    return {"sent": sent, "failed": failed}
+
+
+def _anchor_file() -> Any:
+    return paths.home() / "anchors.json"
+
+
+def _write_anchor(a: dict[str, Any]) -> None:
+    import json
+
+    _anchor_file().write_text(json.dumps(a))
+
+
+def anchor() -> dict[str, Any] | None:
+    import json
+
+    try:
+        data: dict[str, Any] = json.loads(_anchor_file().read_text())
+        return data
+    except (OSError, ValueError):
+        return None
