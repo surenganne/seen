@@ -173,3 +173,17 @@ def test_untracked_counting_has_a_total_budget(repo: Path) -> None:
     s = snapshot(repo)
     assert time.perf_counter() - t < 1.5
     assert len(s["untracked"]) == 40 and all(v == 0 for v in s["untracked"].values())
+
+
+@pytest.mark.parametrize("pat", ["((a+))+$", "(?:(?:a+))+", "(a*)*b", "(?:a|aa)+$", "((ab|a)c?)*x", "(x+x+)+y"])
+def test_nested_quantifiers_rejected_at_any_depth(pat: str) -> None:
+    from seen_core.pii.projectcfg import safe_pattern
+
+    assert not safe_pattern(pat)
+
+
+@pytest.mark.parametrize("pat", [r"\bMRN[:# ]*\d{6,10}\b", r"\bUHID-\d{8}\b", r"(?i)patient id: [A-Z]{2}\d{6}"])
+def test_ordinary_rules_still_allowed(pat: str) -> None:
+    from seen_core.pii.projectcfg import safe_pattern
+
+    assert safe_pattern(pat)
