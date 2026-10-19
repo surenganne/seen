@@ -74,7 +74,7 @@ the test suites and the team server. Ports avoid the common defaults.
 |---|---|---|
 | `docker compose up -d` | Dashboard on generated mock data | http://127.0.0.1:47821 |
 | `docker compose --profile dev up -d` | Plus the Vite dev server with hot reload | http://127.0.0.1:47822 |
-| `docker compose --profile local up -d dashboard-local` | Dashboard on your real `~/.seen` (repos under `$SEEN_REPOS`, default `~/repos`) | http://127.0.0.1:47825 |
+| `SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open` (on the host, not Docker) | Dashboard on your real `~/.seen`. SQLite WAL locking does not cross the Docker Desktop VM, so the live ledger is never served from a container ([ADR 0008](docs/adr/0008-real-data-dashboard-on-host.md)) | http://127.0.0.1:47825 |
 | `docker compose --profile test run --rm tests` | Python lint, types and unit tests | |
 | `docker compose --profile test run --rm e2e` | Playwright against a throwaway, freshly seeded test database (tmpfs) | |
 | `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (Phase 5 skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 |

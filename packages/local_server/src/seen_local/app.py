@@ -243,7 +243,7 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
     if web_dist and web_dist.is_dir():
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="assets")
 
-        @app.get("/{path:path}", include_in_schema=False)
+        @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)  # link checkers and extensions send HEAD
         def spa(path: str) -> FileResponse:
             f = (web_dist / path).resolve()
             if path and f.is_file() and web_dist.resolve() in f.parents:

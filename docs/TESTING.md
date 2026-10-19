@@ -7,7 +7,7 @@ says what to run and what you should see. Work top to bottom: later parts build 
 scratch git repos. Nothing writes to `~/.seen` unless you choose to in Part 13.
 
 **Ports used** (all off the common defaults): 47821 dashboard, 47822 Vite dev server, 47823 team Postgres,
-47824 team server, 47825 Docker dashboard on real data, 47826 the host dashboard in this guide.
+47824 team server, 47825 dashboard on real data (host), 47826 the host dashboard in this guide.
 
 The automated suites cover the same ground. Part 1 runs them; the rest is the manual pass.
 
@@ -302,14 +302,14 @@ claude -p "Customer PAN ABCPE1234F, contact jane.doe@fictional-corp.in. Made-up 
 
 ---
 
-## Part 13. Real data in Docker (optional)
+## Part 13. Dashboard on your real data (optional)
 
 ```bash
-SEEN_REPOS=$HOME/repos docker compose --profile local up -d dashboard-local
-open http://127.0.0.1:47825
+unset SEEN_HOME                                   # your real ~/.seen
+SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open
 ```
 
-- [ ] Shows your real `~/.seen` ledger, read through a mounted volume. Stop it with `docker compose --profile local down`.
+- [ ] Shows your real `~/.seen` ledger. It runs on the host, not in Docker: SQLite WAL locking does not cross the Docker Desktop VM, so a container would read a torn database while hooks write (ADR 0008). Stop it with Ctrl-C.
 
 ---
 
