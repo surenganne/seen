@@ -30,13 +30,13 @@ export function Overview() {
   const [range] = useRange();
   const nav = useNavigate();
   const { data: o, error, isLoading } = useOverview(pid, range);
-  if (isLoading) return <main className="page"><Loading what="Loading overview" /></main>;
-  if (error || !o) return <main className="page"><ErrorBox error={error} /></main>;
+  if (isLoading) return <div className="page"><Loading what="Loading overview" /></div>;
+  if (error || !o) return <div className="page"><ErrorBox error={error} /></div>;
   const t = o.tiles;
   const goChanges = (q: Record<string, string>) => nav(withRange(`/p/${pid}/changes`, range, q));
   const items = attention(o);
   return (
-    <main className="page">
+    <div className="page">
       <PageHead
         title="Overview"
         description={`Your requests in the last ${range} days. Figures are API-equivalent estimates; prices are unverified until confirmed. PII counts cover every session, including plugins' background ones.`}
@@ -119,7 +119,7 @@ export function Overview() {
           )}
         </Card>
         <Card title="By model" flush>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Cost by model">
             <table className="data">
               <thead><tr><th>Model</th><th className="num">Changes</th><th className="num">Output</th><th className="num">Cost</th></tr></thead>
               <tbody>
@@ -160,6 +160,6 @@ export function Overview() {
           <p className="muted tiny" style={{ padding: "0.6rem 1rem" }}>Seen shows exposure; it cannot recall what already reached the model provider.</p>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

@@ -390,6 +390,22 @@ seen doctor
 
 ---
 
+## Part 16. Accessibility
+
+Automated (runs in CI): `cd web && npx playwright test e2e/a11y.spec.ts` checks every page against WCAG 2.2 A and AA
+with axe in light and dark, on desktop and phone sizes, plus titles, the main landmark, the skip link, keyboard access to
+rows, the API-error and empty states, and no horizontal scroll at 320px.
+
+By hand, once per release:
+
+- [ ] Keyboard only: Tab from the address bar. The first stop is "Skip to content" (it appears on focus) and Enter moves you to the page. Every control has a visible focus ring; no keyboard trap; the change, session, audit and skill rows open from the button or link in their first cell (Enter, and Space for the buttons).
+- [ ] Zoom the browser to 200% (and 400% on a laptop): nothing is cut off or overlaps, and only data tables scroll sideways inside their own box.
+- [ ] A screen reader (VoiceOver: Cmd+F5) announces each page's title, the single main region, table captions or names, and "alert" when a page cannot load (stop the dashboard's API to see it).
+- [ ] Status is never colour alone: PII, memory, policy and audit-chain states each show an icon and a word.
+- [ ] Turn on Reduce motion in the OS: the eyes stop moving and stop following the pointer, and the drawer appears without sliding.
+
+---
+
 ## Clean up
 
 ```bash

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { usePolicies, useSkill, useSkills } from "../api/hooks";
 import { ChangesTable } from "../components/ChangesTable";
 import { SkillActions } from "../components/SkillActions";
-import { Badge, Card, Empty, ErrorBox, Loading, PageHead, SkillStatus } from "../components/ui";
+import { Badge, Card, Empty, ErrorBox, Loading, PageHead, RowButton, SkillStatus } from "../components/ui";
 import { pct, short, when } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
 
@@ -13,14 +13,14 @@ export function Skills() {
   const tab = sp.get("tab") === "required" ? "required" : "installed";
   const set = (k: string, v?: string) => setSp((p) => { if (v) p.set(k, v); else p.delete(k); return p; }, { replace: true });
   return (
-    <main className="page">
+    <div className="page">
       <PageHead title="Skills" description="Every installed skill, most recently used first, with its version hash and approval, and the rules that require them." />
       <div className="tabs" role="tablist" aria-label="Skills views">
         <button role="tab" aria-selected={tab === "installed"} onClick={() => set("tab")}>Installed skills</button>
         <button role="tab" aria-selected={tab === "required"} onClick={() => set("tab", "required")}>Required skills</button>
       </div>
       {tab === "installed" ? <Installed pid={pid} /> : <Required pid={pid} />}
-    </main>
+    </div>
   );
 }
 
@@ -52,14 +52,14 @@ function Installed({ pid }: { pid: string }) {
       {data && (
         <section className="panel">
           {data.length === 0 ? <Empty icon={Bot} title="No skills match">Clear a filter, or run <code>seen skills scan</code> to refresh the inventory.</Empty> : (
-            <div className="table-wrap">
+            <div className="table-wrap" tabIndex={0} role="region" aria-label="Skills">
               <table className="data" data-testid="skills-table">
                 <thead><tr><th>Skill</th><th>Kind</th><th>Version</th><th>Status</th><th className="num">Runs</th><th>Last used</th></tr></thead>
                 <tbody>
                   {data.map((s) => (
-                    <tr key={s.id} className="clickable" tabIndex={0} onClick={() => set("skill", s.id)} onKeyDown={(e) => e.key === "Enter" && set("skill", s.id)}
+                    <tr key={s.id} className="clickable" onClick={() => set("skill", s.id)}
                       aria-selected={selected === s.id} data-testid="skill-row">
-                      <td><div className="title mono">{s.id}</div><div className="meta">{s.description}</div></td>
+                      <td><div className="title mono"><RowButton onClick={() => set("skill", s.id)}>{s.id}</RowButton></div><div className="meta">{s.description}</div></td>
                       <td><span className="tag">{s.kind ?? "?"}</span></td>
                       <td className="mono">{short(s.hash)}</td>
                       <td><SkillStatus status={s.status} /></td>

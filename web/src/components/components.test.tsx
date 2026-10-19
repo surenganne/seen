@@ -70,7 +70,7 @@ describe("status badges carry an icon and a label, never color alone", () => {
 });
 
 describe("ChangesTable", () => {
-  it("shows checks and navigates on Enter", async () => {
+  it("shows checks and the row is a named link that opens the change on Enter", async () => {
     render(
       <MemoryRouter initialEntries={["/p/x/changes?range=7"]}>
         <Routes>
@@ -81,7 +81,7 @@ describe("ChangesTable", () => {
     );
     expect(screen.getByText("no memory")).toBeInTheDocument();
     expect(screen.getByText("policy missed")).toBeInTheDocument();
-    screen.getByTestId("change-row").focus();
+    screen.getByRole("link", { name: "Did a thing" }).focus();
     await userEvent.keyboard("{Enter}");
     expect(screen.getByText("detail page")).toBeInTheDocument();
   });

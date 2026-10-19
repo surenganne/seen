@@ -10,7 +10,7 @@ export function Projects() {
   const { data, error, isLoading } = useProjects();
   const [range] = useRange();
   return (
-    <main className="page">
+    <div className="page">
       <PageHead title="Projects" description="Repositories Seen has recorded agent work in on this machine." />
       {isLoading && <Loading what="Loading projects" rows={3} />}
       {error && <ErrorBox error={error} />}
@@ -41,6 +41,6 @@ export function Projects() {
           </Link>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

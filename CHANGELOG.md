@@ -24,4 +24,9 @@
   `npm audit` on production dependencies, gitleaks over the full history, and trivy on the dashboard and team images;
   `ci` gains a Postgres job for the team server, concurrency groups, timeouts and caches; Dependabot covers uv, npm,
   Actions and Docker. Base images move to `python:3.12.15-slim-bookworm` (the old pin carried fixable OpenSSL CVEs).
+- **Accessibility and e2e (ADR 0016):** axe runs on every dashboard page in both themes, on desktop and phone; new
+  Playwright checks cover titles, the main landmark, a skip link, keyboard access to table rows, the error and empty
+  states and reflow at 320px. Fixed along the way: scrollable tables are keyboard focusable regions, clickable rows
+  contain a real link or button, each page sets its title, one `<main>` per page, and the project grids no longer
+  overflow below 320px.
 - **The mark watches the pointer:** the eyes in the rail (topbar on a phone) follow the mouse and keyboard focus anywhere on the page, then go back to glancing; they stay still under reduced motion. The architecture diagram (`docs/architecture.html`) now has a light skin.
