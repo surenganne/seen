@@ -1,23 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Seen">
-  <!-- Placeholder brand mark (owner supplies the final set). Idle: looks around and blinks. -->
+  <!-- Seen mark (placeholder until the owner's final set). Transparent. Idle: looks around, blinks. -->
+  <defs>
+    <radialGradient id="iris" cx="45%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#FF9A5C"/><stop offset=".55" stop-color="#E85D26"/><stop offset="1" stop-color="#B8401A"/>
+    </radialGradient>
+    <clipPath id="l"><path d="M5 32 Q19 14 33 32 Q19 50 5 32Z"/></clipPath>
+    <clipPath id="r"><path d="M31 32 Q45 14 59 32 Q45 50 31 32Z"/></clipPath>
+  </defs>
   <style>
+    .rim { fill: #FFFFFF; stroke: #0A2540; stroke-width: 2.4; stroke-linejoin: round; }
+    .eye { transform-box: fill-box; transform-origin: center; animation: blink 5.4s infinite; }
     .look { animation: look 7s ease-in-out infinite; }
-    .lid  { transform-box: fill-box; transform-origin: center; transform: scaleY(0); animation: blink 5.2s infinite; }
-    @keyframes look { 0%,18% { transform: translate(0,0) } 24%,40% { transform: translate(-3.2px,1px) }
-      46%,62% { transform: translate(3.2px,-.6px) } 68%,84% { transform: translate(.6px,1.6px) } 90%,100% { transform: translate(0,0) } }
-    @keyframes blink { 0%,93%,100% { transform: scaleY(0) } 95.5%,97% { transform: scaleY(1) } }
-    @media (prefers-reduced-motion: reduce) { .look, .lid { animation: none } }
+    @keyframes look { 0%,16% { transform: translate(0,0) } 22%,38% { transform: translate(-4px,.6px) }
+      44%,60% { transform: translate(4px,-.4px) } 66%,82% { transform: translate(.8px,2px) } 88%,100% { transform: translate(0,0) } }
+    @keyframes blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.08) } }
+    @media (prefers-color-scheme: dark) { .rim { stroke: #C9D6E3; } }
+    @media (prefers-reduced-motion: reduce) { .eye, .look { animation: none } }
   </style>
-  <rect width="64" height="64" rx="14" fill="#0A2540"/>
-  <g>
-    <ellipse cx="21" cy="32" rx="11" ry="12.5" fill="#F5F5F5"/>
-    <ellipse cx="43" cy="32" rx="11" ry="12.5" fill="#F5F5F5"/>
-    <g class="look">
-      <circle cx="21" cy="32" r="6" fill="#E85D26"/><circle cx="21" cy="32" r="2.8" fill="#0A2540"/>
-      <circle cx="43" cy="32" r="6" fill="#E85D26"/><circle cx="43" cy="32" r="2.8" fill="#0A2540"/>
-      <circle cx="22.6" cy="30.3" r="1.1" fill="#fff"/><circle cx="44.6" cy="30.3" r="1.1" fill="#fff"/>
-    </g>
-    <rect class="lid" x="9.5" y="19" width="23" height="26" rx="11" fill="#0A2540"/>
-    <rect class="lid" x="31.5" y="19" width="23" height="26" rx="11" fill="#0A2540"/>
+  <g class="eye">
+    <path class="rim" d="M4 32 Q18 13 32 32 Q18 51 4 32Z"/>
+    <g clip-path="url(#l)"><g class="look">
+      <circle cx="18" cy="32" r="6.9" fill="url(#iris)"/><circle cx="18" cy="32" r="3.1" fill="#0A2540"/>
+      <circle cx="20.2" cy="29.8" r="1.4" fill="#FFFFFF"/>
+    </g></g>
+  </g>
+  <g class="eye">
+    <path class="rim" d="M32 32 Q46 13 60 32 Q46 51 32 32Z"/>
+    <g clip-path="url(#r)"><g class="look">
+      <circle cx="46" cy="32" r="6.9" fill="url(#iris)"/><circle cx="46" cy="32" r="3.1" fill="#0A2540"/>
+      <circle cx="48.2" cy="29.8" r="1.4" fill="#FFFFFF"/>
+    </g></g>
   </g>
 </svg>

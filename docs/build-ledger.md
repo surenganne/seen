@@ -1,4 +1,4 @@
-# Build ledger — SEEN_BUILD_PLAN.md (tasks, rulings, deferred items)
+# Build ledger — docs/plan/SEEN_BUILD_PLAN.md (tasks, rulings, deferred items)
 Spec: SEEN_BUILD_PLAN.md is both spec and plan (no separate spec).
 Ruling: ledger keyed by plan IDs (P0-1..) — task-brief can't parse table tasks — cost if wrong: none.
 Ruling: SEEN_HOME env overrides ~/.seen everywhere; dev uses ./.dev-data (mock seed), tests use tmp dirs — user asked for isolated test DB — cost: one env lookup.

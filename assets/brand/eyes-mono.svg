@@ -1,15 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Seen">
-  <!-- Static placeholder mark. -->
+  <!-- Seen mark (placeholder until the owner's final set). Transparent. Static. -->
+  <defs>
+    
+    <clipPath id="l"><path d="M5 32 Q19 14 33 32 Q19 50 5 32Z"/></clipPath>
+    <clipPath id="r"><path d="M31 32 Q45 14 59 32 Q45 50 31 32Z"/></clipPath>
+  </defs>
   <style>
+    .rim { fill: #FFFFFF; stroke: #0A2540; stroke-width: 2.4; stroke-linejoin: round; }
+
+    @media (prefers-color-scheme: dark) { .rim { stroke: #0A2540; } }
   </style>
-  <rect width="64" height="64" rx="14" fill="none" stroke="#0A2540" stroke-width="3"/>
-  <g>
-    <ellipse cx="21" cy="32" rx="11" ry="12.5" fill="#FFFFFF"/>
-    <ellipse cx="43" cy="32" rx="11" ry="12.5" fill="#FFFFFF"/>
-    <g class="look">
-      <circle cx="21" cy="32" r="6" fill="#0A2540"/><circle cx="21" cy="32" r="2.8" fill="#0A2540"/>
-      <circle cx="43" cy="32" r="6" fill="#0A2540"/><circle cx="43" cy="32" r="2.8" fill="#0A2540"/>
-      <circle cx="22.6" cy="30.3" r="1.1" fill="#fff"/><circle cx="44.6" cy="30.3" r="1.1" fill="#fff"/>
-    </g>
+  <g class="eye">
+    <path class="rim" d="M4 32 Q18 13 32 32 Q18 51 4 32Z"/>
+    <g clip-path="url(#l)"><g class="look">
+      <circle cx="18" cy="32" r="6.9" fill="#0A2540"/><circle cx="18" cy="32" r="3.1" fill="#FFFFFF"/>
+      <circle cx="20.2" cy="29.8" r="1.4" fill="#FFFFFF"/>
+    </g></g>
+  </g>
+  <g class="eye">
+    <path class="rim" d="M32 32 Q46 13 60 32 Q46 51 32 32Z"/>
+    <g clip-path="url(#r)"><g class="look">
+      <circle cx="46" cy="32" r="6.9" fill="#0A2540"/><circle cx="46" cy="32" r="3.1" fill="#FFFFFF"/>
+      <circle cx="48.2" cy="29.8" r="1.4" fill="#FFFFFF"/>
+    </g></g>
   </g>
 </svg>
