@@ -30,3 +30,5 @@ web/test-results/
 **/.claude/logs/
 **/.claude/tmp/
 deploy/.env
+# autoharness auto-learned skills: review before committing (CLAUDE.md section 5)
+.claude/skills/

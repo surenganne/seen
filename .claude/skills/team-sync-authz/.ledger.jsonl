@@ -1,1 +1,0 @@
-{"action": "create", "reason": "Automated security review flagged /api/sync in team_server app.py: lead and admin keys could post batches as any user_id. Only user-bound member keys may write. Future edits to team-server roles or sync authorization must keep this invariant and its regression test.", "evidence": "references/evidence-ddecb870.md"}
