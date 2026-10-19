@@ -175,7 +175,8 @@ def test_untracked_counting_has_a_total_budget(repo: Path) -> None:
     assert len(s["untracked"]) == 40 and all(v == 0 for v in s["untracked"].values())
 
 
-@pytest.mark.parametrize("pat", ["((a+))+$", "(?:(?:a+))+", "(a*)*b", "(?:a|aa)+$", "((ab|a)c?)*x", "(x+x+)+y"])
+@pytest.mark.parametrize("pat", ["((a+))+$", "(?:(?:a+))+", "(a*)*b", "(?:a|aa)+$", "((ab|a)c?)*x", "(x+x+)+y",
+                                 "(?>(?:a+)+b)", "()(?:(?(1)a+|a))+$", r"(a)\1+"])
 def test_nested_quantifiers_rejected_at_any_depth(pat: str) -> None:
     from seen_core.pii.projectcfg import safe_pattern
 
