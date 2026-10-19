@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -32,7 +33,7 @@ def test_free_text_settings_not_logged_raw(client: TestClient) -> None:
 
     h = {"Host": "localhost", "X-Seen-Request": "1"}
     r = client.put("/api/settings", json={"user": {"id": "dev.person@corp.test"},
-                                          "sync": {"server": "https://u:SECRETPW@team.example"}, "pii": {"mode": "warn"}}, headers=h)
+                                          "sync": {"server": "https://team.example/SECRETPW"}, "pii": {"mode": "warn"}}, headers=h)
     assert r.status_code == 200
     blob = json.dumps(audit.query(type_="config.changed"))
     assert "dev.person" not in blob and "SECRETPW" not in blob
@@ -54,3 +55,17 @@ def test_export_project_cannot_escape_exports_dir(client: TestClient, seeded) ->
         assert r.status_code == 422, (bad, r.status_code)
     assert not list(seeded.rglob("escape*"))
     assert client.post("/api/audit/export", json={"project": "demo-payments"}, headers=h).status_code == 200
+
+
+@pytest.mark.parametrize("url", ["http://evil.example.com", "ftp://x.example.com", "https://user:pw@host.example.com",
+                                 "https://", "javascript:alert(1)", "https://host.example.com/a b", "file:///etc/passwd"])
+def test_sync_server_must_be_https_or_loopback_http(client: TestClient, url: str) -> None:
+    h = {"Host": "localhost", "X-Seen-Request": "1"}
+    assert client.put("/api/settings", json={"sync": {"server": url}}, headers=h).status_code == 422
+
+
+@pytest.mark.parametrize("url", ["https://team.example.com", "https://team.example.com:8443/base", "http://localhost:47824",
+                                 "http://127.0.0.1:47824", ""])
+def test_sync_server_accepts_safe_urls(client: TestClient, url: str) -> None:
+    h = {"Host": "localhost", "X-Seen-Request": "1"}
+    assert client.put("/api/settings", json={"sync": {"server": url}}, headers=h).status_code == 200
