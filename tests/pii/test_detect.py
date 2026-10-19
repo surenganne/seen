@@ -73,6 +73,7 @@ def test_custom_rule() -> None:
     assert f and f[0].detector == "custom:mrn"
 
 
+@pytest.mark.perf
 def test_10k_prompt_under_30ms() -> None:
     text = ("lorem ipsum dolor sit amet 1234 " * 300)[:10_000] + f" {AADHAAR}"
     scan(text)

@@ -87,6 +87,7 @@ def test_ingest_writes_change_memories_and_state(mrepo: Path, tmp_path: Path) ->
     assert ch[0] == "loaded" and ch[1] > 0
 
 
+@pytest.mark.perf
 def test_injection_under_100ms_with_100_files(repo: Path, tmp_path: Path) -> None:
     import statistics
     import subprocess
@@ -108,6 +109,4 @@ def test_injection_under_100ms_with_100_files(repo: Path, tmp_path: Path) -> Non
         ts.append((time.perf_counter() - t) * 1000)
     ts.sort()
     print(f"prompt-submit with 100 memories p50={statistics.median(ts):.0f}ms p95={ts[-1]:.0f}ms")
-    import os
-
-    assert statistics.median(ts) < 100 * float(os.environ.get("SEEN_PERF_FACTOR", "1"))
+    assert statistics.median(ts) < 100

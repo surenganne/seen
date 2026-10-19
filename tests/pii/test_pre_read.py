@@ -52,7 +52,8 @@ def test_allowlisted_path_allowed(repo: Path, tmp_path: Path, seen_home: Path) -
     assert read(r, repo / "tests/fixtures/cards.csv").code == 0
 
 
-def test_oversized_file_falls_back_and_says_so(repo: Path, tmp_path: Path, seen_home: Path) -> None:
+def test_oversized_file_falls_back_and_says_so(repo: Path, tmp_path: Path, seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SEEN_PRE_READ_BUDGET_MS", "60000")  # isolate the size path from machine speed
     (repo / "big.csv").write_text("x" * (300 * 1024) + card())
     r = setup(repo, tmp_path, seen_home)
     res = read(r, repo / "big.csv")

@@ -143,6 +143,7 @@ def test_override_cache_invalidates_when_config_changes(repo: Path, tmp_path: Pa
     assert not marker.exists()
 
 
+@pytest.mark.perf
 def test_snapshot_is_fast_in_a_fresh_process(repo: Path) -> None:
     import os
     import subprocess
@@ -153,7 +154,7 @@ def test_snapshot_is_fast_in_a_fresh_process(repo: Path) -> None:
     run = lambda: float(subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=os.environ, check=True).stdout)  # noqa: E731
     run()  # first process may fill the on-disk cache
     ms = sorted(run() for _ in range(5))[2]
-    assert ms < 45 * float(os.environ.get("SEEN_PERF_FACTOR", "1")), ms
+    assert ms < 60, ms  # uncached path measured 72 ms; cached ~35-45 ms
 
 
 def test_repo_path_with_spaces(tmp_path: Path) -> None:
