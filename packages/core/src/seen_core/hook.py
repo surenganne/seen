@@ -31,8 +31,11 @@ def _log_exception(event: str) -> None:
     try:
         f = paths.hook_log()
         paths.ensure_dir(f.parent)
-        with open(f, "a", encoding="utf-8") as fh:
-            fh.write(f"{spool.now()} {event}\n{traceback.format_exc()}\n")
+        et, _ev, tb = sys.exc_info()
+        # frames and the exception type only: the message can echo a prompt value, and frames carry home paths
+        body = paths.redact_home("".join(traceback.format_tb(tb))).replace(os.path.expanduser("~"), "~")
+        with os.fdopen(os.open(f, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600), "a", encoding="utf-8") as fh:
+            fh.write(f"{spool.now()} {event}\n{body}{et.__name__ if et else 'Error'}\n\n")
     except OSError:
         pass
 
@@ -164,15 +167,10 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
     from .pii.projectcfg import load_project
 
     pcfg = load_project(st.get("root"))
-    store = cfg["store_prompt_text"]
-    if store == "full":
-        line["prompt"] = prompt
-    elif store == "redacted":
-        from .redact import redact
-
-        line["prompt"] = redact(prompt, allow_values=pcfg["allow_values"], custom_rules=pcfg["custom_rules"])
-    spool.append(p["session_id"], line)
     warn = None
+    found: list[Any] = []
+    shown: list[Any] = []
+    allowlisted, blocked = 0, False
     if cfg["mode"] != "off":
         from .pii.detect import scan_with_stats
 
@@ -180,17 +178,27 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
                                              custom_rules=pcfg["custom_rules"], min_confidence="low")
         shown = [f for f in found if f.confidence in _at_least(cfg["min_confidence"])]
         blocked = cfg["mode"] == "block" and bool(shown)
-        if found or allowlisted:
-            spool.append(p["session_id"], {"ev": "pii_prompt", **_base(p), "blocked": bool(blocked), "allowlisted": allowlisted,
-                                           "findings": [{"type": f.type, "confidence": f.confidence, "count": f.count,
-                                                         "distinct": f.distinct, "detector": f.detector, "fingerprints": f.fingerprints}
-                                                        for f in found]})
-        what = ", ".join(sorted({f"{f.type} x{f.count}" for f in shown}))
-        if blocked:
-            return Result(code=2, stderr=f"Seen blocked this prompt: it contains {what}. Remove the personal data or secrets "
-                                         "and send it again (PII mode is 'block'; values were not stored).")
-        if shown and cfg["mode"] == "warn":
-            warn = f"Seen: this prompt contains {what}. It will go to the model provider. (Values were not stored.)"
+    store = cfg["store_prompt_text"]
+    if blocked:
+        pass  # a blocked prompt never reaches the model and is never stored: only its keyed hash and length remain
+    elif store == "full":
+        line["prompt"] = prompt
+    elif store == "redacted":
+        from .redact import redact
+
+        line["prompt"] = redact(prompt, allow_values=pcfg["allow_values"], custom_rules=pcfg["custom_rules"])
+    spool.append(p["session_id"], line)
+    if found or allowlisted:
+        spool.append(p["session_id"], {"ev": "pii_prompt", **_base(p), "blocked": bool(blocked), "allowlisted": allowlisted,
+                                       "findings": [{"type": f.type, "confidence": f.confidence, "count": f.count,
+                                                     "distinct": f.distinct, "detector": f.detector, "fingerprints": f.fingerprints}
+                                                    for f in found]})
+    what = ", ".join(sorted({f"{f.type} x{f.count}" for f in shown}))
+    if blocked:
+        return Result(code=2, stderr=f"Seen blocked this prompt: it contains {what}. Remove the personal data or secrets "
+                                     "and send it again (PII mode is 'block'; values were not stored).")
+    if shown and cfg["mode"] == "warn":
+        warn = f"Seen: this prompt contains {what}. It will go to the model provider. (Values were not stored.)"
     changed = list(before["numstat"]) + list(before["untracked"])
     text, mline = msess.inject(p["session_id"], st.get("root"), st.get("project_id"), prompt, changed)
     if mline:

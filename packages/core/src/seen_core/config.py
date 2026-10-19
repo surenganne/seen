@@ -16,7 +16,7 @@ DEFAULTS: dict[str, Any] = {
     "pii": {
         "mode": "report",  # off | report | warn | block
         "min_confidence": "medium",
-        "types": ["email", "phone", "aadhaar", "pan", "card", "iban", "ssn", "upi", "dob", "secret"],
+        "types": ["email", "phone", "aadhaar", "pan", "card", "iban", "ssn", "upi", "dob", "secret", "ip", "gstin"],
         "scan_tool_results": True,
         "scan_diff": True,
         "store_prompt_text": "redacted",  # full | redacted | off

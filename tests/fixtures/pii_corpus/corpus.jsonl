@@ -1118,3 +1118,42 @@
 {"labels": ["dob"], "text": "DOB: 22/08/1956"}
 {"labels": ["upi"], "text": "pay arjun76@ybl"}
 {"labels": ["iban"], "text": "IBAN DE64384267031716272557"}
+{"labels": ["ip"], "text": "login from 13.196.36.175 rejected"}
+{"labels": ["ip"], "text": "login from 185.18.4.58 rejected"}
+{"labels": ["ip"], "text": "login from 54.90.97.37 rejected"}
+{"labels": ["ip"], "text": "login from 13.71.172.79 rejected"}
+{"labels": ["ip"], "text": "login from 185.185.215.128 rejected"}
+{"labels": ["ip"], "text": "login from 54.232.182.236 rejected"}
+{"labels": ["ip"], "text": "login from 99.32.157.144 rejected"}
+{"labels": ["ip"], "text": "login from 185.34.223.148 rejected"}
+{"labels": ["ip"], "text": "login from 52.154.171.109 rejected"}
+{"labels": ["ip"], "text": "login from 151.88.61.240 rejected"}
+{"labels": ["ip"], "text": "login from 104.231.41.132 rejected"}
+{"labels": ["ip"], "text": "login from 151.237.163.143 rejected"}
+{"labels": ["ip"], "text": "login from 13.110.6.135 rejected"}
+{"labels": ["ip"], "text": "login from 99.188.113.113 rejected"}
+{"labels": ["ip"], "text": "login from 151.179.118.178 rejected"}
+{"labels": ["ip"], "text": "login from 104.169.194.247 rejected"}
+{"labels": ["ip"], "text": "login from 151.218.97.32 rejected"}
+{"labels": ["ip"], "text": "login from 99.84.32.98 rejected"}
+{"labels": ["ip"], "text": "login from 18.86.76.203 rejected"}
+{"labels": ["ip"], "text": "login from 54.114.162.176 rejected"}
+{"labels": ["secret"], "text": "Authorization: Bearer 7Jd28zffWfvTFGPI4YbRdmdS"}
+{"labels": ["secret"], "text": "Authorization: Bearer nhZ2hQNV2iskcFcytR0R3CHJ"}
+{"labels": ["secret"], "text": "postgres://svc:rdeWdNhY1GsG@db.corp.test:5432/app"}
+{"labels": ["secret"], "text": "{\"api_key\": \"DB54UtOmednxhzTUBccUqZFa\"}"}
+{"labels": ["secret"], "text": "{\"api_key\": \"KrhmVHC0QxHVaNwkDGG9d2h7\"}"}
+{"labels": ["secret"], "text": "{\"api_key\": \"73KUoVJQzfhR0u2W1CKdDvxc\"}"}
+{"labels": ["secret"], "text": "Authorization: Bearer fwuk3r77K7CuhdeKsc5Y7sV5"}
+{"labels": ["secret"], "text": "Authorization: Bearer F0SdhFw9XhNDQtOa1CG8r6oh"}
+{"labels": ["secret"], "text": "postgres://svc:faAO86Cf6MtK@db.corp.test:5432/app"}
+{"labels": ["secret"], "text": "Authorization: Bearer xF9nrhOjpvYTjkmqgeqWGYrS"}
+{"labels": [], "text": "service at 10.2.3.4 healthy"}
+{"labels": [], "text": "service at 192.168.0.17 healthy"}
+{"labels": [], "text": "service at 127.0.0.1 healthy"}
+{"labels": [], "text": "service at 172.16.8.9 healthy"}
+{"labels": [], "text": "service at 8.8.8.8 healthy"}
+{"labels": [], "text": "service at 192.0.2.55 healthy"}
+{"labels": [], "text": "password: changeme"}
+{"labels": [], "text": "postgres://user:password@localhost/db"}
+{"labels": [], "text": "token_count: 1234567890123456"}
