@@ -13,7 +13,20 @@ def now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def untracked_marker(session_id: str) -> Any:
+    return paths.snap_file(session_id).with_suffix(".untracked")
+
+
+def untrack(session_id: str) -> None:
+    """A session outside any git repo belongs to no project: record nothing for it (ADR 0009)."""
+    f = untracked_marker(session_id)
+    paths.ensure_dir(f.parent)
+    f.touch()
+
+
 def append(session_id: str, line: dict[str, Any]) -> None:
+    if untracked_marker(session_id).exists():
+        return
     f = paths.spool_file(session_id)
     paths.ensure_dir(f.parent)
     rec = {"t": now(), **line}

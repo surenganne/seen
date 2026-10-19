@@ -91,6 +91,9 @@ def _on_session_start(p: dict[str, Any]) -> Result:
     from .project import resolve_project
 
     proj = resolve_project(p.get("cwd") or ".")
+    if proj is None:
+        spool.untrack(p["session_id"])
+        return Result()
     root = (proj.worktree or proj.root) if proj else None  # a worktree has its own .seen/* and files
     seen_dir = Path(root) / ".seen" if root else None
     spool.append(p["session_id"], {
