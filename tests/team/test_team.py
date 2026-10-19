@@ -149,3 +149,13 @@ def test_only_member_keys_write(team: TestClient, role: str) -> None:
     r = team.post("/api/sync", json=batch(), headers={"Authorization": f"Bearer {k}", "X-Idempotency-Key": "z"})
     assert r.status_code == 403
     assert team.post("/api/sync", json=batch(), headers={**admin(team), "X-Idempotency-Key": "b"}).status_code == 403
+
+
+def test_production_hides_api_docs(team_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_team.app import create_app
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SEEN_TEAM_BOOTSTRAP_KEY", BOOT)
+    c = TestClient(create_app(team_url, reset=True), base_url="http://localhost")
+    for p in ("/docs", "/redoc", "/openapi.json"):
+        assert c.get(p).status_code == 404, p

@@ -118,7 +118,9 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
     Base.metadata.create_all(engine)  # ponytail: skeleton uses create_all; move to Alembic before the first schema change
     Sess = sessionmaker(engine, expire_on_commit=False)
     fails: dict[str, deque[float]] = defaultdict(deque)
-    app = FastAPI(title="Seen team server", version="0.1.0")
+    prod = os.environ.get("APP_ENV") == "production"  # no unauthenticated API map in production
+    app = FastAPI(title="Seen team server", version="0.1.0", docs_url=None if prod else "/docs",
+                  redoc_url=None if prod else "/redoc", openapi_url=None if prod else "/openapi.json")
 
     @app.middleware("http")
     async def headers(request: Request, call_next):  # type: ignore[no-untyped-def]
