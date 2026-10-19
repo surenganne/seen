@@ -18,5 +18,9 @@ Playwright's `fixtures.ts` gained an `expectedErrors` option so a test that forc
 line while every other console error still fails the test.
 
 Not covered by automation, so manual (docs/TESTING.md Part 16): screen-reader behaviour, 200% and 400% zoom, and
-colour contrast of states axe cannot reach (hover, focus, open drawers). Not done from the audit list: lazy-loading pages,
-a router created inside render, pausing polling in hidden tabs, and a click-through test per overview tile.
+colour contrast of states axe cannot reach (hover, focus, open drawers). Follow-up the same day (web audit list): pages
+load on demand (`React.lazy`), which took the first download from 727 KB to about 311 KB of script (recharts now ships with the
+Overview page; a test caps the first page at 450 KB); the router is created once instead of inside render; each Overview tile
+is a link to the rows behind its number, covered by a click-through test per tile. Polling in hidden tabs needed no change:
+TanStack Query v5 already pauses `refetchInterval` while the tab is in the background. Still open: prompt text in page headings
+(Sessions and Change detail) and page-level unit tests.
