@@ -3,8 +3,9 @@
 Status: accepted, 2026-10-19 (audit findings: no retention/erasure, team keys could never be revoked).
 
 Local: `seen purge --before DATE | --project ID | --all` (reports only; `--yes` erases). Rows go from changes and
-their child tables, then sessions, the project row (when the whole project goes) and queued outbox payloads (by age
-or wholesale: they are not project-tagged). `secure_delete` plus `VACUUM` and a WAL checkpoint remove the bytes, not
+their child tables, then sessions, the project row (when the whole project goes) and queued outbox payloads (a project purge
+drops every batch carrying that project's changes, and any unreadable one; other projects' unsent changes are re-queued by
+the next sync). `secure_delete` plus `VACUUM` and a WAL checkpoint remove the bytes, not
 only the rows. The audit trail stays append-only: a `ledger.purge` event records actor and counts, never content.
 Skill inventory and policies are not personal data and stay. Sessions still being recorded keep their spool file.
 

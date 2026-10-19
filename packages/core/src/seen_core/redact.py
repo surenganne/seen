@@ -6,12 +6,14 @@ import os
 import re
 from typing import Any
 
-from .pii.detect import scan
+from .pii.detect import TIMEOUT_DETECTOR, scan
 
 
 def redact(text: str, *, allow_values: list[str] | None = None, custom_rules: list[dict[str, Any]] | None = None) -> str:
     spans: list[tuple[int, int, str]] = []
     for f in scan(text, allow_values=allow_values, custom_rules=custom_rules):
+        if f.detector == TIMEOUT_DETECTOR:
+            return "[CUSTOM: a custom PII rule timed out, text withheld]"  # fail closed: it was not fully checked
         spans += [(s, e, f.type.upper()) for s, e in f.spans]
     out, last = [], 0
     for s, e, label in sorted(spans):

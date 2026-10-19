@@ -71,3 +71,23 @@ def test_before_keeps_newer_and_other_projects(repo: Path, tmp_path: Path) -> No
         assert [c.session_id for c in db.query(Change)] == ["new"]
         assert [s.id for s in db.query(Session)] == ["new"] and db.query(Project).count() == 1
     sqlite3.connect(paths.ledger_db()).execute("select 1")
+
+
+def test_project_purge_drops_queued_sync_payloads_for_that_project_only(repo: Path, tmp_path: Path) -> None:
+    import json
+
+    from seen_core.db.models import Outbox
+
+    record(repo, tmp_path)
+    with ledger_session() as db:
+        pid = db.query(Project).one().id
+        for proj in (pid, "other-project"):
+            body = json.dumps({"changes": [{"id": "c", "project_id": proj, "prompt_note": WORD}]})
+            db.add(Outbox(kind="batch", payload_json=json.dumps({"_body": body}), created_at="2026-10-19T00:00:00Z"))
+        db.add(Outbox(kind="batch", payload_json="not json", created_at="2026-10-19T00:00:00Z"))
+        db.commit()
+    res = purge.purge(project=pid, actor="u_test")
+    assert res["outbox"] == 2  # the project's batch and the unreadable one
+    with ledger_session() as db:
+        left = db.query(Outbox).all()
+        assert len(left) == 1 and "other-project" in left[0].payload_json

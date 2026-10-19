@@ -204,3 +204,14 @@ def test_slow_custom_rule_is_cut_off_not_hung() -> None:
     t = time.perf_counter()
     scan("x" * 60000, only=["custom"], custom_rules=[{"id": "slow", "pattern": r".*.*y"}])
     assert time.perf_counter() - t < 2
+
+
+def test_timed_out_custom_rule_fails_closed(repo: Path, tmp_path: Path, seen_home: Path) -> None:
+    from seen_core.pii.detect import TIMEOUT_DETECTOR, scan
+    from seen_core.redact import redact
+
+    rules = [{"id": "slow", "pattern": r".*.*y"}]
+    text = "x" * 60000
+    f = scan(text, only=["custom"], custom_rules=rules)
+    assert [(x.detector, x.confidence) for x in f] == [(TIMEOUT_DETECTOR, "high")]
+    assert "x" * 50 not in redact(text, custom_rules=rules)
