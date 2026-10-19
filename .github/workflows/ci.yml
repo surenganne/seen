@@ -2,12 +2,17 @@ name: ci
 on: [push, pull_request]
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   python:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with: { enable-cache: true }
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run mypy packages/core/src
@@ -17,11 +22,12 @@ jobs:
       - run: uv run python scripts/gen_openapi.py --check
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults: { run: { working-directory: web } }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with: { node-version: 22 }
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
@@ -30,17 +36,39 @@ jobs:
       - run: npm run build
   browser-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with: { enable-cache: true }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with: { node-version: 22 }
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
       - run: uv sync --frozen
       - run: cd web && npm ci && npx playwright install --with-deps chromium
       - run: cd web && npx playwright test
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: docker compose build dashboard
       - run: docker compose --profile test run --rm tests
+  team-pg:
+    # the team server against the database it runs on in production (the other jobs use SQLite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16.10-alpine@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297
+        env: { POSTGRES_USER: seen, POSTGRES_PASSWORD: ci-only-not-a-secret, POSTGRES_DB: seen_team_test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U seen -d seen_team_test" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      SEEN_TEAM_TEST_URL: postgresql+psycopg://seen:ci-only-not-a-secret@localhost:5432/seen_team_test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with: { enable-cache: true }
+      - run: uv sync --frozen
+      - run: uv run pytest -o addopts="-q -p no:cacheprovider" tests/team

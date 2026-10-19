@@ -20,4 +20,8 @@
   `seen doctor`) instead of retried forever; the team server validates and caps ingest, limits body size, counts
   successful requests in its throttle and supports `SEEN_TEAM_PROXY_HOPS`; `sync.server` must be https (or localhost).
   Ledger migration 0004: run `seen upgrade`.
+- **CI audit gates (ADR 0015):** a new `audit` workflow (every push and PR, plus weekly) runs pip-audit on the lockfile,
+  `npm audit` on production dependencies, gitleaks over the full history, and trivy on the dashboard and team images;
+  `ci` gains a Postgres job for the team server, concurrency groups, timeouts and caches; Dependabot covers uv, npm,
+  Actions and Docker. Base images move to `python:3.12.15-slim-bookworm` (the old pin carried fixable OpenSSL CVEs).
 - Architecture diagram: `docs/architecture.html`.
