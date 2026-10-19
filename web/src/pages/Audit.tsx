@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import type { S } from "../api/client";
 import { useAudit, useVerify } from "../api/hooks";
 import { ExportButton } from "../components/ExportButton";
-import { Badge, Empty, ErrorBox, Loading, Note, PageHead, Seal } from "../components/ui";
+import { Badge, Empty, ErrorBox, Loading, Note, PageHead, RowButton, Seal } from "../components/ui";
 import { short, when } from "../lib/format";
 import { usePid } from "../lib/nav";
 
@@ -22,7 +22,7 @@ export function Audit() {
   const { data: v } = useVerify();
   const [open, setOpen] = useState<S["AuditEventOut"] | null>(null);
   return (
-    <main className="page">
+    <div className="page">
       <PageHead
         title="Audit trail"
         description="Append-only and hash-chained. Events hold ids, counts, hashes and paths, never content."
@@ -55,16 +55,16 @@ export function Audit() {
           {data.items.length === 0 ? (
             <Empty icon={FileClock} title="No events match">No events does not prove no activity: gaps are recorded as capture.gap and session.incomplete.</Empty>
           ) : (
-            <div className="table-wrap">
+            <div className="table-wrap" tabIndex={0} role="region" aria-label="Audit events">
               <table className="data" data-testid="audit-table">
                 <thead><tr><th>Seq</th><th>When</th><th>Type</th><th>Subject</th><th>Actor</th><th>Outcome</th><th>Hash</th></tr></thead>
                 <tbody>
                   {data.items.map((e) => (
-                    <tr key={e.seq} className="clickable" tabIndex={0} onClick={() => setOpen(e)} onKeyDown={(k) => k.key === "Enter" && setOpen(e)}
+                    <tr key={e.seq} className="clickable" onClick={() => setOpen(e)}
                       aria-selected={open?.seq === e.seq} data-testid="audit-row">
                       <td className="num">{e.seq}</td>
                       <td className="when">{when(e.occurred_at)}</td>
-                      <td className="mono">{e.type}</td>
+                      <td className="mono"><RowButton onClick={() => setOpen(e)}>{e.type}</RowButton></td>
                       <td className="path">{e.subject ?? ""}</td>
                       <td className="mono tiny muted">{e.actor_kind}:{short(e.actor_id, 10)}</td>
                       <td>{e.outcome === "ok" ? <Badge tone="good">ok</Badge> : e.outcome === "blocked" ? <Badge tone="warning">blocked</Badge> : <Badge tone="critical">{e.outcome}</Badge>}</td>
@@ -108,6 +108,6 @@ export function Audit() {
           </div>
         </aside>
       )}
-    </main>
+    </div>
   );
 }

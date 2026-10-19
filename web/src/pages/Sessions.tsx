@@ -2,7 +2,7 @@ import { Activity, ListChecks, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { S } from "../api/client";
 import { type SessionKind, useSessionActivity, useSessions } from "../api/hooks";
-import { Badge, Empty, ErrorBox, Loading, PageHead, Pager } from "../components/ui";
+import { Badge, Empty, ErrorBox, Loading, PageHead, Pager, RowButton } from "../components/ui";
 import { int, money, short, when } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
 
@@ -23,7 +23,7 @@ export function Sessions() {
   const goPage = (n: number) => setSp((p) => { p.set("page", String(n)); return p; }, { replace: true });
   const goKind = (k: SessionKind) => setSp((p) => { p.set("kind", k); p.delete("page"); p.delete("session"); return p; }, { replace: true });
   return (
-    <main className="page">
+    <div className="page">
       <PageHead
         title="Sessions"
         description="Claude Code sessions in this repo, newest first. Yours are the ones you started; background sessions were started by plugins through the Agent SDK (for example a reflector or summariser) and still cost tokens. Active means no session end yet and activity in the last 30 minutes. Refreshes every 10 seconds."
@@ -45,14 +45,14 @@ export function Sessions() {
           {data.total === 0 ? (
             <Empty icon={Activity} title={kind === "background" ? "No background sessions" : kind === "yours" && data.counts.all > 0 ? "None of your sessions are recorded yet" : "No sessions recorded yet"}>Sessions appear here once Claude Code starts in this repo with the Seen plugin enabled. A session that was already running when the plugin was installed is not recorded.</Empty>
           ) : (
-            <div className="table-wrap">
+            <div className="table-wrap" tabIndex={0} role="region" aria-label="Sessions">
               <table className="data" data-testid="sessions-table">
                 <thead><tr><th>Session</th><th>Status</th><th>Started</th><th>Last activity</th><th>Model</th><th className="num">Turns</th><th className="num">Tool calls</th><th className="num">Files</th><th className="num">Cost</th></tr></thead>
                 <tbody>
                   {data.items.map((s) => (
-                    <tr key={s.id} className="clickable" tabIndex={0} onClick={() => select(s.id)} onKeyDown={(e) => e.key === "Enter" && select(s.id)}
+                    <tr key={s.id} className="clickable" onClick={() => select(s.id)}
                       aria-selected={open === s.id} data-testid="session-row" data-status={s.status}>
-                      <td className="mono">{short(s.id, 8)}<div className="meta">{s.tool}{s.tool_version ? ` ${s.tool_version}` : ""}</div></td>
+                      <td className="mono"><RowButton onClick={() => select(s.id)}>{short(s.id, 8)}</RowButton><div className="meta">{s.tool}{s.tool_version ? ` ${s.tool_version}` : ""}</div></td>
                       <td><span className="checks">{STATUS[s.status]}{s.source === "imported" && <span className="tag" title="Recorded afterwards from the Claude Code transcript">imported</span>}{s.background && <span className="tag" title={`Started by a plugin through the Agent SDK (entrypoint ${s.entrypoint})`}>background</span>}</span></td>
                       <td className="when">{when(s.started_at)}</td>
                       <td className="when">{when(s.last_event_at)}</td>
@@ -71,7 +71,7 @@ export function Sessions() {
         </section>
       )}
       {open && data && <SessionDrawer pid={pid} s={data.items.find((x) => x.id === open)} id={open} onClose={() => select()} />}
-    </main>
+    </div>
   );
 }
 

@@ -17,7 +17,7 @@ export function Memory() {
   const f = { type: sp.get("type") || undefined, status: sp.get("status") || undefined, q: sp.get("q") || undefined };
   const { data, error, isLoading } = useMemory(pid, f);
   return (
-    <main className="page">
+    <div className="page">
       <PageHead
         title="Memory"
         description="Notes in .seen/memory, injected into every session. Stale means the file it describes changed after it was verified."
@@ -68,7 +68,7 @@ export function Memory() {
           </ul>
         </Card>
       )}
-    </main>
+    </div>
   );
 }
 

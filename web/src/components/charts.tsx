@@ -42,7 +42,7 @@ export function CostChart({ days }: { days: S["DayCost"][] }) {
         </button>
       </div>
       {asTable ? (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0} role="region" aria-label="Cost per day, as a table">
           <table className="data" aria-label="Cost per day">
             <thead><tr><th>Day</th>{tools.map((t) => <th key={t} className="num">{toolName[t] ?? t}</th>)}</tr></thead>
             <tbody>

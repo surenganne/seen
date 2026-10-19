@@ -29,7 +29,7 @@ Local first: everything works with no server. Prompts and diffs never leave the 
 Hooks never touch the network or write SQLite: they append to a spool file and ingest folds it into the ledger
 and the hash-chained audit database when the turn stops. The host dashboard reads `~/.seen` live. A container
 cannot safely share SQLite WAL files with the host, so the Docker dashboard serves a snapshot made by
-`seen docker-sync` ([ADR 0011](docs/adr/0011-real-data-snapshot-in-docker.md)). The team server only ever
+`seen docker-sync`. The team server only ever
 receives metadata, and only when you switch sync on. Source: [docs/architecture.html](docs/architecture.html).
 
 ## Install
@@ -59,8 +59,7 @@ seen version                  # every piece's version and the ledger schema
 
 Then restart Claude Code. `seen doctor` also warns when the plugin, the `seen-hook` binary or the ledger schema
 disagree with the CLI, and when a newer release tag exists on GitHub (one anonymous GET; opt out with
-`SEEN_NO_UPDATE_CHECK=1`). Inside Claude Code, `/seen:upgrade` does the check and asks before upgrading
-([ADR 0013](docs/adr/0013-upgrade-flow.md)).
+`SEEN_NO_UPDATE_CHECK=1`). Inside Claude Code, `/seen:upgrade` does the check and asks before upgrading.
 
 Teams can enable it for everyone from the repo's `.claude/settings.json`; Claude Code installs it after a
 contributor accepts the workspace trust dialog:
@@ -123,10 +122,10 @@ the test suites and the team server. Ports avoid the common defaults.
 
 | Command | What | URL |
 |---|---|---|
-| `seen docker-sync && docker compose up -d --build` | Dashboard on a snapshot of your real `~/.seen` ([ADR 0011](docs/adr/0011-real-data-snapshot-in-docker.md)) | http://127.0.0.1:47821 |
+| `seen docker-sync && docker compose up -d --build` | Dashboard on a snapshot of your real `~/.seen` | http://127.0.0.1:47821 |
 | `seen docker-sync --watch 300 --restart` (host) | Keep the container near-live: snapshot every 5 minutes, then restart the dashboard | |
 | `docker compose --profile dev up -d` | Plus the Vite dev server with hot reload | http://127.0.0.1:47822 |
-| (host dashboard) | The container never opens the live ledger: SQLite WAL locking does not cross the Docker Desktop VM ([ADR 0008](docs/adr/0008-real-data-dashboard-on-host.md)); see Dashboard above | |
+| (host dashboard) | The container never opens the live ledger: SQLite WAL locking does not cross the Docker Desktop VM; see Dashboard above | |
 | `docker compose --profile test run --rm tests` | Python lint, types and unit tests | |
 | `docker compose --profile test run --rm e2e` | Playwright against a throwaway, freshly seeded test database (tmpfs) | |
 | `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (Phase 5 skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 |
@@ -160,7 +159,6 @@ lint/types/tests, the web checks, Playwright and the Docker suites on every push
 | [DESIGN.md](DESIGN.md) / [PRODUCT.md](PRODUCT.md) | Dashboard design system and who it is for |
 | [docs/schema.md](docs/schema.md) | Where every piece of data lives |
 | [docs/architecture.html](docs/architecture.html) | Architecture diagram (also `.svg` and `.png`) |
-| [docs/adr/](docs/adr) | Architecture decisions |
 | [docs/RELEASING.md](docs/RELEASING.md) | How to cut a release and what `seen upgrade` relies on |
 | [docs/pii-benchmark.md](docs/pii-benchmark.md) | Detector precision and recall on the labelled corpus |
 | [docs/plan/SEEN_BUILD_PLAN.md](docs/plan/SEEN_BUILD_PLAN.md) | The build plan; progress in [docs/build-ledger.md](docs/build-ledger.md) |
@@ -191,8 +189,10 @@ Issues and pull requests: <https://github.com/surenganne/seen>.
   opt-in yet): treat a repository you did not write as untrusted. Review `.seen/memory/` like code (a CODEOWNERS
   rule helps) and never store secrets or client data there.
 - **The dashboard** has no login (see Dashboard). The Docker copy is a snapshot: it is as old as the last
-  `seen docker-sync`, and settings or approvals changed there are lost on refresh. It aims for WCAG 2.2 AA, but
-  automated accessibility checks are not in CI yet, so that is a target, not a verified claim.
+  `seen docker-sync`, and settings or approvals changed there are lost on refresh. It targets WCAG 2.2 AA: axe
+  checks every page in both themes on desktop and phone sizes in CI, and Playwright covers the skip link, keyboard
+  access to table rows, per-page titles and reflow at 320px. Automated checks catch only part of what matters, so
+  screen-reader use and 200% zoom are manual checks (docs/TESTING.md Part 16).
 - **The team server** is a Phase 5 skeleton: no SSO, schema changes outside Alembic, and no scheduled retention.
   Sync is off by default and sends only the metadata you switch on; per-person detail stays private to that person.
 - **Network.** Hooks never touch it. `seen doctor` and `seen upgrade` make one anonymous request to GitHub to look
