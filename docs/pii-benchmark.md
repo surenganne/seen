@@ -12,10 +12,11 @@ High-confidence types (aadhaar, card, iban, secret) must reach 95% precision and
 | email | 100.0% | 100.0% | 60 | 0 | 0 |
 | gstin | 100.0% | 100.0% | 60 | 0 | 0 |
 | iban (high) | 100.0% | 100.0% | 60 | 0 | 0 |
+| ip | 100.0% | 100.0% | 20 | 0 | 0 |
 | pan | 100.0% | 100.0% | 60 | 0 | 0 |
 | passport | 100.0% | 100.0% | 60 | 0 | 0 |
 | phone | 100.0% | 100.0% | 60 | 0 | 0 |
-| secret (high) | 100.0% | 100.0% | 60 | 0 | 0 |
+| secret (high) | 100.0% | 100.0% | 70 | 0 | 0 |
 | ssn | 100.0% | 100.0% | 60 | 0 | 0 |
 | upi | 100.0% | 100.0% | 60 | 0 | 0 |
 
@@ -67,6 +68,13 @@ Regex finds structured identifiers. It does not find names, addresses or free-te
   "recall": 1.0,
   "tp": 60
  },
+ "ip": {
+  "fn": 0,
+  "fp": 0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "tp": 20
+ },
  "pan": {
   "fn": 0,
   "fp": 0,
@@ -93,7 +101,7 @@ Regex finds structured identifiers. It does not find names, addresses or free-te
   "fp": 0,
   "precision": 1.0,
   "recall": 1.0,
-  "tp": 60
+  "tp": 70
  },
  "ssn": {
   "fn": 0,

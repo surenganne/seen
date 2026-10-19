@@ -77,6 +77,16 @@ def test_block_mode_stops_prompt(repo: Path, tmp_path: Path, seen_home: Path) ->
     assert [x for x in spool.read("sess-1") if x["ev"] == "pii_prompt"][0]["blocked"] is True
 
 
+def test_blocked_prompt_is_not_stored_even_in_full_mode(repo: Path, tmp_path: Path, seen_home: Path) -> None:
+    _mode(seen_home, "block", store="full")
+    r = Replay(repo, tmp_path)
+    r.start()
+    assert r.prompt(SENTINEL).code == 2
+    start = [x for x in spool.read("sess-1") if x["ev"] == "turn_start"][0]
+    assert "prompt" not in start and start["prompt_len"] == len(SENTINEL)
+    assert AADHAAR not in paths.spool_file("sess-1").read_text().replace(" ", "")
+
+
 def test_off_mode_and_store_off(repo: Path, tmp_path: Path, seen_home: Path) -> None:
     _mode(seen_home, "off", store="off")
     r = Replay(repo, tmp_path)

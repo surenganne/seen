@@ -106,6 +106,23 @@ def _risky(items: object, under_repeat: bool = False) -> bool:
     return False
 
 
+def _unbounded(items: object) -> int:
+    """Count unbounded repeats anywhere in the pattern. Three in a row (`.*.*.*y`) backtrack cubically under search()."""
+    from re import _constants as C  # type: ignore[attr-defined]
+
+    n = 0
+    for op, av in items:  # type: ignore[attr-defined]
+        if op in (C.MAX_REPEAT, C.MIN_REPEAT, C.POSSESSIVE_REPEAT):
+            n += (av[1] == C.MAXREPEAT) + _unbounded(av[2])
+        elif op is C.SUBPATTERN:
+            n += _unbounded(av[-1])
+        elif op is C.BRANCH:
+            n += max((_unbounded(b) for b in av[1]), default=0)
+        elif op in (C.ASSERT, C.ASSERT_NOT):
+            n += _unbounded(av[1])
+    return n
+
+
 def safe_pattern(p: str) -> bool:
     """Repo regexes run on every prompt and Python's re has no timeout: refuse catastrophic shapes."""
     from re import _parser  # type: ignore[attr-defined]
@@ -113,6 +130,8 @@ def safe_pattern(p: str) -> bool:
     if not p or len(p) > 200:
         return False
     try:
-        return not _risky(_parser.parse(p))
+        tree = _parser.parse(p)
+        # ponytail: <=2 unbounded repeats still go quadratic-cubic on hostile input; detect.py's deadline is the real guard
+        return not _risky(tree) and _unbounded(tree) < 3
     except (re.error, RecursionError, ValueError, TypeError):
         return False
