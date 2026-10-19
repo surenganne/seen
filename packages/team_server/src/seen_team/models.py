@@ -52,6 +52,8 @@ class TeamApiKey(Base):
     role: Mapped[str] = mapped_column(String(16))  # member | lead | admin
     user_id: Mapped[str | None] = mapped_column(String(80))
     created_at: Mapped[str] = mapped_column(String(40))
+    expires_at: Mapped[str | None] = mapped_column(String(40), default=None)
+    revoked_at: Mapped[str | None] = mapped_column(String(40), default=None)
 
 
 class TeamBatch(Base):

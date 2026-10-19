@@ -29,6 +29,15 @@ SECURITY_HEADERS = {"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosnif
 MAX_FAILS, WINDOW_S = 8, 60
 
 
+def _add_missing_key_columns(engine: sa.Engine) -> None:
+    """create_all never alters a table: databases made before key expiry/revocation get the two columns here."""
+    have = {c["name"] for c in sa.inspect(engine).get_columns("team_api_keys")}
+    with engine.begin() as c:
+        for col in ("expires_at", "revoked_at"):
+            if col not in have:
+                c.execute(sa.text(f"ALTER TABLE team_api_keys ADD COLUMN {col} VARCHAR(40)"))
+
+
 def now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
@@ -105,6 +114,7 @@ class KeyIn(Strict):
     project_id: str | None = Field(default=None, max_length=64)
     role: Literal["member", "lead", "admin"]
     user_id: str | None = Field(default=None, max_length=80)
+    expires_in_days: int | None = Field(default=None, ge=1, le=3650)
 
 
 def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
@@ -115,7 +125,8 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
     engine = sa.create_engine(url, pool_pre_ping=True)
     if reset:
         Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)  # ponytail: skeleton uses create_all; move to Alembic before the first schema change
+    Base.metadata.create_all(engine)
+    _add_missing_key_columns(engine)  # ponytail: skeleton uses create_all; move to Alembic before the first schema change
     Sess = sessionmaker(engine, expire_on_commit=False)
     fails: dict[str, deque[float]] = defaultdict(deque)
     prod = os.environ.get("APP_ENV") == "production"  # no unauthenticated API map in production
@@ -149,6 +160,8 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
         if boot and hmac.compare_digest(tb, boot.encode()):
             return TeamApiKey(id="bootstrap", key_hash="", project_id=None, role="admin", created_at="")
         k = s.scalars(sa.select(TeamApiKey).where(TeamApiKey.key_hash == hashlib.sha256(tb).hexdigest())).first() if token else None
+        if k is not None and (k.revoked_at or (k.expires_at and k.expires_at <= now())):
+            k = None  # a revoked or expired key is indistinguishable from a wrong one
         if k is None:
             q.append(time.monotonic())
             raise HTTPException(401, "invalid API key")
@@ -171,11 +184,53 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
         if body.role == "member" and not body.user_id:
             raise HTTPException(422, "member keys must be bound to a user_id")
         token = "seen_" + secrets.token_urlsafe(32)
+        exp = (datetime.now(UTC) + timedelta(days=body.expires_in_days)).isoformat(timespec="seconds").replace("+00:00", "Z") \
+            if body.expires_in_days else None
         row = TeamApiKey(id=secrets.token_hex(8), key_hash=hashlib.sha256(token.encode()).hexdigest(), project_id=body.project_id,
-                         role=body.role, user_id=body.user_id, created_at=now())
+                         role=body.role, user_id=body.user_id, created_at=now(), expires_at=exp)
         s.add(row)
         s.commit()
         return {"id": row.id, "key": token}  # shown once; only the hash is stored
+
+    def admin_only(k: TeamApiKey) -> None:
+        if k.role != "admin":
+            raise HTTPException(403, "admin only")
+
+    @app.get("/api/keys")
+    def list_keys(k: Key, s: Db) -> list[dict[str, Any]]:
+        admin_only(k)
+        return [{"id": r.id, "role": r.role, "project_id": r.project_id, "user_id": r.user_id, "created_at": r.created_at,
+                 "expires_at": r.expires_at, "revoked_at": r.revoked_at}
+                for r in s.scalars(sa.select(TeamApiKey).order_by(TeamApiKey.created_at))]
+
+    @app.delete("/api/keys/{key_id}")
+    def revoke_key(key_id: str, k: Key, s: Db) -> dict[str, str]:
+        admin_only(k)
+        row = s.get(TeamApiKey, key_id)
+        if row is None:
+            raise HTTPException(404, "no such key")
+        row.revoked_at = row.revoked_at or now()
+        s.commit()
+        return {"id": row.id, "revoked_at": row.revoked_at}
+
+    @app.delete("/api/users/{user_id}")
+    def erase_user(user_id: str, k: Key, s: Db) -> dict[str, int]:
+        """DPDP erasure: the person's changes go, their keys stop working. Audit-head anchors hold only hashes and stay."""
+        admin_only(k)
+        n = s.execute(sa.delete(TeamChange).where(TeamChange.user_id == user_id)).rowcount  # type: ignore[attr-defined]
+        keys = list(s.scalars(sa.select(TeamApiKey).where(TeamApiKey.user_id == user_id, TeamApiKey.revoked_at.is_(None))))
+        for row in keys:
+            row.revoked_at = now()
+        s.commit()
+        return {"changes": n, "keys_revoked": len(keys)}
+
+    @app.delete("/api/projects/{pid}")
+    def erase_project(pid: str, k: Key, s: Db) -> dict[str, int]:
+        admin_only(k)
+        n = s.execute(sa.delete(TeamChange).where(TeamChange.project_id == pid)).rowcount  # type: ignore[attr-defined]
+        s.execute(sa.delete(TeamProject).where(TeamProject.id == pid))
+        s.commit()
+        return {"changes": n}
 
     @app.post("/api/sync")
     def sync(body: BatchIn, k: Key, s: Db, x_idempotency_key: str = Header(..., max_length=128)) -> dict[str, Any]:
