@@ -4,8 +4,8 @@
 #   docker compose --profile dev up -d          + Vite dev server (HMR)     http://127.0.0.1:47822
 #   docker compose --profile test run --rm tests            Python lint/type/unit suite in a container
 #   docker compose --profile test run --rm e2e              Playwright against a throwaway seeded test DB
-# The container never opens the live ~/.seen: SQLite WAL locking does not cross the Docker Desktop VM (ADR 0008).
-# It serves a consistent snapshot in ~/.seen-docker (ADR 0011). Mock data (SEEN_DEV_SEED) is for the test stacks only.
+# The container never opens the live ~/.seen: SQLite WAL locking does not cross the Docker Desktop VM.
+# It serves a consistent snapshot in ~/.seen-docker. Mock data (SEEN_DEV_SEED) is for the test stacks only.
 # Writes made in the container dashboard (settings, skill approvals) go to the snapshot and are lost on refresh;
 # change those on the host dashboard (`seen serve`).
 name: seen

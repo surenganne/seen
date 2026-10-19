@@ -338,9 +338,9 @@ unset SEEN_HOME                                   # your real ~/.seen
 SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open
 ```
 
-- [ ] Shows your real `~/.seen` ledger live. It runs on the host: SQLite WAL locking does not cross the Docker Desktop VM, so a container never opens the live database (ADR 0008). Stop it with Ctrl-C.
+- [ ] Shows your real `~/.seen` ledger live. It runs on the host: SQLite WAL locking does not cross the Docker Desktop VM, so a container never opens the live database. Stop it with Ctrl-C.
 
-Docker route (a copy, ADR 0011):
+Docker route:
 
 ```bash
 seen docker-sync && docker compose up -d --build     # then open http://127.0.0.1:47821

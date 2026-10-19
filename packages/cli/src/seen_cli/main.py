@@ -314,7 +314,7 @@ def purge_cmd(before: str = typer.Option(None, help="Erase changes and sessions 
 def docker_sync(dest: Path = typer.Option(Path("~/.seen-docker"), help="Snapshot folder mounted into the dashboard container"),
                 watch: int = typer.Option(0, help="Repeat every N seconds (0 = once)"),
                 restart: bool = typer.Option(False, help="Restart the dashboard container after each snapshot so it opens the new copy")) -> None:
-    """Snapshot ~/.seen for the Docker dashboard (ADR 0011). The container never opens the live ledger."""
+    """Snapshot ~/.seen for the Docker dashboard. The container never opens the live ledger."""
     import subprocess
     import time
 
