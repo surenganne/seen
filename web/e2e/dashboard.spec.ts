@@ -116,7 +116,7 @@ test("dark theme toggle wins over the OS setting", async ({ page }) => {
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "dark" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  expect(bg).toBe("rgb(6, 26, 46)");
+  expect(bg).toBe("oklch(0.165 0.035 258)");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });

@@ -1,3 +1,4 @@
+import { Download } from "lucide-react";
 import { useState } from "react";
 import { api, unwrap } from "../api/client";
 import { useWrite } from "../api/hooks";
@@ -7,16 +8,16 @@ export function ExportButton({ pid, from, to }: { pid: string; from?: string; to
   const [format, setFormat] = useState<"ndjson" | "csv">("ndjson");
   const m = useWrite(() => unwrap(api.POST("/api/audit/export", { body: { project: pid, date_from: from, date_to: to, format } })));
   return (
-    <span style={{ display: "inline-flex", gap: ".4rem", alignItems: "center", flexWrap: "wrap" }}>
+    <span className="checks">
       <select className="select" aria-label="Export format" value={format} onChange={(e) => setFormat(e.target.value as "ndjson" | "csv")}>
         <option value="ndjson">NDJSON</option>
         <option value="csv">CSV</option>
       </select>
       <button type="button" className="btn primary" disabled={m.isPending} onClick={() => m.mutate(undefined)} data-testid="export">
-        {m.isPending ? "Exporting…" : "Export"}
+        <Download aria-hidden="true" />{m.isPending ? "Exporting…" : "Export"}
       </button>
       {m.data && (
-        <span className="mono muted" role="status" data-testid="export-result" style={{ fontSize: ".78rem" }}>
+        <span className="mono tiny muted" role="status" data-testid="export-result" style={{ flexBasis: "100%", textAlign: "right" }}>
           {String(m.data.manifest.count)} events → {m.data.path} {m.data.manifest.verification && (m.data.manifest.verification as { ok: boolean }).ok ? "(verified)" : "(CHAIN NOT VERIFIED)"}
         </span>
       )}

@@ -1,5 +1,6 @@
+import { Bot, Brain, ChevronRight, FileClock, FolderGit2, LayoutDashboard, ListChecks, Monitor, Moon, Settings as Cog, ShieldCheck, ShieldAlert, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useProjects, useVerify } from "../api/hooks";
 import { useRange, withRange } from "../lib/nav";
 import { Eyes } from "./Eyes";
@@ -23,22 +24,36 @@ function useTheme(): [Theme, (t: Theme) => void] {
       if (theme === "system") localStorage.removeItem("seen-theme");
       else localStorage.setItem("seen-theme", theme);
     } catch {
-      /* private mode: theme still applies for this visit */
+      /* private mode: the theme still applies for this visit */
     }
   }, [theme]);
   return [theme, setTheme];
 }
 
 const SECTIONS = [
-  ["overview", "Overview"],
-  ["changes", "Changes"],
-  ["memory", "Memory"],
-  ["skills", "Skills"],
-  ["audit", "Audit"],
+  ["", "Overview", LayoutDashboard],
+  ["changes", "Changes", ListChecks],
+  ["memory", "Memory", Brain],
+  ["skills", "Skills", Bot],
+  ["audit", "Audit", FileClock],
 ] as const;
 
+function useNarrow(query = "(max-width: 860px)"): boolean {
+  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.matchMedia?.(query).matches === true);
+  useEffect(() => {
+    const m = window.matchMedia?.(query);
+    if (!m) return;
+    const on = () => setNarrow(m.matches);
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, [query]);
+  return narrow;
+}
+
+const TITLES: Record<string, string> = { "": "Overview", changes: "Changes", memory: "Memory", skills: "Skills", audit: "Audit" };
+
 export function Layout() {
-  const { pid } = useParams();
+  const { pid, cid } = useParams();
   const { data: projects } = useProjects();
   const { data: verify } = useVerify();
   const [range, setRange] = useRange();
@@ -47,67 +62,99 @@ export function Layout() {
   const loc = useLocation();
   const current = projects?.find((p) => p.id === pid);
   const alert = (current?.alert ?? false) || verify?.ok === false;
+  const section = pid ? (loc.pathname.replace(`/p/${pid}`, "").split("/")[1] ?? "") : "";
+  const narrow = useNarrow();  // one project switcher at a time: rail on desktop, top bar on phones
 
   const links = (
     <>
       <NavLink to={withRange("/projects", range)} end>
-        <span className="num">00</span>Projects
+        <FolderGit2 aria-hidden="true" />Projects
       </NavLink>
       {pid &&
-        SECTIONS.map(([path, label], i) => (
-          <NavLink key={path} to={withRange(`/p/${pid}/${path === "overview" ? "" : path}`, range)} end={path === "overview"}>
-            <span className="num">{String(i + 1).padStart(2, "0")}</span>
+        SECTIONS.map(([path, label, Icon]) => (
+          <NavLink key={path} to={withRange(`/p/${pid}/${path}`, range)} end={path === ""}>
+            <Icon aria-hidden="true" />
             {label}
           </NavLink>
         ))}
       <NavLink to={withRange("/settings", range)}>
-        <span className="num">··</span>Settings
+        <Cog aria-hidden="true" />Settings
       </NavLink>
+    </>
+  );
+
+  const projectSelect = (
+    <>
+      <label className={narrow ? "sr-only" : "rail-heading"} htmlFor="project-switcher">Project</label>
+      <select
+        id="project-switcher"
+        className={narrow ? "select" : undefined}
+        value={pid ?? ""}
+        onChange={(e) => {
+          const keep = ["changes", "memory", "skills", "audit"].includes(section) ? section : "";
+          nav(withRange(`/p/${e.target.value}/${keep}`, range));
+        }}
+      >
+        {!pid && <option value="">Choose a project</option>}
+        {projects?.map((p) => <option key={p.id} value={p.id}>{p.name ?? p.id}</option>)}
+      </select>
     </>
   );
 
   return (
     <div className="shell">
-      <aside className="sidebar">
-        <NavLink to={withRange("/projects", range)} className="brand" aria-label="Seen home">
-          <Eyes state={alert ? "alert" : "idle"} size={40} />
-          <div>
-            <div className="brand-name">Seen</div>
-            <div className="brand-tag">Nothing your agents do goes unseen.</div>
-          </div>
-        </NavLink>
+      <aside className="rail">
+        <Link to={withRange("/projects", range)} className="brand" aria-label="Seen home">
+          <Eyes state={alert ? "alert" : "idle"} size={34} onDark />
+          <span className="brand-name">Seen</span>
+        </Link>
+        {!narrow && <div className="rail-section">{projectSelect}</div>}
         <nav className="nav" aria-label="Main">{links}</nav>
-        <div className="sidebar-foot">Local data only. Prompts and diffs never leave this machine.</div>
+        <div className="rail-foot">
+          {verify && (
+            <span className="verify" title={verify.anchor_note}>
+              {verify.ok ? <ShieldCheck aria-hidden="true" color="var(--good)" /> : <ShieldAlert aria-hidden="true" color="var(--critical)" />}
+              {verify.ok ? `Audit chain verified (${verify.count.toLocaleString()})` : "Audit chain broken"}
+            </span>
+          )}
+          <span>Local data only. Prompts and diffs stay on this machine.</span>
+        </div>
       </aside>
       <div className="main">
         <nav className="mobile-nav" aria-label="Main (compact)">{links}</nav>
         <header className="topbar">
-          <span className="mobile-only"><Eyes state={alert ? "alert" : "idle"} size={28} /></span>
-          <label className="eyebrow" htmlFor="project-switcher">Project</label>
-          <select
-            id="project-switcher"
-            className="select"
-            value={pid ?? ""}
-            onChange={(e) => {
-              const rest = pid ? loc.pathname.replace(`/p/${pid}`, "").split("/")[1] ?? "" : "";
-              const section = ["changes", "memory", "skills", "audit"].includes(rest) ? rest : "";
-              nav(withRange(`/p/${e.target.value}/${section}`, range));
-            }}
-          >
-            {!pid && <option value="">Choose a project</option>}
-            {projects?.map((p) => (
-              <option key={p.id} value={p.id}>{p.name ?? p.id}</option>
-            ))}
-          </select>
+          <span className="mobile-only"><Eyes state={alert ? "alert" : "idle"} size={26} /></span>
+          <div className="crumbs" aria-label="Breadcrumb">
+            {pid ? (
+              <>
+                <Link to={withRange("/projects", range)}>Projects</Link>
+                <ChevronRight size={14} aria-hidden="true" />
+                {cid ? (
+                  <>
+                    <Link to={withRange(`/p/${pid}/changes`, range)}>{current?.name ?? pid}</Link>
+                    <ChevronRight size={14} aria-hidden="true" />
+                    <strong>Change</strong>
+                  </>
+                ) : (
+                  <strong>{current?.name ?? pid} · {TITLES[section] ?? "Overview"}</strong>
+                )}
+              </>
+            ) : (
+              <strong>{loc.pathname.startsWith("/settings") ? "Settings" : "Projects"}</strong>
+            )}
+          </div>
+          <span className="spacer" />
+          {narrow && projectSelect}
           <div className="seg" role="group" aria-label="Date range">
             {([7, 14, 28] as const).map((r) => (
               <button key={r} type="button" aria-pressed={range === r} onClick={() => setRange(r)}>{r}d</button>
             ))}
           </div>
-          <span className="spacer" />
           <div className="seg" role="group" aria-label="Theme">
-            {(["light", "system", "dark"] as const).map((t) => (
-              <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)}>{t === "system" ? "auto" : t}</button>
+            {([["light", Sun], ["system", Monitor], ["dark", Moon]] as const).map(([t, I]) => (
+              <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)} aria-label={t} title={t === "system" ? "Follow the OS" : `${t} theme`}>
+                <I aria-hidden="true" />
+              </button>
             ))}
           </div>
         </header>

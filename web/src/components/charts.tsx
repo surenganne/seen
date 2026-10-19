@@ -14,16 +14,16 @@ function ChartTip({ active, payload, label }: { active?: boolean; payload?: { na
   if (!active || !payload?.length) return null;
   const total = payload.reduce((a, p) => a + (p.value || 0), 0);
   return (
-    <div className="card" style={{ padding: ".5rem .7rem", fontSize: ".82rem" }}>
-      <div className="eyebrow">{label ? day(label) : ""}</div>
+    <div className="chart-tip">
+      <div className="label">{label ? day(label) : ""}</div>
       {payload.map((p) => (
         <div key={p.name} style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color }} aria-hidden="true" />
           <span>{p.name}</span>
-          <span className="mono" style={{ marginLeft: "auto" }}>{money(p.value)}</span>
+          <span className="mono" style={{ marginLeft: "auto", paddingLeft: 12 }}>{money(p.value)}</span>
         </div>
       ))}
-      {payload.length > 1 && <div className="mono" style={{ borderTop: "1px solid var(--rule)", marginTop: 4 }}>Total {money(total)}</div>}
+      {payload.length > 1 && <div className="mono" style={{ borderTop: "1px solid var(--border)", marginTop: 4, paddingTop: 4 }}>Total {money(total)}</div>}
     </div>
   );
 }
@@ -37,13 +37,13 @@ export function CostChart({ days }: { days: S["DayCost"][] }) {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: ".25rem" }}>
-        <button type="button" className="chip" aria-pressed={asTable} onClick={() => setAsTable(!asTable)}>
+        <button type="button" className="btn ghost sm" aria-pressed={asTable} onClick={() => setAsTable(!asTable)}>
           {asTable ? "Chart" : "Table view"}
         </button>
       </div>
       {asTable ? (
         <div className="table-wrap">
-          <table className="ledger" aria-label="Cost per day">
+          <table className="data" aria-label="Cost per day">
             <thead><tr><th>Day</th>{tools.map((t) => <th key={t} className="num">{toolName[t] ?? t}</th>)}</tr></thead>
             <tbody>
               {days.map((d) => (
@@ -57,12 +57,12 @@ export function CostChart({ days }: { days: S["DayCost"][] }) {
           <ResponsiveContainer>
             <BarChart data={rows} margin={{ top: 8, right: 4, left: -8, bottom: 0 }} barCategoryGap="22%">
               <CartesianGrid vertical={false} stroke="var(--grid)" />
-              <XAxis dataKey="date" tickFormatter={day} tick={axis} tickLine={false} axisLine={{ stroke: "var(--rule)" }} minTickGap={14} />
+              <XAxis dataKey="date" tickFormatter={day} tick={axis} tickLine={false} axisLine={{ stroke: "var(--border-strong)" }} minTickGap={14} />
               <YAxis tickFormatter={(v: number) => `$${v.toFixed(v >= 10 ? 0 : 2)}`} tick={axis} tickLine={false} axisLine={false} width={48} />
               <Tooltip content={<ChartTip />} cursor={{ fill: "var(--surface-2)" }} />
               {tools.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
               {tools.map((t, i) => (
-                <Bar key={t} dataKey={t} name={toolName[t] ?? t} stackId="cost" fill={toolColor(t)} stroke="var(--surface)" strokeWidth={1}
+                <Bar key={t} dataKey={t} name={toolName[t] ?? t} stackId="cost" fill={toolColor(t)} stroke="var(--surface)" strokeWidth={2}
                   radius={i === tools.length - 1 ? [4, 4, 0, 0] : 0} maxBarSize={28} />
               ))}
             </BarChart>
@@ -77,12 +77,13 @@ export function CostChart({ days }: { days: S["DayCost"][] }) {
 export function MagnitudeBars({ items, unit = "" }: { items: { label: string; value: number; sub?: string }[]; unit?: string }) {
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
-    <ul className="list" style={{ gap: 0 }}>
+    <ul className="bars">
       {items.map((i) => (
-        <li key={i.label} style={{ display: "grid", gridTemplateColumns: "minmax(80px, 1fr) 2fr auto", alignItems: "center" }}>
-          <span>{i.label}</span>
-          <span className="bar" aria-hidden="true"><span style={{ width: `${(i.value / max) * 100}%` }} /></span>
+        <li key={i.label}>
+          <span className="mono">{i.label}</span>
+          <span className="meter" aria-hidden="true"><span style={{ width: `${(i.value / max) * 100}%` }} /></span>
           <span className="mono" title={i.sub}>{i.value.toLocaleString()}{unit}</span>
+          {i.sub && <span className="tiny muted bars-sub">{i.sub}</span>}
         </li>
       ))}
     </ul>

@@ -40,7 +40,7 @@ describe("status badges carry an icon and a label, never color alone", () => {
   it.each(["approved", "changed", "unreviewed", "blocked"])("%s", (st) => {
     render(<SkillStatus status={st} />);
     const b = screen.getByText(st).closest(".badge")!;
-    expect(b.querySelector("[aria-hidden]")?.textContent).toBeTruthy();
+    expect(b.querySelector("svg[aria-hidden]")).not.toBeNull();
   });
 });
 
@@ -62,7 +62,7 @@ describe("ChangesTable", () => {
   });
   it("says so when nothing matches", () => {
     render(<MemoryRouter><ChangesTable pid="x" rows={[]} /></MemoryRouter>);
-    expect(screen.getByText("No changes match.")).toBeInTheDocument();
+    expect(screen.getByText("No changes match")).toBeInTheDocument();
   });
 });
 
