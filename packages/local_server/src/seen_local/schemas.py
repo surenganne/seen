@@ -7,6 +7,22 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+class SessionOut(BaseModel):
+    id: str
+    started_at: str | None
+    ended_at: str | None
+    status: Literal["active", "ended", "incomplete"]
+    last_event_at: str | None
+    tool: str
+    tool_version: str | None
+    models: list[str]
+    turns: int
+    files: int
+    tool_calls: int
+    events: int
+    cost_usd: float
+
+
 class ProjectOut(BaseModel):
     id: str
     name: str | None

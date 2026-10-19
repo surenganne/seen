@@ -345,3 +345,45 @@ def policies(db: DB, pid: str) -> list[S.PolicyOut]:
         out.append(S.PolicyOut(id=p.id, title=p.title, paths=json.loads(p.paths_json or "[]"), require_skill=p.require_skill,
                                mode=p.mode, applicable=len(r), met=met, missed=len(r) - met, compliance=round(met / len(r), 4) if r else 1.0))
     return out
+
+
+ACTIVE_WINDOW = timedelta(minutes=30)
+
+
+def sessions(db: DB, pid: str) -> list[S.SessionOut]:
+    """Sessions newest first. Active = no session.end yet and an event in the last 30 minutes; incomplete = no end, gone quiet."""
+    import sqlite3
+
+    from seen_core import paths
+
+    stats: dict[str, tuple[int, int, str | None]] = {}
+    try:
+        con = sqlite3.connect(f"file:{paths.audit_db()}?mode=ro", uri=True)
+        try:
+            for sid, n, calls, last in con.execute(
+                    "SELECT session_id, COUNT(*), SUM(type = 'tool.call'), MAX(occurred_at) FROM audit_events "
+                    "WHERE project_id = ? AND session_id IS NOT NULL GROUP BY session_id", (pid,)):
+                stats[sid] = (n, calls or 0, last)
+        finally:
+            con.close()
+    except sqlite3.Error:
+        pass
+    by_session: dict[str, list[Change]] = defaultdict(list)
+    for c in db.scalars(select(Change).where(Change.project_id == pid)):
+        by_session[c.session_id or ""].append(c)
+    files: Counter[str] = Counter()
+    for sid, _path in db.execute(select(Change.session_id, ChangeFile.path).join(ChangeFile, ChangeFile.change_id == Change.id)
+                                .where(Change.project_id == pid).distinct()):
+        files[sid or ""] += 1
+    cutoff = (datetime.now(UTC) - ACTIVE_WINDOW).isoformat().replace("+00:00", "Z")
+    out = []
+    for s in db.scalars(select(Session).where(Session.project_id == pid)):
+        n, calls, last = stats.get(s.id, (0, 0, None))
+        cs = by_session.get(s.id, [])
+        last = max([x for x in (last, s.started_at, *(c.ended_at or c.started_at for c in cs)) if x], default=None)
+        status = "ended" if s.ended_at else "active" if last and last >= cutoff else "incomplete"
+        out.append(S.SessionOut(id=s.id, started_at=s.started_at, ended_at=s.ended_at, status=status, last_event_at=last,
+                                tool=s.tool, tool_version=s.tool_version, models=sorted({c.model for c in cs if c.model}),
+                                turns=len(cs), files=files[s.id], tool_calls=calls, events=n,
+                                cost_usd=round(sum(c.cost_usd or 0 for c in cs), 4)))
+    return sorted(out, key=lambda x: x.started_at or "", reverse=True)

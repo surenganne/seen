@@ -7,6 +7,7 @@ import { Changes } from "./pages/Changes";
 import { Memory } from "./pages/Memory";
 import { Overview } from "./pages/Overview";
 import { Projects } from "./pages/Projects";
+import { Sessions } from "./pages/Sessions";
 import { Settings } from "./pages/Settings";
 import { Skills } from "./pages/Skills";
 
@@ -20,6 +21,7 @@ export const routes = [
       { path: "/p/:pid", element: <Overview /> },
       { path: "/p/:pid/changes", element: <Changes /> },
       { path: "/p/:pid/changes/:cid", element: <ChangeDetail /> },
+      { path: "/p/:pid/sessions", element: <Sessions /> },
       { path: "/p/:pid/memory", element: <Memory /> },
       { path: "/p/:pid/skills", element: <Skills /> },
       { path: "/p/:pid/audit", element: <Audit /> },
