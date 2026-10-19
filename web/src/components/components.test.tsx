@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import type { S } from "../api/client";
 import { ChangesTable } from "./ChangesTable";
-import { Eyes } from "./Eyes";
+import { Eyes, lens, lidAt } from "./Eyes";
 import { PiiChip, SkillStatus } from "./ui";
 import { day, money, when } from "../lib/format";
 
@@ -21,6 +21,18 @@ describe("Eyes", () => {
     expect(screen.getByRole("img", { name: "Seen" })).toHaveAttribute("data-state", "idle");
     rerender(<Eyes state="alert" />);
     expect(screen.getByRole("img", { name: /needs attention/i })).toHaveAttribute("data-state", "alert");
+  });
+  it("blinks shut and back open within 275 ms", () => {
+    expect(lidAt(-1)).toBe(1);
+    expect(lidAt(0)).toBe(1);
+    expect(lidAt(90)).toBe(0);
+    expect(lidAt(150)).toBeGreaterThan(0);
+    expect(lidAt(150)).toBeLessThan(1);
+    expect(lidAt(275)).toBe(1);
+  });
+  it("lids are an almond around the eye centre that grows with openness", () => {
+    expect(lens(18, 1)).toBe("M2,25 Q18,-3.3999999999999986 34,25 Q18,53.4 2,25 Z");
+    expect(lens(18, 0.5)).toContain("Q18,10.8 ");
   });
 });
 

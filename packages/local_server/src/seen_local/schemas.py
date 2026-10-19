@@ -16,6 +16,8 @@ class SessionOut(BaseModel):
     last_event_at: str | None
     tool: str
     tool_version: str | None
+    entrypoint: str | None = None
+    background: bool = False  # started by a plugin through the Agent SDK (entrypoint sdk-*), not by a person
     models: list[str]
     turns: int
     files: int
@@ -24,9 +26,16 @@ class SessionOut(BaseModel):
     cost_usd: float
 
 
+class SessionCounts(BaseModel):
+    all: int
+    yours: int
+    background: int
+
+
 class SessionPage(BaseModel):
     total: int
     active: int
+    counts: SessionCounts
     page: int
     page_size: int
     items: list[SessionOut]

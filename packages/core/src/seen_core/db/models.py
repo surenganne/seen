@@ -31,6 +31,7 @@ class Session(Base):
     tool_version: Mapped[str | None] = mapped_column(T)
     user_id: Mapped[str | None] = mapped_column(T)
     source: Mapped[str] = mapped_column(T, default="live", server_default="live")  # live | imported
+    entrypoint: Mapped[str | None] = mapped_column(T)  # CLAUDE_CODE_ENTRYPOINT; sdk-* = a plugin's background session
 
 
 class Change(Base):

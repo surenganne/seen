@@ -67,13 +67,15 @@ figures. Hierarchy comes from size and weight steps, not extra typefaces. No all
 
 ## The mark
 
-`components/Eyes.tsx` and `assets/brand/eyes.svg`: two round eyes with brows on a transparent background,
-white sclera, Minfy-orange rim and brows, blue iris (`#5AA9E6 → #1F5F99 → #0A2540`), navy pupil and a double
-glint. The colours never change, so the mark reads the same everywhere. Idle: looks around, blinks and lifts
-its brows now and then. Alert (the selected project has open high-confidence PII or a missed rule): stops,
-stares ahead with the brows drawn down, pupil narrows; the accessible name becomes "Seen: needs attention".
-Project cards always show the idle mark; their status is the "Needs attention" badge. Static, mono and PNG
-variants live in `assets/brand/`.
+`components/Eyes.tsx` and `assets/brand/eyes.svg`: owl eyes on a transparent background. Each eye is nearly all
+iris (`#FFD27A → #F59A3E → #E85D26 → #9E3A12`) with a large navy pupil, two white glints and lids; orange feather tufts
+are the brows. Outline and lids are navy on light backgrounds and turn light (`#F5F5F5` outline, `#1A3A5C` lids) on
+dark ones, so the eyes keep a crisp edge; the brand colours never change. Idle: quick glances with pauses, lid blinks
+(sometimes twice), each copy on its own schedule. Alert (the selected project has open high-confidence PII or a missed
+rule): looks straight ahead, lids wide, pupils shrink to pinpoints, tufts lift; the accessible name becomes
+"Seen: needs attention". Project cards always show the idle mark; their status is the "Needs attention" badge.
+`scripts/build_brand.py` writes the static, mono, PNG and social-preview variants in `assets/brand/` from the same
+geometry.
 
 ## Motion
 

@@ -228,6 +228,18 @@ test.describe("sessions", () => {
     await drawer.getByRole("button", { name: "Close" }).click();
     await expect(drawer).toHaveCount(0);
   });
+
+  test("defaults to your sessions; background ones are one click away and labelled", async ({ page }) => {
+    await page.goto("/p/demo-payments/sessions");
+    const kind = page.getByTestId("session-kind");
+    await expect(kind.getByRole("button", { name: /Yours/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("session-row").filter({ hasText: "background" })).toHaveCount(0);
+    await kind.getByRole("button", { name: /Background/ }).click();
+    await expect(page).toHaveURL(/kind=background/);
+    const rows = page.getByTestId("session-row");
+    await expect(rows.first()).toContainText("background");
+    expect(await rows.filter({ hasNotText: "background" }).count()).toBe(0);
+  });
 });
 
 test.describe("changes grouped by session, with paging", () => {

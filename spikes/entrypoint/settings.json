@@ -1,0 +1,2 @@
+{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"echo \"start entrypoint=$CLAUDE_CODE_ENTRYPOINT\" >> $SPIKE_DIR/out.txt"}]}],
+"UserPromptSubmit":[{"hooks":[{"type":"command","command":"echo \"prompt entrypoint=$CLAUDE_CODE_ENTRYPOINT\" >> $SPIKE_DIR/out.txt"}]}]}}

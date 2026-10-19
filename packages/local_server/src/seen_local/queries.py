@@ -392,7 +392,8 @@ def sessions(db: DB, pid: str) -> list[S.SessionOut]:
         status = "ended" if s.ended_at or (s.source == "imported" and not recent) else "active" if recent else "incomplete"
         out.append(S.SessionOut(id=s.id, started_at=s.started_at, ended_at=s.ended_at, status=status,
                                 source="imported" if s.source == "imported" else "live", last_event_at=last,
-                                tool=s.tool, tool_version=s.tool_version, models=sorted({c.model for c in cs if c.model}),
+                                tool=s.tool, tool_version=s.tool_version, entrypoint=s.entrypoint,
+                                background=bool(s.entrypoint and s.entrypoint.startswith("sdk")), models=sorted({c.model for c in cs if c.model}),
                                 turns=len(cs), files=files[s.id], tool_calls=calls, events=n,
                                 cost_usd=round(sum(c.cost_usd or 0 for c in cs), 4)))
     return sorted(out, key=lambda x: x.started_at or "", reverse=True)

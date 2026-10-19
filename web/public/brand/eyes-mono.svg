@@ -1,31 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -6 64 64" role="img" aria-label="Seen">
-  <!-- Seen mark: two round eyes with brows, transparent background. -->
-  <defs>
-    <radialGradient id="iris" cx="40%" cy="35%" r="70%">
-      <stop offset="0" stop-color="#5AA9E6"/><stop offset=".6" stop-color="#1F5F99"/><stop offset="1" stop-color="#0A2540"/>
-    </radialGradient>
-    <clipPath id="l"><circle cx="17" cy="32" r="12.2"/></clipPath>
-    <clipPath id="r"><circle cx="47" cy="32" r="12.2"/></clipPath>
-  </defs>
-  <style>
-    .rim { fill: #FFFFFF; stroke: #0A2540; stroke-width: 2.6; }
-    .brow { fill: none; stroke: #0A2540; stroke-width: 3; stroke-linecap: round; }
-    .eye { transform-box: fill-box; transform-origin: center; }
-    .look { }
-    @keyframes look { 0%,16% { transform: translate(0,0) } 22%,38% { transform: translate(-4.5px,.8px) }
-      44%,60% { transform: translate(4.5px,-.6px) } 66%,82% { transform: translate(1px,3px) } 88%,100% { transform: translate(0,0) } }
-    @keyframes brow { 0%,40%,62%,100% { transform: translateY(0) } 46%,56% { transform: translateY(-1.8px) } }
-    @keyframes blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.1) } }
-    @media (prefers-reduced-motion: reduce) { .eye, .look, .brow { animation: none } }
-  </style>
-  <path class="brow" d="M6.5 12.5 Q16 5.5 26 10"/>
-  <path class="brow" d="M38 10 Q48 5.5 57.5 12.5"/>
-  <g class="eye">
-    <circle class="rim" cx="17" cy="32" r="13.5"/>
-    <g clip-path="url(#l)"><g class="look"><circle cx="17" cy="32" r="7.2" fill="#0A2540"/><circle cx="19.6" cy="29.2" r="1.8" fill="#FFFFFF"/></g></g>
-  </g>
-  <g class="eye">
-    <circle class="rim" cx="47" cy="32" r="13.5"/>
-    <g clip-path="url(#r)"><g class="look"><circle cx="47" cy="32" r="7.2" fill="#0A2540"/><circle cx="49.6" cy="29.2" r="1.8" fill="#FFFFFF"/></g></g>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -11 64 64" role="img" aria-label="Seen">
+  <!-- Seen mark: owl eyes, amber-to-orange iris, navy pupil, orange tufts. Built by scripts/build_brand.py. -->
+  <defs><clipPath id="c0"><circle cx="18" cy="25" r="12.4"/></clipPath><clipPath id="l0"><path d="M2,25 Q18,-0.56 34,25 Q18,50.56 2,25 Z"/></clipPath><clipPath id="c1"><circle cx="46" cy="25" r="12.4"/></clipPath><clipPath id="l1"><path d="M30,25 Q46,-0.56 62,25 Q46,50.56 30,25 Z"/></clipPath></defs>
+  <style>.ring { fill: #0A2540; stroke: #0A2540; stroke-width: 2 } .tuft { fill: #0A2540 }</style>
+  <path class="tuft" d="M7 11 Q11 3.5 21 7.5 Q15 6.8 12.5 9.6 Q10 8.6 7 11 Z"/><path class="tuft" d="M57 11 Q53 3.5 43 7.5 Q49 6.8 51.5 9.6 Q54 8.6 57 11 Z"/><circle class="ring" cx="18" cy="25" r="13.2"/><g clip-path="url(#c0)"><g class="lids"><g clip-path="url(#l0)"><circle cx="18" cy="25" r="13" fill="#FFFFFF"/><g class="look"><circle cx="18" cy="25" r="6.6" fill="#0A2540"/><circle cx="21" cy="21.4" r="2.5" fill="#FFFFFF"/><circle cx="15.4" cy="28.4" r="1.1" fill="#FFFFFF"/></g></g></g></g><circle class="ring" cx="46" cy="25" r="13.2"/><g clip-path="url(#c1)"><g class="lids"><g clip-path="url(#l1)"><circle cx="46" cy="25" r="13" fill="#FFFFFF"/><g class="look"><circle cx="46" cy="25" r="6.6" fill="#0A2540"/><circle cx="49" cy="21.4" r="2.5" fill="#FFFFFF"/><circle cx="43.4" cy="28.4" r="1.1" fill="#FFFFFF"/></g></g></g></g>
 </svg>

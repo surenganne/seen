@@ -52,3 +52,22 @@ def test_quiet_imported_session_reads_as_ended(client: TestClient) -> None:
         db.commit()
     items = {s["id"]: s for s in client.get(f"/api/projects/{PID}/sessions", params={"page_size": 200}).json()["items"]}
     assert items["imp-quiet"]["status"] == "ended" and items["imp-quiet"]["source"] == "imported"
+
+
+def test_sessions_split_yours_and_background(client: TestClient) -> None:
+    now = datetime.now(UTC)
+    with ledger_session() as db:
+        for sid, ep in (("mine-1", "cli"), ("bg-py", "sdk-py"), ("bg-cli", "sdk-cli"), ("unknown-1", None)):
+            db.add(Session(id=sid, project_id=PID, started_at=_iso(now), entrypoint=ep))
+        db.commit()
+    every = client.get(f"/api/projects/{PID}/sessions", params={"page_size": 200}).json()
+    by = {s["id"]: s for s in every["items"]}
+    assert by["bg-py"]["background"] and by["bg-cli"]["background"] and by["bg-py"]["entrypoint"] == "sdk-py"
+    assert not by["mine-1"]["background"] and not by["unknown-1"]["background"]
+    yours = client.get(f"/api/projects/{PID}/sessions", params={"page_size": 200, "kind": "yours"}).json()
+    bg = client.get(f"/api/projects/{PID}/sessions", params={"page_size": 200, "kind": "background"}).json()
+    assert {"bg-py", "bg-cli"} <= {s["id"] for s in bg["items"]} and all(s["background"] for s in bg["items"])
+    assert {"mine-1", "unknown-1"} <= {s["id"] for s in yours["items"]} and not any(s["background"] for s in yours["items"])
+    assert yours["total"] + bg["total"] == every["total"]
+    for page in (every, yours, bg):
+        assert page["counts"] == {"all": every["total"], "yours": yours["total"], "background": bg["total"]}

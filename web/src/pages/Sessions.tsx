@@ -1,7 +1,7 @@
 import { Activity, ListChecks, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { S } from "../api/client";
-import { useSessionActivity, useSessions } from "../api/hooks";
+import { type SessionKind, useSessionActivity, useSessions } from "../api/hooks";
 import { Badge, Empty, ErrorBox, Loading, PageHead, Pager } from "../components/ui";
 import { int, money, short, when } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
@@ -18,21 +18,32 @@ export function Sessions() {
   const open = sp.get("session") || undefined;
   const select = (id?: string) => setSp((p) => { if (id) p.set("session", id); else p.delete("session"); return p; }, { replace: true });
   const page = Math.max(1, Number(sp.get("page") || 1));
-  const { data, error, isLoading } = useSessions(pid, page);
+  const kind: SessionKind = (["yours", "background", "all"] as const).find((k) => k === sp.get("kind")) ?? "yours";
+  const { data, error, isLoading } = useSessions(pid, page, kind);
   const goPage = (n: number) => setSp((p) => { p.set("page", String(n)); return p; }, { replace: true });
+  const goKind = (k: SessionKind) => setSp((p) => { p.set("kind", k); p.delete("page"); p.delete("session"); return p; }, { replace: true });
   return (
     <main className="page">
       <PageHead
         title="Sessions"
-        description="Every Claude Code session in this repo, newest first. Active means no session end yet and activity in the last 30 minutes. Refreshes every 10 seconds."
+        description="Claude Code sessions in this repo, newest first. Yours are the ones you started; background sessions were started by plugins through the Agent SDK (for example a reflector or summariser) and still cost tokens. Active means no session end yet and activity in the last 30 minutes. Refreshes every 10 seconds."
         actions={data && <span className="mono small muted" data-testid="sessions-count">{data.total} sessions · {data.active} active</span>}
       />
+      {data && (
+        <div className="seg" role="group" aria-label="Which sessions" style={{ alignSelf: "start" }} data-testid="session-kind">
+          {(["yours", "background", "all"] as const).map((k) => (
+            <button key={k} type="button" aria-pressed={kind === k} onClick={() => goKind(k)}>
+              {k === "yours" ? "Yours" : k === "background" ? "Background" : "All"} <span className="mono">{data.counts[k]}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {isLoading && <Loading what="Loading sessions" />}
       {error && <ErrorBox error={error} />}
       {data && (
         <section className="panel">
           {data.total === 0 ? (
-            <Empty icon={Activity} title="No sessions recorded yet">Sessions appear here once Claude Code starts in this repo with the Seen plugin enabled. A session that was already running when the plugin was installed is not recorded.</Empty>
+            <Empty icon={Activity} title={kind === "background" ? "No background sessions" : kind === "yours" && data.counts.all > 0 ? "None of your sessions are recorded yet" : "No sessions recorded yet"}>Sessions appear here once Claude Code starts in this repo with the Seen plugin enabled. A session that was already running when the plugin was installed is not recorded.</Empty>
           ) : (
             <div className="table-wrap">
               <table className="data" data-testid="sessions-table">
@@ -42,7 +53,7 @@ export function Sessions() {
                     <tr key={s.id} className="clickable" tabIndex={0} onClick={() => select(s.id)} onKeyDown={(e) => e.key === "Enter" && select(s.id)}
                       aria-selected={open === s.id} data-testid="session-row" data-status={s.status}>
                       <td className="mono">{short(s.id, 8)}<div className="meta">{s.tool}{s.tool_version ? ` ${s.tool_version}` : ""}</div></td>
-                      <td><span className="checks">{STATUS[s.status]}{s.source === "imported" && <span className="tag" title="Recorded afterwards from the Claude Code transcript">imported</span>}</span></td>
+                      <td><span className="checks">{STATUS[s.status]}{s.source === "imported" && <span className="tag" title="Recorded afterwards from the Claude Code transcript">imported</span>}{s.background && <span className="tag" title={`Started by a plugin through the Agent SDK (entrypoint ${s.entrypoint})`}>background</span>}</span></td>
                       <td className="when">{when(s.started_at)}</td>
                       <td className="when">{when(s.last_event_at)}</td>
                       <td className="mono small">{s.models.join(", ") || "—"}</td>
@@ -77,7 +88,8 @@ function SessionDrawer({ pid, id, s, onClose }: { pid: string; id: string; s?: S
       <div className="drawer-body">
         {s && (
           <dl className="kv">
-            <dt>Status</dt><dd className="checks">{STATUS[s.status]}{s.source === "imported" && <span className="tag">imported</span>}</dd>
+            <dt>Status</dt><dd className="checks">{STATUS[s.status]}{s.source === "imported" && <span className="tag">imported</span>}{s.background && <span className="tag" title={`Started by a plugin through the Agent SDK (entrypoint ${s.entrypoint})`}>background</span>}</dd>
+            <dt>Started by</dt><dd className="mono">{s.entrypoint ?? "not recorded"}</dd>
             <dt>Started</dt><dd className="mono">{when(s.started_at)}</dd>
             <dt>Ended</dt><dd className="mono">{s.ended_at ? when(s.ended_at) : "—"}</dd>
             <dt>Model</dt><dd className="mono">{s.models.join(", ") || "—"}</dd>

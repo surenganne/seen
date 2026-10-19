@@ -97,7 +97,7 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         sess = db.get(Session, session_id)
         if sess is None:
             sess = Session(id=session_id, project_id=pid, started_at=start.get("t") or ts["t"], tool="claude-code",
-                           user_id=_user_id())
+                           user_id=_user_id(), entrypoint=start.get("entrypoint"))
             db.add(sess)
         if t.version and not sess.tool_version:
             sess.tool_version = t.version

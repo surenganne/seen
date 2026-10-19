@@ -1,18 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640">
-  <defs>
-    <radialGradient id="iris" cx="40%" cy="35%" r="70%">
-      <stop offset="0" stop-color="#5AA9E6"/><stop offset=".6" stop-color="#1F5F99"/><stop offset="1" stop-color="#0A2540"/>
-    </radialGradient>
-  </defs>
   <rect width="1280" height="640" fill="#0A2540"/>
-  <g transform="translate(110 150) scale(5)">
-    <path d="M6.5 12.5 Q16 5.5 26 10" fill="none" stroke="#E85D26" stroke-width="3" stroke-linecap="round"/>
-    <path d="M38 10 Q48 5.5 57.5 12.5" fill="none" stroke="#E85D26" stroke-width="3" stroke-linecap="round"/>
-    <circle cx="17" cy="32" r="13.5" fill="#fff" stroke="#E85D26" stroke-width="2.6"/>
-    <circle cx="47" cy="32" r="13.5" fill="#fff" stroke="#E85D26" stroke-width="2.6"/>
-    <circle cx="17" cy="32" r="7.2" fill="url(#iris)"/><circle cx="17" cy="32" r="3.4" fill="#061629"/><circle cx="19.6" cy="29.2" r="1.8" fill="#fff"/><circle cx="14.6" cy="34.6" r="0.8" fill="#fff"/>
-    <circle cx="47" cy="32" r="7.2" fill="url(#iris)"/><circle cx="47" cy="32" r="3.4" fill="#061629"/><circle cx="49.6" cy="29.2" r="1.8" fill="#fff"/><circle cx="44.6" cy="34.6" r="0.8" fill="#fff"/>
-  </g>
+  <g transform="translate(96 152) scale(5.4)"><defs><radialGradient id="iris" cx="50%" cy="50%" r="55%"><stop offset="0" stop-color="#FFD27A"/><stop offset=".45" stop-color="#F59A3E"/><stop offset=".85" stop-color="#E85D26"/><stop offset="1" stop-color="#9E3A12"/></radialGradient><clipPath id="c0"><circle cx="18" cy="25" r="12.4"/></clipPath><clipPath id="l0"><path d="M2,25 Q18,-0.56 34,25 Q18,50.56 2,25 Z"/></clipPath><clipPath id="c1"><circle cx="46" cy="25" r="12.4"/></clipPath><clipPath id="l1"><path d="M30,25 Q46,-0.56 62,25 Q46,50.56 30,25 Z"/></clipPath></defs>
+  <style>.ring { fill: #1A3A5C; stroke: #F5F5F5; stroke-width: 2 } .tuft { fill: #E85D26 } </style>
+  <path class="tuft" d="M7 11 Q11 3.5 21 7.5 Q15 6.8 12.5 9.6 Q10 8.6 7 11 Z"/><path class="tuft" d="M57 11 Q53 3.5 43 7.5 Q49 6.8 51.5 9.6 Q54 8.6 57 11 Z"/><circle class="ring" cx="18" cy="25" r="13.2"/><g clip-path="url(#c0)"><g class="lids"><g clip-path="url(#l0)"><circle cx="18" cy="25" r="13" fill="url(#iris)"/><g class="look"><circle cx="18" cy="25" r="6.6" fill="#0A2540"/><circle cx="21" cy="21.4" r="2.5" fill="#FFFFFF"/><circle cx="15.4" cy="28.4" r="1.1" fill="#FFFFFF"/></g></g></g></g><circle class="ring" cx="46" cy="25" r="13.2"/><g clip-path="url(#c1)"><g class="lids"><g clip-path="url(#l1)"><circle cx="46" cy="25" r="13" fill="url(#iris)"/><g class="look"><circle cx="46" cy="25" r="6.6" fill="#0A2540"/><circle cx="49" cy="21.4" r="2.5" fill="#FFFFFF"/><circle cx="43.4" cy="28.4" r="1.1" fill="#FFFFFF"/></g></g></g></g>
+</g>
   <text x="480" y="335" font-family="IBM Plex Sans, Helvetica, sans-serif" font-size="150" font-weight="600" fill="#FFFFFF">Seen</text>
   <text x="484" y="405" font-family="IBM Plex Sans, Helvetica, sans-serif" font-size="38" fill="#F5F5F5">Nothing your agents do goes unseen.</text>
   <rect x="484" y="435" width="120" height="6" fill="#E85D26"/>

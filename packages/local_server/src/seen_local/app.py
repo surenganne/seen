@@ -90,6 +90,8 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
         else:
             resp = await call_next(request)
         resp.headers.update(SECURITY_HEADERS)
+        if request.url.path.startswith("/assets/") and resp.status_code == 200:
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"  # file names carry a content hash
         return resp
 
     # outermost: reject DNS-rebound Host headers before anything else runs
@@ -129,11 +131,15 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
                                mem=mem, pii=pii, days=days, sort=sort, dir=dir, session=session, page=page, page_size=page_size)
 
     @app.get("/api/projects/{pid}/sessions", response_model=S.SessionPage)
-    def sessions(pid: str, db: Db, page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)) -> S.SessionPage:
+    def sessions(pid: str, db: Db, kind: Literal["all", "yours", "background"] = "all", page: int = Query(1, ge=1),
+                 page_size: int = Query(50, ge=1, le=200)) -> S.SessionPage:
         project_or_404(db, pid)
         all_ = queries.sessions(db, pid)
-        return S.SessionPage(total=len(all_), active=sum(s.status == "active" for s in all_), page=page, page_size=page_size,
-                             items=all_[(page - 1) * page_size: page * page_size])
+        bg = sum(s.background for s in all_)
+        shown = all_ if kind == "all" else [s for s in all_ if s.background == (kind == "background")]
+        return S.SessionPage(total=len(shown), active=sum(s.status == "active" for s in shown),
+                             counts=S.SessionCounts(all=len(all_), yours=len(all_) - bg, background=bg),
+                             page=page, page_size=page_size, items=shown[(page - 1) * page_size: page * page_size])
 
     @app.get("/api/changes/{cid}", response_model=S.ChangeDetail)
     def change(cid: str, db: Db) -> S.ChangeDetail:
@@ -248,7 +254,8 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
             f = (web_dist / path).resolve()
             if path and f.is_file() and web_dist.resolve() in f.parents:
                 return FileResponse(f)
-            return FileResponse(web_dist / "index.html")
+            # revalidate every time: a cached shell after an upgrade points at asset hashes that are gone (blank page)
+            return FileResponse(web_dist / "index.html", headers={"Cache-Control": "no-cache"})
 
     return app
 

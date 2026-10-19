@@ -872,12 +872,28 @@ export interface components {
             /** Root Path */
             root_path: string | null;
         };
+        /** SessionCounts */
+        SessionCounts: {
+            /** All */
+            all: number;
+            /** Background */
+            background: number;
+            /** Yours */
+            yours: number;
+        };
         /** SessionOut */
         SessionOut: {
+            /**
+             * Background
+             * @default false
+             */
+            background: boolean;
             /** Cost Usd */
             cost_usd: number;
             /** Ended At */
             ended_at: string | null;
+            /** Entrypoint */
+            entrypoint?: string | null;
             /** Events */
             events: number;
             /** Files */
@@ -914,6 +930,7 @@ export interface components {
         SessionPage: {
             /** Active */
             active: number;
+            counts: components["schemas"]["SessionCounts"];
             /** Items */
             items: components["schemas"]["SessionOut"][];
             /** Page */
@@ -1656,6 +1673,7 @@ export interface operations {
     sessions_api_projects__pid__sessions_get: {
         parameters: {
             query?: {
+                kind?: "all" | "yours" | "background";
                 page?: number;
                 page_size?: number;
             };
