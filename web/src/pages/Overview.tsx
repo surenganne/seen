@@ -30,27 +30,28 @@ export function Overview() {
   const [range] = useRange();
   const nav = useNavigate();
   const { data: o, error, isLoading } = useOverview(pid, range);
-  if (isLoading) return <main className="page"><Loading what="Loading overview" /></main>;
-  if (error || !o) return <main className="page"><ErrorBox error={error} /></main>;
+  if (isLoading) return <div className="page"><Loading what="Loading overview" /></div>;
+  if (error || !o) return <div className="page"><ErrorBox error={error} /></div>;
   const t = o.tiles;
   const goChanges = (q: Record<string, string>) => nav(withRange(`/p/${pid}/changes`, range, q));
+  const rows = (q: Record<string, string> = {}) => withRange(`/p/${pid}/changes`, range, q); // the evidence behind a tile
   const items = attention(o);
   return (
-    <main className="page">
+    <div className="page">
       <PageHead
         title="Overview"
         description={`Your requests in the last ${range} days. Figures are API-equivalent estimates; prices are unverified until confirmed. PII counts cover every session, including plugins' background ones.`}
         actions={<button type="button" className="btn" onClick={() => goChanges({})}>All changes →</button>}
       />
       <div className="strip" role="group" aria-label="Summary">
-        <Tile label="Changes" icon={FileStack} value={int(t.changes)} sub={`${int(t.files_changed)} files · +${int(t.lines_added)} −${int(t.lines_removed)}`} />
-        <Tile label="Cost" icon={CircleDollarSign} value={money(t.cost_usd)} sub={t.background_changes
+        <Tile label="Changes" icon={FileStack} to={rows()} value={int(t.changes)} sub={`${int(t.files_changed)} files · +${int(t.lines_added)} −${int(t.lines_removed)}`} />
+        <Tile label="Cost" icon={CircleDollarSign} to={rows({ view: "list", sort: "cost", dir: "desc" })} value={money(t.cost_usd)} sub={t.background_changes
           ? <span data-testid="background-spend">API-equivalent · plus {money(t.background_cost_usd)} in {int(t.background_changes)} background {t.background_changes === 1 ? "turn" : "turns"}</span>
           : "API-equivalent"} />
-        <Tile label="Tokens" icon={Coins} value={tokens(t.tokens)} sub="in, out and cache" />
-        <Tile label="Memory loaded" icon={Brain} value={pct(t.mem_loaded_pct)} sub={t.mem_loaded_pct == null ? "not observed (imported turns)" : "of turns"} alert={(t.mem_loaded_pct ?? 1) < 0.95} />
-        <Tile label="Policy missed" icon={Sparkles} value={int(t.policy_missed)} sub="required skill not run" alert={t.policy_missed > 0} />
-        <Tile label="Changes with PII exposure" icon={ShieldAlert} value={int(t.pii_changes)}
+        <Tile label="Tokens" icon={Coins} to={rows({ view: "list", sort: "tokens", dir: "desc" })} value={tokens(t.tokens)} sub="in, out and cache" />
+        <Tile label="Memory loaded" icon={Brain} to={rows({ mem: "missed" })} value={pct(t.mem_loaded_pct)} sub={t.mem_loaded_pct == null ? "not observed (imported turns)" : "of turns"} alert={(t.mem_loaded_pct ?? 1) < 0.95} />
+        <Tile label="Policy missed" icon={Sparkles} to={rows({ policy_missed: "true" })} value={int(t.policy_missed)} sub="required skill not run" alert={t.policy_missed > 0} />
+        <Tile label="Changes with PII exposure" icon={ShieldAlert} to={rows({ pii: "true" })} value={int(t.pii_changes)}
           sub={t.pii_high ? `${t.pii_high} high-confidence` : "structured identifiers"} alert={t.pii_high > 0} />
       </div>
 
@@ -119,7 +120,7 @@ export function Overview() {
           )}
         </Card>
         <Card title="By model" flush>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Cost by model">
             <table className="data">
               <thead><tr><th>Model</th><th className="num">Changes</th><th className="num">Output</th><th className="num">Cost</th></tr></thead>
               <tbody>
@@ -160,6 +161,6 @@ export function Overview() {
           <p className="muted tiny" style={{ padding: "0.6rem 1rem" }}>Seen shows exposure; it cannot recall what already reached the model provider.</p>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

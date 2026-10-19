@@ -11,9 +11,16 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+  # The runtime targets Python 3.12 and Node 22 LTS. Patch updates of the base images are welcome; a minor or major jump
+  # (python 3.14, node 26) is a deliberate migration, not an automatic bump.
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+    ignore:
+      - { dependency-name: python, update-types: ["version-update:semver-major", "version-update:semver-minor"] }
+      - { dependency-name: node, update-types: ["version-update:semver-major"] }
   - package-ecosystem: docker
     directory: /deploy
     schedule: { interval: weekly }
+    ignore:
+      - { dependency-name: python, update-types: ["version-update:semver-major", "version-update:semver-minor"] }

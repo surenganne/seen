@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, Circle, Info, type LucideIcon, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -49,10 +50,11 @@ export function Card({ title, aside, children, className = "", flush, id }: {
   );
 }
 
-export function Tile({ label, value, sub, alert, icon: I }: { label: string; value: ReactNode; sub?: ReactNode; alert?: boolean; icon?: LucideIcon }) {
+/** A summary number. With `to`, the label is a link to the rows behind the number and the whole tile is its click target. */
+export function Tile({ label, value, sub, alert, icon: I, to }: { label: string; value: ReactNode; sub?: ReactNode; alert?: boolean; icon?: LucideIcon; to?: string }) {
   return (
     <div className="stat" data-testid={`tile-${label}`} data-alert={alert ? "true" : undefined}>
-      <div className="label">{I && <I aria-hidden="true" />}{label}</div>
+      <div className="label">{I && <I aria-hidden="true" />}{to ? <Link className="stat-link" to={to}>{label}</Link> : label}</div>
       <div className="value">{value}</div>
       {sub && <div className="sub">{sub}</div>}
     </div>
@@ -67,6 +69,12 @@ export function Loading({ what = "Loading", rows = 4 }: { what?: string; rows?: 
       <span className="sr-only">{what}…</span>
     </div>
   );
+}
+
+/** The keyboard and screen-reader way into a clickable table row: a real button named by the row's main text.
+ *  The row's own click handler stays as a convenience for the mouse. */
+export function RowButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return <button type="button" className="rowbtn" onClick={(e) => { e.stopPropagation(); onClick(); }}>{children}</button>;
 }
 
 export function Empty({ icon: I = Info, title, children }: { icon?: LucideIcon; title: string; children?: ReactNode }) {

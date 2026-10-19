@@ -120,7 +120,7 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 - [ ] Click payments-api: you land on its Overview, and the rail's Project select now shows payments-api. The rail eyes stop wandering and stare with lowered brows (alert), because this project has open findings.
 
 **Overview**
-- [ ] Six summary tiles: Changes, Cost, Tokens, Memory loaded, Policy missed, Changes with PII exposure. Tiles that need attention are tinted with an icon.
+- [ ] Six summary tiles: Changes, Cost, Tokens, Memory loaded, Policy missed, Changes with PII exposure. Tiles that need attention are tinted with an icon. Each tile's label is a link (the whole tile is the click target) to the changes behind the number: Cost and Tokens open the list sorted by that column, Memory loaded opens the turns where memory was not loaded, Policy missed and PII exposure open their filtered lists. The date range stays selected.
 - [ ] Switch the date range 7d → 14d → 28d: every figure and the chart update, and the URL keeps `range=`.
 - [ ] Cost per day: hover a bar to see the tooltip. Click "Table view" to see the same numbers as a table.
 - [ ] Needs attention: each item has a Review button that opens Changes with the matching filter applied.
@@ -338,9 +338,9 @@ unset SEEN_HOME                                   # your real ~/.seen
 SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open
 ```
 
-- [ ] Shows your real `~/.seen` ledger live. It runs on the host: SQLite WAL locking does not cross the Docker Desktop VM, so a container never opens the live database (ADR 0008). Stop it with Ctrl-C.
+- [ ] Shows your real `~/.seen` ledger live. It runs on the host: SQLite WAL locking does not cross the Docker Desktop VM, so a container never opens the live database. Stop it with Ctrl-C.
 
-Docker route (a copy, ADR 0011):
+Docker route:
 
 ```bash
 seen docker-sync && docker compose up -d --build     # then open http://127.0.0.1:47821
@@ -387,6 +387,22 @@ seen doctor
 - [ ] `seen upgrade --yes` refuses when `seen doctor` reports a broken audit chain. Otherwise it reinstalls, updates the plugin, and tells you to restart Claude Code.
 - [ ] In Claude Code, `/seen:upgrade` runs only the check without a prompt and asks before the real upgrade.
 - [ ] With `SEEN_NO_UPDATE_CHECK=1`, `seen doctor` makes no network call.
+
+---
+
+## Part 16. Accessibility
+
+Automated (runs in CI): `cd web && npx playwright test e2e/a11y.spec.ts` checks every page against WCAG 2.2 A and AA
+with axe in light and dark, on desktop and phone sizes, plus titles, the main landmark, the skip link, keyboard access to
+rows, the API-error and empty states, and no horizontal scroll at 320px.
+
+By hand, once per release:
+
+- [ ] Keyboard only: Tab from the address bar. The first stop is "Skip to content" (it appears on focus) and Enter moves you to the page. Every control has a visible focus ring; no keyboard trap; the change, session, audit and skill rows open from the button or link in their first cell (Enter, and Space for the buttons).
+- [ ] Zoom the browser to 200% (and 400% on a laptop): nothing is cut off or overlaps, and only data tables scroll sideways inside their own box.
+- [ ] A screen reader (VoiceOver: Cmd+F5) announces each page's title, the single main region, table captions or names, and "alert" when a page cannot load (stop the dashboard's API to see it).
+- [ ] Status is never colour alone: PII, memory, policy and audit-chain states each show an icon and a word.
+- [ ] Turn on Reduce motion in the OS: the eyes stop moving and stop following the pointer, and the drawer appears without sliding.
 
 ---
 

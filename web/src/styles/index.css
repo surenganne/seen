@@ -65,6 +65,15 @@ p { margin: 0; }
 .rail-foot .verify svg { width: 14px; height: 14px; }
 
 .main { min-width: 0; display: flex; flex-direction: column; }
+.content { flex: 1; min-width: 0; outline: none; }
+/* Skip link: off screen until it takes focus, then the first thing on the page */
+.skip-link { position: absolute; left: 0.75rem; top: -4rem; z-index: 100; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); border: 2px solid var(--focus); font-weight: 600; }
+.skip-link:focus { top: 0.75rem; }
+/* The real control inside a clickable table row: reads as the row's text, is the keyboard and screen-reader way in */
+.rowbtn { all: unset; cursor: pointer; color: inherit; font: inherit; }
+.rowbtn:hover { text-decoration: underline; }
+.rowbtn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
 .topbar {
   position: sticky; top: 0; z-index: var(--z-sticky); display: flex; align-items: center; gap: 0.75rem;
   min-height: 56px; padding: 0.6rem 1.5rem; background: color-mix(in oklch, var(--bg) 92%, transparent);
@@ -140,7 +149,7 @@ p { margin: 0; }
 .panel-body.flush { padding: 0; }
 .grid { display: grid; gap: 1rem; }
 .split { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); }
-.cols { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.cols { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
 /* three panels: 3 across, then 2 + a full-width third (never an orphan), then stacked */
 .cols3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
@@ -150,6 +159,12 @@ p { margin: 0; }
 .stat + .stat { border-left: 1px solid var(--border); }
 .stat .label { display: flex; align-items: center; gap: 0.35rem; }
 .stat .label svg { width: 14px; height: 14px; }
+/* the label link stretches over the whole tile, so the number is one click from its rows */
+.stat-link { color: inherit; text-decoration: none; }
+.stat-link::after { content: ""; position: absolute; inset: 0; }
+.stat:has(.stat-link):hover { background: var(--surface-2); }
+.stat[data-alert="true"]:has(.stat-link):hover { background: var(--critical-soft); filter: brightness(0.97); }
+.stat:has(.stat-link:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
 .stat .value { margin-top: 0.3rem; font-size: 1.375rem; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; }
 .stat .sub { margin-top: 0.15rem; font-size: 0.75rem; color: var(--ink-3); }
 .stat[data-alert="true"] { background: var(--critical-soft); }
@@ -270,7 +285,7 @@ pre.snippet { margin: 0; padding: 0.75rem; overflow-x: auto; font-family: var(--
 .empty strong { color: var(--ink); font-weight: 500; }
 
 /* project list */
-.projects { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.projects { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
 .project {
   display: flex; flex-direction: column; gap: 0.9rem; padding: 1rem; color: inherit; background: var(--surface);
   border: 1px solid var(--border); border-radius: var(--radius); transition: border-color 150ms var(--ease), background-color 150ms var(--ease);

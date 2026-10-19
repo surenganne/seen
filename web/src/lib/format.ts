@@ -18,3 +18,12 @@ export const when = (iso: string | null | undefined) =>
 export const day = (isoDate: string) =>
   new Date(`${isoDate}T12:00:00Z`).toLocaleDateString("en-IN", { timeZone: IST, day: "2-digit", month: "short" });
 export const short = (h: string | null | undefined, n = 7) => (h ? h.slice(0, n) : "—");
+
+/** Collapse whitespace and cut at a word boundary with an ellipsis, never mid-word (a request shown as a page heading). */
+export function truncateWords(text: string, max: number): string {
+  const t = text.split(/\s+/).filter(Boolean).join(" ");
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return `${(at >= max * 0.6 ? cut.slice(0, at) : cut).replace(/[\s.,;:!?-]+$/, "")}…`;
+}
