@@ -149,6 +149,11 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 
 ---
 
+**Changes as requests**
+- [ ] Each row's first line is what you asked (redacted per `pii.store_prompt_text`), Claude's result under it, then files and lines.
+- [ ] Opens on **Yours**; **Background** lists plugin turns, each tagged `background`; Yours + Background = All.
+- [ ] A change that wrote `.seen/memory/*.md` lists those notes under *Memory saved*, and each note's *Source change* on the Memory page links back to it. A note written in the same turn that edited its `file_ref` is not stale.
+
 **Sessions**
 - [ ] Lists every session newest first with status (active, ended, incomplete), model, turns, tool calls, files and cost.
 - [ ] Opens on **Yours** (sessions you started). **Background** lists sessions plugins started through the Agent SDK, each tagged `background`; the drawer's *Started by* shows the entrypoint (`sdk-py`, `sdk-cli`). The three counts add up: Yours + Background = All.

@@ -41,6 +41,7 @@ HIGH_PII = {"aadhaar", "card", "iban", "secret"}
 class Row:
     c: Change
     tool: str = "claude-code"
+    background: bool = False
     files: list[ChangeFile] = field(default_factory=list)
     skills: list[SkillInvocation] = field(default_factory=list)
     policies: list[PolicyResult] = field(default_factory=list)
@@ -49,7 +50,9 @@ class Row:
     def out(self) -> S.ChangeRow:
         c = self.c
         return S.ChangeRow(
-            id=c.id, seq=c.seq, session_id=c.session_id, started_at=c.started_at, summary=c.summary, model=c.model,
+            id=c.id, seq=c.seq, session_id=c.session_id, started_at=c.started_at,
+            request=" ".join(c.prompt_text.split())[:400] if c.prompt_text else None, summary=c.summary,
+            background=self.background, model=c.model,
             tool=self.tool, files=[f.path for f in self.files], added=sum(f.added for f in self.files),
             removed=sum(f.removed for f in self.files), tokens=c.tok_in + c.tok_out + c.tok_cache_read + c.tok_cache_write,
             cost_usd=c.cost_usd or 0.0, git_status=c.git_status, mem_state=c.mem_state,
@@ -84,9 +87,12 @@ def load_rows(db: DB, pid: str, days: int | None = None) -> list[Row]:
     rows = {c.id: Row(c) for c in changes}
     if not ids:
         return []
-    tools = dict(db.execute(select(Session.id, Session.tool).where(Session.project_id == pid)).all())
+    sess = {sid: (tool, ep) for sid, tool, ep in db.execute(
+        select(Session.id, Session.tool, Session.entrypoint).where(Session.project_id == pid)).all()}
     for r in rows.values():
-        r.tool = tools.get(r.c.session_id) or "claude-code"
+        tool, ep = sess.get(r.c.session_id or "", (None, None))
+        r.tool = tool or "claude-code"
+        r.background = bool(ep and ep.startswith("sdk"))
     for chunk in (ids[i:i + 900] for i in range(0, len(ids), 900)):
         for f in db.scalars(select(ChangeFile).where(ChangeFile.change_id.in_(chunk))):
             rows[f.change_id].files.append(f)
@@ -207,8 +213,12 @@ SORTS = {"time": lambda o: o.started_at or "", "cost": lambda o: o.cost_usd, "to
 
 def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | None, file: str | None, skill: str | None,
             policy_missed: bool | None, mem: str | None, pii: bool | None, days: int | None, sort: str, dir: str,
-            session: str | None = None, page: int = 1, page_size: int = 50) -> S.ChangePage:
+            session: str | None = None, kind: str = "all", page: int = 1, page_size: int = 50) -> S.ChangePage:
     outs = [r.out() for r in load_rows(db, pid, days)]
+    bg = sum(o.background for o in outs)
+    counts = S.SessionCounts(all=len(outs), yours=len(outs) - bg, background=bg)
+    if kind in ("yours", "background") and not session:  # a session link shows that session whatever its kind
+        outs = [o for o in outs if o.background == (kind == "background")]
     if session:
         outs = [o for o in outs if o.session_id == session]
     if tool:
@@ -217,7 +227,8 @@ def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | 
         outs = [o for o in outs if o.git_status == status]
     if q:
         ql = q.lower()
-        outs = [o for o in outs if ql in (o.summary or "").lower() or any(ql in f.lower() for f in o.files)]
+        outs = [o for o in outs if ql in (o.summary or "").lower() or ql in (o.request or "").lower()
+                or any(ql in f.lower() for f in o.files)]
     if file:
         outs = [o for o in outs if file in o.files]
     if skill:
@@ -229,7 +240,7 @@ def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | 
     if pii:
         outs = [o for o in outs if o.pii_count > 0]
     outs.sort(key=SORTS.get(sort, SORTS["time"]), reverse=dir != "asc")
-    return S.ChangePage(total=len(outs), page=page, page_size=page_size, cost_usd=round(sum(o.cost_usd for o in outs), 4),
+    return S.ChangePage(total=len(outs), counts=counts, page=page, page_size=page_size, cost_usd=round(sum(o.cost_usd for o in outs), 4),
                         items=outs[(page - 1) * page_size: page * page_size])
 
 
@@ -283,8 +294,10 @@ def change_detail(db: DB, cid: str, prompt_storage: str) -> S.ChangeDetail | Non
                                 mode=pols[p.policy_id].mode if p.policy_id in pols else None) for p in r.policies],
         pii=[pii_out(p) for p in r.pii],
         pii_checked=PII_CHECKED,
-        memory_saved=[str(fm.get("id") or f.stem) for f, fm in _memory_files(proj.root_path if proj else None)
-                      if str(fm.get("source_change") or "") == cid])
+        # notes this change wrote or edited: by its own files (the front matter's source_change is rarely set)
+        memory_saved=sorted({str(fm.get("id") or f.stem) for f, fm in _memory_files(proj.root_path if proj else None)
+                             if str(fm.get("source_change") or "") == cid
+                             or any(x.path == f".seen/memory/{f.name}" for x in r.files)}))
 
 
 def _lockfile(db: DB, pid: str | None) -> lock.Lockfile:

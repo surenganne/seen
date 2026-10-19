@@ -13,5 +13,10 @@ in for sessions already recorded, without re-importing them. A session is *backg
 `sdk`. The API takes `kind=yours|background|all` and always returns all three counts; the Sessions page opens on
 Yours and shows the Background count next to it, so nothing is hidden without saying so.
 
-Not changed: Overview, Changes and cost totals still include background sessions, because that spend is real.
+Changes follow the same split (owner: "Changes should be requests from user and for that request, what changed"):
+each row leads with the request as stored (`pii.store_prompt_text`, redacted by default), Claude's result under it, then
+the files and lines; the page opens on Yours, with Background and All one click away and their counts always shown.
+A session link (`?session=`) shows that session's turns whatever their kind.
+
+Not changed: Overview and its cost totals still include background sessions, because that spend is real.
 Sessions recorded before this change with no transcript left keep a null entrypoint and count as Yours.

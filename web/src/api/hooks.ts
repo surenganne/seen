@@ -4,6 +4,7 @@ import { api, unwrap } from "./client";
 export type Range = 7 | 14 | 28;
 
 export interface ChangeFilters {
+  kind?: SessionKind;
   tool?: string;
   status?: string;
   q?: string;

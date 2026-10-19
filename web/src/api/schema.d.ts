@@ -490,6 +490,14 @@ export interface components {
              * @default 0
              */
             cost_usd: number;
+            /**
+             * @default {
+             *       "all": 0,
+             *       "background": 0,
+             *       "yours": 0
+             *     }
+             */
+            counts: components["schemas"]["SessionCounts"];
             /** Items */
             items: components["schemas"]["ChangeRow"][];
             /**
@@ -509,6 +517,11 @@ export interface components {
         ChangeRow: {
             /** Added */
             added: number;
+            /**
+             * Background
+             * @default false
+             */
+            background: boolean;
             /** Cost Usd */
             cost_usd: number;
             /** Files */
@@ -531,6 +544,8 @@ export interface components {
             policy_missed: boolean;
             /** Removed */
             removed: number;
+            /** Request */
+            request?: string | null;
             /** Seq */
             seq: number | null;
             /** Session Id */
@@ -1472,6 +1487,7 @@ export interface operations {
                 sort?: string;
                 dir?: "asc" | "desc";
                 session?: string | null;
+                kind?: "all" | "yours" | "background";
                 page?: number;
                 page_size?: number;
             };

@@ -9,7 +9,7 @@ import { PiiChip, SkillStatus } from "./ui";
 import { day, money, when } from "../lib/format";
 
 const row = (over: Partial<S["ChangeRow"]> = {}): S["ChangeRow"] => ({
-  id: "ch_1", seq: 1, session_id: "s", started_at: "2026-10-18T10:00:00Z", summary: "Did a thing", model: "claude-sonnet-5-5",
+  id: "ch_1", seq: 1, session_id: "s", started_at: "2026-10-18T10:00:00Z", request: null, summary: "Did a thing", background: false, model: "claude-sonnet-5-5",
   tool: "claude-code", files: ["a.py"], added: 3, removed: 1, tokens: 1000, cost_usd: 0.12, git_status: "committed",
   mem_state: "loaded", skills: ["tdd"], policy_missed: false, pii_state: "none", pii_count: 0, pii_high: false, unapproved_skill: false,
   ...over,

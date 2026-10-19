@@ -75,7 +75,9 @@ class ChangeRow(BaseModel):
     seq: int | None
     session_id: str | None
     started_at: str | None
+    request: str | None = None  # what the person asked, as stored (pii.store_prompt_text), on one line
     summary: str | None
+    background: bool = False  # the turn ran in a plugin's background session (ADR 0010)
     model: str | None
     tool: str
     files: list[str]
@@ -150,6 +152,7 @@ class Overview(BaseModel):
 
 class ChangePage(BaseModel):
     total: int
+    counts: SessionCounts = SessionCounts(all=0, yours=0, background=0)
     page: int = 1
     page_size: int = 50
     cost_usd: float = 0.0  # across every page of the filtered set

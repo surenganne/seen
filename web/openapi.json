@@ -489,6 +489,14 @@
             "title": "Cost Usd",
             "type": "number"
           },
+          "counts": {
+            "$ref": "#/components/schemas/SessionCounts",
+            "default": {
+              "all": 0,
+              "background": 0,
+              "yours": 0
+            }
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/ChangeRow"
@@ -523,6 +531,11 @@
           "added": {
             "title": "Added",
             "type": "integer"
+          },
+          "background": {
+            "default": false,
+            "title": "Background",
+            "type": "boolean"
           },
           "cost_usd": {
             "title": "Cost Usd",
@@ -598,6 +611,17 @@
           "removed": {
             "title": "Removed",
             "type": "integer"
+          },
+          "request": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request"
           },
           "seq": {
             "anyOf": [
@@ -3431,6 +3455,21 @@
                 }
               ],
               "title": "Session"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "yours",
+                "background"
+              ],
+              "title": "Kind",
+              "type": "string"
             }
           },
           {

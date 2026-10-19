@@ -36,7 +36,18 @@ def mark_stale(memories: list[Memory], project_id: str | None) -> list[Memory]:
     try:
         for m in memories:
             m.stale, m.stale_reason = False, None
-            if not m.ok or not m.file_ref or con is None:
+            if not m.ok or con is None:
+                continue
+            if not m.source_change and m.scope == "team":
+                # nothing writes source_change into the front matter: the latest change that touched the note is its source
+                try:
+                    r = con.execute("SELECT c.id FROM change_files f JOIN changes c ON c.id = f.change_id WHERE c.project_id = ? "
+                                    "AND f.path = ? ORDER BY coalesce(c.ended_at, c.started_at) DESC LIMIT 1",
+                                    (project_id, f".seen/memory/{os.path.basename(m.path)}")).fetchone()
+                except sqlite3.Error:
+                    r = None
+                m.source_change = r[0] if r else None
+            if not m.file_ref:
                 continue
             base = _baseline(m, con)
             try:
