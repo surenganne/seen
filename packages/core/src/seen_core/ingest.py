@@ -200,6 +200,11 @@ def cleanup_spools(keep: str, max_age_days: int = SPOOL_KEEP_DAYS) -> None:
         snap = paths.snap_file(sid)
         for p in (f, snap, snap.with_suffix(".mem.json"), snap.with_suffix(".audit-pos")):
             p.unlink(missing_ok=True)
+    s = paths.home() / "snap"
+    for m in s.glob("*.untracked") if s.is_dir() else []:  # sessions outside a repo: only local state to drop
+        if m.stem != keep and time.time() - m.stat().st_mtime >= max_age_days * 86400:
+            for p in (m, m.with_suffix(".json"), m.with_suffix(".mem.json"), m.with_suffix(".audit-pos")):
+                p.unlink(missing_ok=True)
 
 
 def _reconcile(ch: Change, db: Any, root: str | None = None) -> str:

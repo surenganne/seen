@@ -149,3 +149,21 @@ def test_session_hashes_skip_symlinked_lockfile(repo: Path, tmp_path: Path) -> N
     d = payload("session_start", repo)
     run("session-start", d)
     assert spool(d["session_id"])[0]["lock_hash"] is None
+
+
+def test_session_outside_git_repo_is_not_recorded(tmp_path: Path, seen_home: Path) -> None:
+    from seen_core import ingest
+    from tests.helpers import Replay
+
+    plain = tmp_path / "not-a-repo"
+    plain.mkdir()
+    r = Replay(plain, tmp_path, sid="sess-plain")
+    r.start()
+    assert r.prompt("secret plan for the launch").code == 0
+    r.model_works()
+    assert r.stop().code == 0
+    assert run("session-end", r.payload("session_end")).code == 0
+    assert not paths.spool_file("sess-plain").exists()
+    assert not (seen_home / "ledger.db").exists() or "secret plan" not in (seen_home / "ledger.db").read_bytes().decode(errors="ignore")
+    ingest.cleanup_spools(keep="other", max_age_days=0)
+    assert not list((seen_home / "snap").glob("sess-plain*"))

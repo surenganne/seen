@@ -107,3 +107,14 @@ def test_summary_is_redacted(repo: Path, tmp_path: Path) -> None:
     with ledger_engine().connect() as c:
         s = c.execute(sa.text("select summary from changes")).scalar()
     assert "sentinel.person" not in s and "[EMAIL]" in s
+
+
+def test_block_mode_still_applies_outside_git_repo(tmp_path: Path, seen_home: Path) -> None:
+    _mode(seen_home, "block")
+    plain = tmp_path / "not-a-repo"
+    plain.mkdir()
+    r = Replay(plain, tmp_path)
+    r.start()
+    res = r.prompt(SENTINEL)
+    assert res.code == 2 and AADHAAR[:4] not in res.stderr
+    assert spool.read("sess-1") == []  # not recorded: no repo
