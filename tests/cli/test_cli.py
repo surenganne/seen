@@ -153,3 +153,12 @@ def test_audit_verify_reports_break(repo: Path, tmp_path: Path, seen_home: Path)
     c.execute("UPDATE audit_events SET outcome='x' WHERE seq=2")
     r = cli.invoke(app, ["audit", "verify"])
     assert r.exit_code == 1 and "seq 2" in r.output
+
+
+def test_sync_command_reports_config_errors(monkeypatch: pytest.MonkeyPatch, seen_home: Path) -> None:
+    from seen_core import paths
+
+    paths.ensure_dir(seen_home)
+    paths.config_toml().write_text("[sync]\nenabled = true\n")
+    r = cli.invoke(app, ["sync"])
+    assert r.exit_code == 2 and "server" in r.output

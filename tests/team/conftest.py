@@ -26,7 +26,8 @@ def admin(c: TestClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {BOOT}"}
 
 
-def make_key(c: TestClient, project: str | None, role: str) -> str:
-    r = c.post("/api/keys", json={"project_id": project, "role": role}, headers=admin(c))
+def make_key(c: TestClient, project: str | None, role: str, user: str | None = "u_a") -> str:
+    body = {"project_id": project, "role": role, "user_id": user if role == "member" else None}
+    r = c.post("/api/keys", json=body, headers=admin(c))
     assert r.status_code == 200, r.text
     return r.json()["key"]

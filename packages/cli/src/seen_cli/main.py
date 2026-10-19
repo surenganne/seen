@@ -346,5 +346,23 @@ def memory_archive(mid: str) -> None:
     typer.echo(f"Archived {mid} -> {paths.redact_home(str(dest))}")
 
 
+@app.command("sync")
+def sync_cmd() -> None:
+    """Send unsynced metadata to the team server (only the fields switched on in [sync])."""
+    from seen_core import sync
+
+    if not config.load()["sync"]["enabled"]:
+        typer.echo("Team sync is off. Turn it on in Settings or [sync] enabled = true.")
+        return
+    try:
+        r = sync.push()
+    except sync.SyncError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(2) from None
+    a = sync.anchor()
+    typer.echo(f"sent {r['sent']} batch(es), {r['failed']} failed (will retry with backoff)"
+               + (f"; audit anchored through seq {a['seq']}" if a else ""))
+
+
 if __name__ == "__main__":
     app()

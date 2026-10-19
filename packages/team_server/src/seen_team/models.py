@@ -23,7 +23,16 @@ class TeamChange(Base):
     user_id: Mapped[str | None] = mapped_column(String(80), index=True)
     started_at: Mapped[str | None] = mapped_column(String(40), index=True)
     payload: Mapped[dict] = mapped_column(JSON)  # type: ignore[type-arg]
+    writer_key: Mapped[str] = mapped_column(String(32))
     received_at: Mapped[str] = mapped_column(String(40))
+
+
+class TeamInstall(Base):
+    """An install id belongs to the first key that used it: nobody else can anchor heads for it."""
+    __tablename__ = "team_installs"
+    install_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    key_id: Mapped[str] = mapped_column(String(32))
+    first_seen: Mapped[str] = mapped_column(String(40))
 
 
 class TeamAuditHead(Base):

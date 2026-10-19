@@ -99,3 +99,45 @@ def test_security_headers_and_non_ascii_token(team: TestClient) -> None:
     r = team.get("/api/projects", headers={"Authorization": "Bearer ключ".encode()})
     assert r.status_code == 401  # non-ASCII token must not 500 (compare_digest on bytes)
     assert r.headers["x-frame-options"] == "DENY"
+
+
+def test_member_key_requires_user_and_detail_is_own_only(team: TestClient) -> None:
+    assert team.post("/api/keys", json={"project_id": "p1", "role": "member"}, headers=admin(team)).status_code == 422
+    a = make_key(team, "p1", "member", user="u_a")
+    team.post("/api/sync", json=batch(), headers={"Authorization": f"Bearer {a}", "X-Idempotency-Key": "1"})
+    b = make_key(team, "p1", "member", user="u_b")
+    got = team.get("/api/projects/p1/changes", params={"user_id": "u_a"}, headers={"Authorization": f"Bearer {b}"})
+    assert got.status_code == 403
+    mine = team.get("/api/projects/p1/changes", headers={"Authorization": f"Bearer {a}"}).json()
+    assert [c["id"] for c in mine] == ["c1"]
+
+
+def test_member_cannot_write_as_someone_else(team: TestClient) -> None:
+    b = make_key(team, "p1", "member", user="u_b")
+    r = team.post("/api/sync", json=batch(), headers={"Authorization": f"Bearer {b}", "X-Idempotency-Key": "1"})  # payload says u_a
+    assert r.status_code == 403
+
+
+def test_install_bound_to_first_key_and_anchors_append_only(team: TestClient) -> None:
+    a = make_key(team, "p1", "member", user="u_a")
+    h = {"Authorization": f"Bearer {a}"}
+    team.post("/api/sync", json=batch(), headers={**h, "X-Idempotency-Key": "1"})
+    other = make_key(team, "p1", "member", user="u_c")
+    b = batch()
+    b["changes"] = []
+    assert team.post("/api/sync", json=b, headers={"Authorization": f"Bearer {other}", "X-Idempotency-Key": "2"}).status_code == 403
+    forged = batch()
+    forged["changes"] = []
+    forged["audit_heads"] = [{"at": "x", "seq": 42, "hash": "e" * 64}]
+    assert team.post("/api/sync", json=forged, headers={**h, "X-Idempotency-Key": "3"}).status_code == 409
+    assert team.get("/api/anchors/inst-1", headers={"Authorization": f"Bearer {other}"}).status_code == 403
+    assert team.get("/api/anchors/inst-1", headers=h).json()["hash"] == "f" * 64
+
+
+def test_change_ids_cannot_be_overwritten_across_projects_or_writers(team: TestClient) -> None:
+    a = make_key(team, "p1", "member", user="u_a")
+    team.post("/api/sync", json=batch(), headers={"Authorization": f"Bearer {a}", "X-Idempotency-Key": "1"})
+    p2 = make_key(team, "p2", "member", user="u_a")
+    b = batch(pid="p2")
+    b["install_id"] = "inst-2"
+    assert team.post("/api/sync", json=b, headers={"Authorization": f"Bearer {p2}", "X-Idempotency-Key": "1"}).status_code == 409

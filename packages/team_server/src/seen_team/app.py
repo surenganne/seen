@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base, TeamApiKey, TeamAuditHead, TeamBatch, TeamChange, TeamProject
+from .models import Base, TeamApiKey, TeamAuditHead, TeamBatch, TeamChange, TeamInstall, TeamProject
 
 DEFAULT_PORT = 47824
 SECURITY_HEADERS = {"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
@@ -166,6 +166,8 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
     def create_key(body: KeyIn, k: Key, s: Db) -> dict[str, str]:
         if k.role != "admin":
             raise HTTPException(403, "admin only")
+        if body.role == "member" and not body.user_id:
+            raise HTTPException(422, "member keys must be bound to a user_id")
         token = "seen_" + secrets.token_urlsafe(32)
         row = TeamApiKey(id=secrets.token_hex(8), key_hash=hashlib.sha256(token.encode()).hexdigest(), project_id=body.project_id,
                          role=body.role, user_id=body.user_id, created_at=now())
@@ -178,16 +180,31 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
         prior = s.scalars(sa.select(TeamBatch).where(TeamBatch.key_id == k.id, TeamBatch.idempotency_key == x_idempotency_key)).first()
         if prior:
             return {**json.loads(prior.response), "duplicate": True}
+        t = now()
+        inst = s.get(TeamInstall, body.install_id)
+        if inst is None:
+            s.add(TeamInstall(install_id=body.install_id, key_id=k.id, first_seen=t))
+        elif inst.key_id != k.id:
+            raise HTTPException(403, "this install id belongs to another key")
         for c in body.changes:
             can_see(k, c.project_id)
-        t = now()
+            if k.role == "member" and c.user_id != k.user_id:
+                raise HTTPException(403, "member keys can only send their own changes")
+            old = s.get(TeamChange, c.id)
+            if old is not None and (old.project_id != c.project_id or old.writer_key != k.id):
+                raise HTTPException(409, f"change {c.id} already belongs to another project or writer")
+        for h in body.audit_heads:
+            old_h = s.get(TeamAuditHead, (body.install_id, h.seq))
+            if old_h is not None and old_h.hash != h.hash:
+                raise HTTPException(409, f"head seq {h.seq} was anchored with a different hash: the local chain was rewritten")
         for c in body.changes:
             if s.get(TeamProject, c.project_id) is None:
                 s.add(TeamProject(id=c.project_id, first_seen=t))
             s.merge(TeamChange(id=c.id, project_id=c.project_id, user_id=c.user_id, started_at=c.started_at,
-                               payload=c.model_dump(exclude_none=True), received_at=t))
+                               payload=c.model_dump(exclude_none=True), writer_key=k.id, received_at=t))
         for h in body.audit_heads:
-            s.merge(TeamAuditHead(install_id=body.install_id, seq=h.seq, hash=h.hash, at=h.at, received_at=t))
+            if s.get(TeamAuditHead, (body.install_id, h.seq)) is None:  # append-only
+                s.add(TeamAuditHead(install_id=body.install_id, seq=h.seq, hash=h.hash, at=h.at, received_at=t))
         last = max(body.audit_heads, key=lambda h: h.seq) if body.audit_heads else None
         resp = {"accepted": len(body.changes), "duplicate": False,
                 "anchored": {"seq": last.seq, "hash": last.hash} if last else None}
@@ -197,6 +214,9 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
 
     @app.get("/api/anchors/{install_id}")
     def anchor(install_id: str, k: Key, s: Db) -> dict[str, Any]:
+        inst = s.get(TeamInstall, install_id)
+        if k.role != "admin" and (inst is None or inst.key_id != k.id):
+            raise HTTPException(403, "only the owning key or an admin can read this install's anchors")
         h = s.scalars(sa.select(TeamAuditHead).where(TeamAuditHead.install_id == install_id).order_by(TeamAuditHead.seq.desc())).first()
         if h is None:
             raise HTTPException(404, "no anchored heads")
@@ -250,11 +270,11 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
 
     @app.get("/api/projects/{pid}/changes")
     def changes(pid: str, k: Key, s: Db, user_id: str | None = None) -> list[dict[str, Any]]:
-        """Per-person detail is private by default: members see their own, nobody else's."""
+        """Per-person detail is private by default: a member sees their own (from the key), nobody else's."""
         can_see(k, pid)
-        if k.role != "member" or not user_id or (k.user_id and k.user_id != user_id):
+        if k.role != "member" or not k.user_id or (user_id is not None and user_id != k.user_id):
             raise HTTPException(403, "per-person detail is only visible to that person")
-        return [r.payload for r in rows(s, pid) if r.user_id == user_id]
+        return [r.payload for r in rows(s, pid) if r.user_id == k.user_id]
 
     return app
 
