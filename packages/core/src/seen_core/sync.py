@@ -44,12 +44,30 @@ def _change(db: Any, c: Change, s: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# Per event type, the detail keys that may leave the machine. Anything else (keyed hashes, ids of
+# memory contents, unknown keys) is dropped. Path keys additionally need send_paths.
+AUDIT_DETAIL = {
+    "session.start": {"plugin_version", "source"}, "session.end": {"reason"}, "session.incomplete": {"last_seq"},
+    "capture.gap": {"hook", "error"}, "turn.start": {"prompt_len", "slash"},
+    "turn.end": {"tok_in", "tok_out", "tok_cache_read", "tok_cache_write", "cost_usd", "price_version", "files"},
+    "memory.injected": {"tokens"}, "gate.decision": {"hook", "decision", "reason"}, "file.changed": {"path", "added", "removed"},
+    "tool.call": {"tool", "cmd0", "skill", "path"}, "skill.invoked": {"skill", "hash", "trigger", "status"},
+    "policy.result": {"policy", "met"}, "pii.finding": {"type", "count", "confidence", "destination", "source_kind"},
+    "pii.allowlisted": {"count", "source_kind"}, "approval.skill": {"skill", "hash", "old", "new"},
+    "approval.memory_verified": {"memory", "old", "new"}, "approval.memory_archived": {"memory", "old", "new"},
+    "approval.memory_added": {"memory", "scope", "type"}, "approval.pii_test_data": {"type", "old", "new"},
+    "config.changed": {"key", "changed"}, "lockfile.changed": set(), "policies.changed": set(),
+    "export.created": {"format", "count", "verified"}, "sync.batch": {"kind", "count", "server", "ack"},
+    "audit.checkpoint": {"pruned_from_seq", "pruned_to_seq"},
+}
+PATH_KEYS = {"path"}
+
+
 def _audit_events(s: dict[str, Any], limit: int) -> list[dict[str, Any]]:
     out = []
     for e in reversed(audit.query(limit=limit)):
-        d = dict(e["detail"])
-        if not s["send_paths"]:
-            d.pop("path", None)
+        keep = AUDIT_DETAIL.get(e["type"], set()) - (set() if s["send_paths"] else PATH_KEYS)
+        d = {k: v for k, v in e["detail"].items() if k in keep}
         out.append({k: e[k] for k in ("seq", "event_id", "occurred_at", "actor_kind", "actor_id", "project_id", "session_id",
                                       "change_id", "type", "outcome", "prev_hash", "hash")} | {"detail": d})
     return out
