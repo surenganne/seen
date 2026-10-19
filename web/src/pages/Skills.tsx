@@ -14,7 +14,7 @@ export function Skills() {
   const set = (k: string, v?: string) => setSp((p) => { if (v) p.set(k, v); else p.delete(k); return p; }, { replace: true });
   return (
     <main className="page">
-      <PageHead title="Skills" description="Every installed skill with its version hash and approval, and the rules that require them." />
+      <PageHead title="Skills" description="Every installed skill, most recently used first, with its version hash and approval, and the rules that require them." />
       <div className="tabs" role="tablist" aria-label="Skills views">
         <button role="tab" aria-selected={tab === "installed"} onClick={() => set("tab")}>Installed skills</button>
         <button role="tab" aria-selected={tab === "required"} onClick={() => set("tab", "required")}>Required skills</button>

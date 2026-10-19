@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from . import audit, ingest, policy, pricing
+from . import audit, ingest, policy, pricing, spool
 from .db import ledger_session
 from .db.models import Change, ChangeFile, Project, Session
 from .hook import EDIT_TOOLS
@@ -143,6 +143,11 @@ def import_project(cwd: str | Path, dry_run: bool = False) -> Result:
             continue
         with ledger_session() as db:
             have = {cid for (cid,) in db.query(Change.id).filter(Change.session_id == sid)}
+            unpriced = {cid for (cid,) in db.query(Change.id).filter(
+                Change.session_id == sid, Change.cost_usd.is_(None),
+                Change.tok_in + Change.tok_out + Change.tok_cache_read + Change.tok_cache_write > 0)}
+        if unpriced and not dry_run:
+            _reprice(tp, sid, lines, starts, unpriced, proj.id)
         new = [k for k, i in enumerate(starts) if _cid(sid, lines[i][1]) not in have]
         if not new:
             if not dry_run:
@@ -160,6 +165,27 @@ def import_project(cwd: str | Path, dry_run: bool = False) -> Result:
         audit.record_head()
     res.cost_usd = round(res.cost_usd, 4)
     return res
+
+
+def _reprice(tp: Path, sid: str, lines: list[tuple[int, dict[str, Any]]], starts: list[int], cids: set[str], pid: str) -> None:
+    """Price turns that were recorded without a cost. The ledger row gets the cost; the audit trail gets a new event."""
+    events = []
+    with ledger_session() as db:
+        for k, i in enumerate(starts):
+            cid = _cid(sid, lines[i][1])
+            if cid not in cids or (row := db.get(Change, cid)) is None:
+                continue
+            end = lines[starts[k + 1]][0] if k + 1 < len(starts) else None
+            cost, version = pricing.cost(parse_turn(tp, lines[i][0], end).usage)
+            if cost is None:
+                continue
+            row.cost_usd, row.price_version = cost, version
+            events.append({**ingest._ctx(sid, pid), "event_id": f"imp:{sid}:{cid}:repriced:{version}", "type": "change.repriced",
+                           "actor_kind": "system", "subject": cid, "occurred_at": spool.now(),
+                           "detail": {"cost_usd": cost, "price_version": version}})
+        db.commit()
+    if events:
+        audit.append(ingest._fresh(events))
 
 
 def _entrypoint(tp: Path) -> str | None:

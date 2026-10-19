@@ -25,6 +25,8 @@ def cost(usage: dict[str, dict[str, int]]) -> tuple[float | None, str]:
     t = table()
     total = 0.0
     for model, u in usage.items():
+        if not any(u.values()):
+            continue  # no tokens costs nothing, priced or not (Claude Code's `<synthetic>` messages carry no usage)
         pr = t["models"].get(model)
         if pr is None:
             return None, t["version"]

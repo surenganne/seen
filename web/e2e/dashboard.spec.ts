@@ -7,6 +7,7 @@ test.describe("P2-4 overview, changes, change detail", () => {
     await page.getByTestId("project-card").filter({ hasText: "payments-api" }).click();
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
     await expect(page.getByTestId("tile-Changes")).toContainText(/\d/);
+    await expect(page.getByTestId("background-spend")).toContainText(/plus \$[\d.]+ in \d+ background turns?/);
 
     await page.getByLabel("Project", { exact: true }).selectOption({ label: "patient360-web" });
     await expect(page).toHaveURL(/\/p\/demo-patient/);

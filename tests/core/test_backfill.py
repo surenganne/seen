@@ -130,3 +130,19 @@ def test_running_session_stays_open_and_reimport_adds_new_turns(repo: Path) -> N
     with ledger_session() as db:
         assert db.query(Change).filter(Change.session_id == "sess-now").count() == 3
     assert audit.verify().ok
+
+
+def test_import_reprices_turns_left_unpriced(repo: Path) -> None:
+    """Turns recorded with no cost (an unpriced zero-token `<synthetic>` message used to void it) get a cost on re-import,
+    with a change.repriced audit event; nothing else about the turn changes."""
+    _write_transcript(repo, "sess-rp")
+    backfill.import_project(repo)
+    with ledger_session() as db:
+        ch = sorted(db.query(Change).filter(Change.session_id == "sess-rp"), key=lambda c: c.seq or 0)[0]
+        want, cid = ch.cost_usd, ch.id
+        ch.cost_usd = None
+        db.commit()
+    backfill.import_project(repo)
+    with ledger_session() as db:
+        assert db.get(Change, cid).cost_usd == want  # type: ignore[union-attr]
+    assert any(e["type"] == "change.repriced" and e["subject"] == cid for e in audit.query(session="sess-rp", type_="change.repriced"))

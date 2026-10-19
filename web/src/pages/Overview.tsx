@@ -39,12 +39,14 @@ export function Overview() {
     <main className="page">
       <PageHead
         title="Overview"
-        description={`Agent work in the last ${range} days. Figures are API-equivalent estimates; prices are unverified until confirmed.`}
+        description={`Your requests in the last ${range} days. Figures are API-equivalent estimates; prices are unverified until confirmed. PII counts cover every session, including plugins' background ones.`}
         actions={<button type="button" className="btn" onClick={() => goChanges({})}>All changes →</button>}
       />
       <div className="strip" role="group" aria-label="Summary">
         <Tile label="Changes" icon={FileStack} value={int(t.changes)} sub={`${int(t.files_changed)} files · +${int(t.lines_added)} −${int(t.lines_removed)}`} />
-        <Tile label="Cost" icon={CircleDollarSign} value={money(t.cost_usd)} sub="API-equivalent" />
+        <Tile label="Cost" icon={CircleDollarSign} value={money(t.cost_usd)} sub={t.background_changes
+          ? <span data-testid="background-spend">API-equivalent · plus {money(t.background_cost_usd)} in {int(t.background_changes)} background {t.background_changes === 1 ? "turn" : "turns"}</span>
+          : "API-equivalent"} />
         <Tile label="Tokens" icon={Coins} value={tokens(t.tokens)} sub="in, out and cache" />
         <Tile label="Memory loaded" icon={Brain} value={pct(t.mem_loaded_pct)} sub={t.mem_loaded_pct == null ? "not observed (imported turns)" : "of turns"} alert={(t.mem_loaded_pct ?? 1) < 0.95} />
         <Tile label="Policy missed" icon={Sparkles} value={int(t.policy_missed)} sub="required skill not run" alert={t.policy_missed > 0} />

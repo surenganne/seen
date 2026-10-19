@@ -152,7 +152,12 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 **Changes as requests**
 - [ ] Each row's first line is what you asked (redacted per `pii.store_prompt_text`), Claude's result under it, then files and lines.
 - [ ] Opens on **Yours**; **Background** lists plugin turns, each tagged `background`; Yours + Background = All.
+- [ ] A slash command reads as the command (`/login`); a `<task-notification>` turn reads as *Automatic follow-up: a background task finished (…)*.
+- [ ] A turn that has tokens shows a cost: Claude Code's zero-token `<synthetic>` messages never leave a turn unpriced (`seen import` reprices old ones).
 - [ ] A change that wrote `.seen/memory/*.md` lists those notes under *Memory saved*, and each note's *Source change* on the Memory page links back to it. A note written in the same turn that edited its `file_ref` is not stale.
+
+**Skills**
+- [ ] Most recently used first; never-used skills last, by name.
 
 **Sessions**
 - [ ] Lists every session newest first with status (active, ended, incomplete), model, turns, tool calls, files and cost.

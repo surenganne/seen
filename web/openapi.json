@@ -2582,6 +2582,16 @@
       },
       "Tiles": {
         "properties": {
+          "background_changes": {
+            "default": 0,
+            "title": "Background Changes",
+            "type": "integer"
+          },
+          "background_cost_usd": {
+            "default": 0.0,
+            "title": "Background Cost Usd",
+            "type": "number"
+          },
           "changes": {
             "title": "Changes",
             "type": "integer"
