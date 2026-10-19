@@ -80,16 +80,38 @@ def load_project(root: str | Path | None) -> dict[str, Any]:
     return cfg
 
 
-# a quantified group that itself contains a quantifier or an alternation: (a+)+, (a|aa)*, (\w+\s?){2,}
-_NESTED = re.compile(r"\((?:[^()\\]|\\.)*(?:[+*]|\{\d*,\d*\}|\|)(?:[^()\\]|\\.)*\)(?:[+*]|\{\d*,\d*\})")
+def _risky(items: object, under_repeat: bool = False) -> bool:
+    """Walk the parsed pattern: a repeat with another repeat or a branch anywhere beneath it can backtrack exponentially."""
+    from re import _constants as C  # type: ignore[attr-defined]
+
+    for op, av in items:  # type: ignore[attr-defined]
+        if op in (C.MAX_REPEAT, C.MIN_REPEAT, C.POSSESSIVE_REPEAT):
+            lo, hi, sub = av
+            if under_repeat or _risky(sub, under_repeat=True):
+                return True
+        elif op is C.BRANCH:
+            if under_repeat:
+                return True
+            if any(_risky(b, under_repeat) for b in av[1]):
+                return True
+        elif op is C.SUBPATTERN:
+            if _risky(av[-1], under_repeat):
+                return True
+        elif op in (C.ASSERT, C.ASSERT_NOT):
+            if _risky(av[1], under_repeat):
+                return True
+        elif op is C.GROUPREF:
+            return True  # backreferences
+    return False
 
 
 def safe_pattern(p: str) -> bool:
     """Repo regexes run on every prompt and Python's re has no timeout: refuse catastrophic shapes."""
-    if not p or len(p) > 200 or _NESTED.search(p) or re.search(r"\\[1-9]", p):
+    from re import _parser  # type: ignore[attr-defined]
+
+    if not p or len(p) > 200:
         return False
     try:
-        re.compile(p)
-    except re.error:
+        return not _risky(_parser.parse(p))
+    except (re.error, RecursionError, ValueError, TypeError):
         return False
-    return True
