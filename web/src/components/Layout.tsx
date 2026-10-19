@@ -64,6 +64,8 @@ export function Layout() {
   const current = projects?.find((p) => p.id === pid);
   const alert = (current?.alert ?? false) || verify?.ok === false;
   const section = pid ? (loc.pathname.replace(`/p/${pid}`, "").split("/")[1] ?? "") : "";
+  const where = pid ? `${cid ? "Change" : TITLES[section] ?? "Overview"} · ${current?.name ?? pid}` : loc.pathname.startsWith("/settings") ? "Settings" : "Projects";
+  useEffect(() => { document.title = `${where} · Seen`; }, [where]); // each page names itself for the tab, history and screen readers
   const narrow = useNarrow();  // one project switcher at a time: rail on desktop, top bar on phones
 
   const links = (
@@ -103,6 +105,8 @@ export function Layout() {
   );
 
   return (
+    <>
+    <a className="skip-link" href="#content">Skip to content</a>
     <div className="shell">
       <aside className="rail">
         <Link to={withRange("/projects", range)} className="brand" aria-label="Seen home">
@@ -159,8 +163,11 @@ export function Layout() {
             ))}
           </div>
         </header>
-        <Outlet />
+        <main id="content" tabIndex={-1} className="content">
+          <Outlet />
+        </main>
       </div>
     </div>
+    </>
   );
 }

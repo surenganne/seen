@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Inbox } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { S } from "../api/client";
 import { money, tokens, when } from "../lib/format";
 import { useRange, withRange } from "../lib/nav";
@@ -28,7 +28,7 @@ export function ChangesTable({ rows, pid, sort, compact }: { rows: S["ChangeRow"
   }
   const open = (id: string) => nav(withRange(`/p/${pid}/changes/${id}`, range));
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" tabIndex={0} role="region" aria-label="Changes">
       <table className="data" data-testid="changes-table">
         <thead>
           <tr>
@@ -44,10 +44,14 @@ export function ChangesTable({ rows, pid, sort, compact }: { rows: S["ChangeRow"
         </thead>
         <tbody>
           {rows.map((c) => (
-            <tr key={c.id} className="clickable" tabIndex={0} onClick={() => open(c.id)} onKeyDown={(e) => e.key === "Enter" && open(c.id)} data-testid="change-row">
+            <tr key={c.id} className="clickable" onClick={() => open(c.id)} data-testid="change-row">
               <td className="when">{when(c.started_at)}<div className="tiny">#{c.seq}</div></td>
               <td style={{ minWidth: 240 }}>
-                <div className="title clamp-2" data-testid="change-request">{c.request ?? c.summary ?? <span className="muted">(no request text stored)</span>}</div>
+                <div className="title clamp-2" data-testid="change-request">
+                  <Link className="rowbtn" to={withRange(`/p/${pid}/changes/${c.id}`, range)} onClick={(e) => e.stopPropagation()}>
+                    {c.request ?? c.summary ?? <span className="muted">(no request text stored)</span>}
+                  </Link>
+                </div>
                 {c.request && c.summary && <div className="meta clamp-2">{c.summary}</div>}
                 <div className="meta mono">{c.background && <span className="tag" title="A plugin's background session (Agent SDK)">background</span>}{c.model ?? "—"}{c.skills.length ? ` · ${c.skills.join(", ")}` : ""}</div>
               </td>

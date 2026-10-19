@@ -69,6 +69,12 @@ export function Loading({ what = "Loading", rows = 4 }: { what?: string; rows?: 
   );
 }
 
+/** The keyboard and screen-reader way into a clickable table row: a real button named by the row's main text.
+ *  The row's own click handler stays as a convenience for the mouse. */
+export function RowButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return <button type="button" className="rowbtn" onClick={(e) => { e.stopPropagation(); onClick(); }}>{children}</button>;
+}
+
 export function Empty({ icon: I = Info, title, children }: { icon?: LucideIcon; title: string; children?: ReactNode }) {
   return (
     <div className="empty">

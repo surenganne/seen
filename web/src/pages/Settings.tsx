@@ -17,10 +17,10 @@ function KV({ obj }: { obj: Record<string, unknown> }) {
 
 export function Settings() {
   const { data: s, error, isLoading } = useSettings();
-  if (isLoading) return <main className="page"><Loading what="Loading settings" /></main>;
-  if (error || !s) return <main className="page"><ErrorBox error={error} /></main>;
+  if (isLoading) return <div className="page"><Loading what="Loading settings" /></div>;
+  if (error || !s) return <div className="page"><ErrorBox error={error} /></div>;
   return (
-    <main className="page" data-testid="settings">
+    <div className="page" data-testid="settings">
       <PageHead title="Settings" description="Read from ~/.seen/config.toml. PII detection is editable here; every change is written to the audit trail." />
       <div className="grid split">
         <PiiSettings pii={s.pii} />
@@ -48,7 +48,7 @@ export function Settings() {
       </div>
       <div className="grid split">
         <Card title="Price table" flush aside={s.prices.verified ? <Badge tone="good">verified</Badge> : <Badge tone="warning">unverified</Badge>}>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Price table">
             <table className="data">
               <thead><tr><th>Model</th><th className="num">Input</th><th className="num">Output</th><th className="num">Cache read</th><th className="num">Cache write</th></tr></thead>
               <tbody>
@@ -64,6 +64,6 @@ export function Settings() {
         </Card>
         <Card title="Local data"><KV obj={s.local_data} /></Card>
       </div>
-    </main>
+    </div>
   );
 }

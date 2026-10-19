@@ -58,7 +58,7 @@ export function Changes() {
   const { data: skills } = useSkills(pid);
 
   return (
-    <main className="page">
+    <div className="page">
       <PageHead
         title="Changes"
         description="One row per request you made, with what it changed, grouped by session. Background shows turns that plugins ran through the Agent SDK. Open a row for files, tokens, memory, skills and PII."
@@ -154,6 +154,6 @@ export function Changes() {
           {(data.total > data.page_size || data.page > 1) && <div className="panel"><Pager page={data.page} pageSize={data.page_size} total={data.total} onPage={(p) => set("page", String(p))} what="changes" /></div>}
         </>
       )}
-    </main>
+    </div>
   );
 }

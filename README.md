@@ -191,8 +191,10 @@ Issues and pull requests: <https://github.com/surenganne/seen>.
   opt-in yet): treat a repository you did not write as untrusted. Review `.seen/memory/` like code (a CODEOWNERS
   rule helps) and never store secrets or client data there.
 - **The dashboard** has no login (see Dashboard). The Docker copy is a snapshot: it is as old as the last
-  `seen docker-sync`, and settings or approvals changed there are lost on refresh. It aims for WCAG 2.2 AA, but
-  automated accessibility checks are not in CI yet, so that is a target, not a verified claim.
+  `seen docker-sync`, and settings or approvals changed there are lost on refresh. It targets WCAG 2.2 AA: axe
+  checks every page in both themes on desktop and phone sizes in CI, and Playwright covers the skip link, keyboard
+  access to table rows, per-page titles and reflow at 320px. Automated checks catch only part of what matters, so
+  screen-reader use and 200% zoom are manual checks (docs/TESTING.md Part 16).
 - **The team server** is a Phase 5 skeleton: no SSO, schema changes outside Alembic, and no scheduled retention.
   Sync is off by default and sends only the metadata you switch on; per-person detail stays private to that person.
 - **Network.** Hooks never touch it. `seen doctor` and `seen upgrade` make one anonymous request to GitHub to look
