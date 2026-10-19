@@ -81,18 +81,19 @@ def load_project(root: str | Path | None) -> dict[str, Any]:
 
 
 def _risky(items: object, under_repeat: bool = False) -> bool:
-    """Walk the parsed pattern: a repeat with another repeat or a branch anywhere beneath it can backtrack exponentially."""
+    """Walk the parsed pattern, deny by default. A repeat with another repeat or a branch beneath it can
+    backtrack exponentially; atomic groups, conditionals and backreferences are refused outright."""
     from re import _constants as C  # type: ignore[attr-defined]
 
+    leaves = {C.LITERAL, C.NOT_LITERAL, C.ANY, C.IN, C.AT}
     for op, av in items:  # type: ignore[attr-defined]
+        if op in leaves:
+            continue
         if op in (C.MAX_REPEAT, C.MIN_REPEAT, C.POSSESSIVE_REPEAT):
-            lo, hi, sub = av
-            if under_repeat or _risky(sub, under_repeat=True):
+            if under_repeat or _risky(av[2], under_repeat=True):
                 return True
         elif op is C.BRANCH:
-            if under_repeat:
-                return True
-            if any(_risky(b, under_repeat) for b in av[1]):
+            if under_repeat or any(_risky(b, under_repeat) for b in av[1]):
                 return True
         elif op is C.SUBPATTERN:
             if _risky(av[-1], under_repeat):
@@ -100,8 +101,8 @@ def _risky(items: object, under_repeat: bool = False) -> bool:
         elif op in (C.ASSERT, C.ASSERT_NOT):
             if _risky(av[1], under_repeat):
                 return True
-        elif op is C.GROUPREF:
-            return True  # backreferences
+        else:
+            return True  # ATOMIC_GROUP, GROUPREF, GROUPREF_EXISTS and anything new: unsafe until understood
     return False
 
 
