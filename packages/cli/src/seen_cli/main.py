@@ -186,7 +186,7 @@ def doctor() -> None:
     inst = claude_dir() / "plugins" / "installed_plugins.json"
     has = inst.exists() and f"{brand.PLUGIN}@{brand.MARKETPLACE}" in inst.read_text()
     line(has, f"plugin {brand.PLUGIN}@{brand.MARKETPLACE} " + ("installed" if has else
-         "not installed (claude plugin marketplace add <repo>; claude plugin install seen@seen-tools)"))
+         "not installed (claude plugin marketplace add surenganne/seen; claude plugin install seen@seen-tools)"))
     try:
         with ledger_session() as db:
             db.execute(select(Change.id).limit(1))

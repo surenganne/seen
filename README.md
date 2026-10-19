@@ -1,6 +1,8 @@
-<p align="center"><img src="assets/brand/eyes.svg" width="96" alt="Seen"></p>
+<p align="center"><img src="assets/brand/eyes.svg" width="112" alt="Seen"></p>
 
 # Seen
+
+[![ci](https://github.com/surenganne/seen/actions/workflows/ci.yml/badge.svg)](https://github.com/surenganne/seen/actions/workflows/ci.yml)
 
 **Nothing your agents do goes unseen.** A Claude Code plugin and local dashboard that keeps a per-project
 ledger of what AI agents change: files and lines, tokens and API-equivalent cost, memory loaded, skills run
@@ -22,22 +24,38 @@ Local first: everything works with no server. Prompts and diffs never leave the 
 
 ## Install
 
+Seen is not on PyPI yet; install the CLI and the plugin straight from GitHub.
+
 ```bash
-uv tool install seen-cli                     # the CLI and the seen-hook binary
-claude plugin marketplace add <this repo>    # marketplace "seen-tools"
+# 1. CLI and the seen-hook binary (Python 3.11+, uv)
+uv tool install "git+https://github.com/surenganne/seen#subdirectory=packages/cli"
+
+# 2. Claude Code plugin (marketplace "seen-tools" lives in this repo)
+claude plugin marketplace add surenganne/seen
 claude plugin install seen@seen-tools
-cd your-repo && seen init                    # .seen/ folder + memory write permissions
-seen doctor
+
+# 3. Per repo
+cd your-repo && seen init          # .seen/ folder + memory write permissions
+seen doctor                        # checks Python, hooks, plugin, databases, PATH
 ```
 
-Teams can enable it for everyone from the repo's `.claude/settings.json` (`extraKnownMarketplaces` and
-`enabledPlugins`); Claude Code installs it after a contributor accepts the workspace trust dialog.
+Upgrade with `uv tool upgrade seen-cli` and `claude plugin marketplace update seen-tools`.
+
+Teams can enable it for everyone from the repo's `.claude/settings.json`; Claude Code installs it after a
+contributor accepts the workspace trust dialog:
+
+```json
+{
+  "extraKnownMarketplaces": { "seen-tools": { "source": { "source": "github", "repo": "surenganne/seen" } } },
+  "enabledPlugins": { "seen@seen-tools": true }
+}
+```
 
 ## Use
 
 ```bash
 seen report --days 7          # what changed, what it cost, which skills ran
-seen serve --open             # dashboard on http://127.0.0.1:47821
+seen serve --open             # dashboard on http://127.0.0.1:47821 (from a clone; see below)
 seen memory add --id refund-idempotency --type decision --file-ref src/payments/refund.py \
   --text "Refunds carry an idempotency key; retries reuse it."
 seen memory list | verify <id> | archive <id>
@@ -64,9 +82,14 @@ Development data never touches your real ledger: `seen dev-seed` only writes int
 `SEEN_HOME`, every test gets its own temporary one, and the team test suite uses a separate
 `seen_team_test` database.
 
+The dashboard UI ships as a built bundle. From a `uv tool` install, point Seen at one:
+`git clone https://github.com/surenganne/seen && (cd seen/web && npm ci && npm run build)`, then
+`SEEN_WEB_DIST=$PWD/seen/web/dist seen serve --open`. Or use the Docker dashboard below, which needs nothing on the host.
+
 ## Develop
 
 ```bash
+git clone https://github.com/surenganne/seen && cd seen
 uv sync && (cd web && npm ci)
 uv run pytest                                  # unit + integration (fast, no network)
 uv run pytest -m e2e tests/e2e                 # real headless Claude Code sessions (costs a few cents)
@@ -75,7 +98,21 @@ uv run python scripts/pii_benchmark.py         # regenerates docs/pii-benchmark.
 ```
 
 Phase 0 findings about Claude Code hooks are in [docs/hooks-findings.md](docs/hooks-findings.md); every parser
-is tested against payloads and transcripts recorded from real sessions (`tests/fixtures`).
+is tested against payloads and transcripts recorded from real sessions (`tests/fixtures`). CI runs Python
+lint/types/tests, the web checks, Playwright and the Docker suites on every push.
+
+## Docs
+
+| | |
+|---|---|
+| [docs/TESTING.md](docs/TESTING.md) | Step-by-step guide to check every feature by hand |
+| [DESIGN.md](DESIGN.md) / [PRODUCT.md](PRODUCT.md) | Dashboard design system and who it is for |
+| [docs/schema.md](docs/schema.md) | Where every piece of data lives |
+| [docs/adr/](docs/adr) | Architecture decisions |
+| [docs/pii-benchmark.md](docs/pii-benchmark.md) | Detector precision and recall on the labelled corpus |
+| [docs/plan/SEEN_BUILD_PLAN.md](docs/plan/SEEN_BUILD_PLAN.md) | The build plan; progress in [docs/build-ledger.md](docs/build-ledger.md) |
+
+Issues and pull requests: <https://github.com/surenganne/seen>.
 
 ## Limits, stated plainly
 
