@@ -27,6 +27,8 @@ DEFAULT_PORT = 47824
 SECURITY_HEADERS = {"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
                     "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'", "Permissions-Policy": "camera=(), microphone=()"}
 MAX_FAILS, WINDOW_S = 8, 60
+MAX_REQUESTS = 600  # per client per window, successes included
+MAX_BODY = 2 * 1024 * 1024
 
 
 def _add_missing_key_columns(engine: sa.Engine) -> None:
@@ -36,6 +38,17 @@ def _add_missing_key_columns(engine: sa.Engine) -> None:
         for col in ("expires_at", "revoked_at"):
             if col not in have:
                 c.execute(sa.text(f"ALTER TABLE team_api_keys ADD COLUMN {col} VARCHAR(40)"))
+
+
+def client_ip(request: Request) -> str:
+    """The address to throttle. Behind N trusted proxies (SEEN_TEAM_PROXY_HOPS) take the entry the Nth proxy appended;
+    otherwise the socket peer. X-Forwarded-For is never trusted unless told how many hops to trust."""
+    hops = int(os.environ.get("SEEN_TEAM_PROXY_HOPS") or 0)
+    if hops > 0:
+        parts = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+        if len(parts) >= hops:
+            return parts[-hops]
+    return request.client.host if request.client else "?"
 
 
 def now() -> str:
@@ -61,53 +74,71 @@ class PolicyIn(Strict):
 
 class FileIn(Strict):
     path: str = Field(max_length=500)
-    added: int
-    removed: int
+    added: int = Field(ge=0)
+    removed: int = Field(ge=0)
 
 
 class PiiIn(Strict):
     state: str | None = Field(default=None, max_length=20)
-    counts: dict[str, int] = {}
+    counts: dict[str, Annotated[int, Field(ge=0)]] = Field(default={}, max_length=50)
 
 
 class ChangeIn(Strict):
     id: str = Field(max_length=64)
     project_id: str = Field(max_length=64)
     session_id: str | None = Field(default=None, max_length=80)
-    seq: int | None = None
+    seq: int | None = Field(default=None, ge=0)
     started_at: str | None = Field(default=None, max_length=40)
-    duration_s: int | None = None
+    duration_s: int | None = Field(default=None, ge=0)
     tool: str = Field(default="claude-code", max_length=40)
     user_id: str | None = Field(default=None, max_length=80)
     model: str | None = Field(default=None, max_length=80)
     git_status: str | None = Field(default=None, max_length=20)
     mem_state: str | None = Field(default=None, max_length=20)
-    file_count: int = 0
-    lines_added: int = 0
-    lines_removed: int = 0
-    files: list[FileIn] | None = None
-    tok_in: int | None = None
-    tok_out: int | None = None
-    tok_cache_read: int | None = None
-    tok_cache_write: int | None = None
-    cost_usd: float | None = None
+    file_count: int = Field(default=0, ge=0)
+    lines_added: int = Field(default=0, ge=0)
+    lines_removed: int = Field(default=0, ge=0)
+    files: list[FileIn] | None = Field(default=None, max_length=500)
+    tok_in: int | None = Field(default=None, ge=0)
+    tok_out: int | None = Field(default=None, ge=0)
+    tok_cache_read: int | None = Field(default=None, ge=0)
+    tok_cache_write: int | None = Field(default=None, ge=0)
+    cost_usd: float | None = Field(default=None, ge=0)
     price_version: str | None = Field(default=None, max_length=40)
-    skills: list[SkillIn] | None = None
-    policies: list[PolicyIn] | None = None
+    skills: list[SkillIn] | None = Field(default=None, max_length=100)
+    policies: list[PolicyIn] | None = Field(default=None, max_length=200)
     pii: PiiIn | None = None
 
 
 class HeadIn(Strict):
     at: str = Field(max_length=40)
-    seq: int
+    seq: int = Field(ge=0)
     hash: str = Field(min_length=64, max_length=64)
+
+
+class AuditIn(Strict):
+    """An audit event as the client sends it (allowlisted detail only). Validated so garbage is refused; the server
+    stores only the anchored heads."""
+    seq: int = Field(ge=0)
+    event_id: str = Field(max_length=200)
+    occurred_at: str = Field(max_length=40)
+    actor_kind: str = Field(max_length=20)
+    actor_id: str | None = Field(default=None, max_length=200)
+    project_id: str | None = Field(default=None, max_length=64)
+    session_id: str | None = Field(default=None, max_length=80)
+    change_id: str | None = Field(default=None, max_length=64)
+    type: str = Field(max_length=80)
+    outcome: str | None = Field(default=None, max_length=20)
+    prev_hash: str | None = Field(default=None, max_length=64)
+    hash: str = Field(max_length=64)
+    detail: dict[str, str | int | float | bool | None] = Field(default={}, max_length=30)
 
 
 class BatchIn(Strict):
     install_id: str = Field(max_length=80)
     changes: list[ChangeIn] = Field(max_length=1000)
-    audit_heads: list[HeadIn] = []
-    audit: list[dict[str, Any]] = []
+    audit_heads: list[HeadIn] = Field(default=[], max_length=100)
+    audit: list[AuditIn] = Field(default=[], max_length=1000)
 
 
 class KeyIn(Strict):
@@ -129,12 +160,19 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
     _add_missing_key_columns(engine)  # ponytail: skeleton uses create_all; move to Alembic before the first schema change
     Sess = sessionmaker(engine, expire_on_commit=False)
     fails: dict[str, deque[float]] = defaultdict(deque)
+    hits: dict[str, deque[float]] = defaultdict(deque)  # every attempt, successes included
     prod = os.environ.get("APP_ENV") == "production"  # no unauthenticated API map in production
     app = FastAPI(title="Seen team server", version="0.1.0", docs_url=None if prod else "/docs",
                   redoc_url=None if prod else "/redoc", openapi_url=None if prod else "/openapi.json")
 
     @app.middleware("http")
     async def headers(request: Request, call_next):  # type: ignore[no-untyped-def]
+        if request.method in ("POST", "PUT", "PATCH"):
+            cl = request.headers.get("content-length")
+            if cl is None or not cl.isdigit():
+                return JSONResponse({"detail": "Content-Length required"}, status_code=411, headers=SECURITY_HEADERS)
+            if int(cl) > MAX_BODY:
+                return JSONResponse({"detail": "request body too large"}, status_code=413, headers=SECURITY_HEADERS)
         resp = await call_next(request)
         resp.headers.update(SECURITY_HEADERS)
         return resp
@@ -149,12 +187,14 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
     Db = Annotated[Session, Depends(db)]
 
     def auth(request: Request, s: Db, authorization: str = Header(default="")) -> TeamApiKey:
-        ip = request.client.host if request.client else "?"
-        q = fails[ip]
-        while q and q[0] < time.monotonic() - WINDOW_S:
-            q.popleft()
-        if len(q) >= MAX_FAILS:  # locked: even a correct key waits, so the lockout is not an oracle
-            raise HTTPException(429, "too many failed attempts; retry later")
+        ip = client_ip(request)
+        q, h = fails[ip], hits[ip]
+        for dq in (q, h):
+            while dq and dq[0] < time.monotonic() - WINDOW_S:
+                dq.popleft()
+        if len(q) >= MAX_FAILS or len(h) >= MAX_REQUESTS:  # locked: even a correct key waits, so the lockout is not an oracle
+            raise HTTPException(429, "too many requests; retry later")
+        h.append(time.monotonic())
         token = authorization.removeprefix("Bearer ").strip()
         tb = token.encode("utf-8", "surrogatepass")
         if boot and hmac.compare_digest(tb, boot.encode()):

@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .. import config, paths
+from .. import config, paths, safeio
 
 
 def _file(sid: str) -> Path:
@@ -28,9 +30,19 @@ def read(sid: str) -> dict[str, Any]:
 def write(sid: str, state: dict[str, Any]) -> None:
     f = _file(sid)
     paths.ensure_dir(f.parent)
-    tmp = f.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state))
+    fd, tmp = tempfile.mkstemp(dir=f.parent, prefix=f".{f.name}.", suffix=".tmp")  # unique per writer: parallel hooks share a session
+    with os.fdopen(fd, "w") as fh:
+        fh.write(json.dumps(state))
     os.replace(tmp, f)
+
+
+def modify(sid: str, fn: Callable[[dict[str, Any]], object]) -> dict[str, Any]:
+    """Read, change and write the session state under a lock, so parallel tool hooks cannot lose each other's update."""
+    with safeio.Locked(_file(sid)):
+        st = read(sid)
+        fn(st)
+        write(sid, st)
+        return st
 
 
 def budget() -> int:
@@ -40,6 +52,11 @@ def budget() -> int:
 
 def inject(sid: str, root: str | None, project_id: str | None, prompt: str, changed: list[str]) -> tuple[str, dict[str, Any] | None]:
     """Returns (context text for the model, spool line) for memories not yet injected this session."""
+    with safeio.Locked(_file(sid)):
+        return _inject(sid, root, project_id, prompt, changed)
+
+
+def _inject(sid: str, root: str | None, project_id: str | None, prompt: str, changed: list[str]) -> tuple[str, dict[str, Any] | None]:
     from .files import load
     from .rank import estimate_tokens, render, select
     from .stale import mark_stale
@@ -70,13 +87,11 @@ def inject(sid: str, root: str | None, project_id: str | None, prompt: str, chan
 
 def mark_read(sid: str, file_path: str) -> bool:
     """The model read a file under .seen/memory: count memory as loaded (gate recovery path)."""
-    st = read(sid)
-    root = st.get("root")
+    root = read(sid).get("root")
     if not root:
         return False
     mem = os.path.realpath(os.path.join(root, ".seen", "memory")) + os.sep
     if os.path.realpath(file_path).startswith(mem):
-        st["state"] = "loaded"
-        write(sid, st)
+        modify(sid, lambda st: st.__setitem__("state", "loaded"))
         return True
     return False

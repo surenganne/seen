@@ -150,3 +150,5 @@ class Outbox(Base):
     created_at: Mapped[str | None] = mapped_column(T)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     sent_at: Mapped[str | None] = mapped_column(T)
+    dead_at: Mapped[str | None] = mapped_column(T)  # the server rejected it for good; parked until `seen sync --retry-failed`
+    last_status: Mapped[int | None] = mapped_column(Integer)

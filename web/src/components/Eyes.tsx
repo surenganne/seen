@@ -5,7 +5,8 @@ export type EyesState = "idle" | "alert";
 
 /** The Seen mark (assets/brand/eyes.svg): owl eyes, nearly all iris (amber to Minfy orange), a navy pupil with two
  *  glints and orange feather tufts for brows. idle: glances around with quick saccades and pauses, blinks with lids
- *  (now and then twice). alert: looks straight ahead, lids wide, pupils shrink to pinpoints and the tufts lift.
+ *  (now and then twice). While the pointer moves, or focus jumps to a control, the eyes watch it anywhere on the page
+ *  and go back to glancing around a few seconds after it stops. alert: looks straight ahead, lids wide, pupils shrink to pinpoints and the tufts lift.
  *  Colours never change; on dark backgrounds the outline turns light. Reduced motion: a still pose. */
 export function Eyes({ state = "idle", size = 32, label, onDark = false }: { state?: EyesState; size?: number; label?: string; onDark?: boolean }) {
   const id = useId().replace(/:/g, "");
@@ -79,6 +80,34 @@ export function lidAt(ms: number): number {
   return 1 - (1 - (ms - 105) / 170) ** 3;
 }
 
+const FOLLOW_MS = 4000; // how long after the last pointer or focus move the eyes keep watching it
+const NEAR_PX = 120; // closer than this the gaze eases back toward centre instead of crossing the eyes
+
+/** Gaze (-1..1 on each axis) from an eye at (cx, cy) toward a point: full deflection from NEAR_PX away, none on top of it. */
+export function gazeToward(cx: number, cy: number, x: number, y: number): { x: number; y: number } {
+  const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy);
+  if (d < 1) return { x: 0, y: 0 };
+  const k = Math.min(1, d / NEAR_PX);
+  return { x: (dx / d) * k, y: (dy / d) * k };
+}
+
+let target: { x: number; y: number; at: number } | null = null;
+const aim = (x: number, y: number) => { target = { x, y, at: typeof performance === "undefined" ? 0 : performance.now() }; };
+const onMove = (e: PointerEvent) => aim(e.clientX, e.clientY);
+const onFocus = (e: FocusEvent) => {
+  const r = e.target instanceof Element ? e.target.getBoundingClientRect() : null;
+  if (r && r.width > 0) aim(r.left + r.width / 2, r.top + r.height / 2); // keyboard users get watched too
+};
+const onLeave = (e: MouseEvent) => { if (!e.relatedTarget) target = null; }; // pointer left the window: go back to glancing
+function listen(on: boolean) {
+  if (typeof window === "undefined") return;
+  const act = on ? window.addEventListener : window.removeEventListener;
+  act.call(window, "pointermove", onMove as EventListener, { passive: true });
+  act.call(window, "focusin", onFocus as EventListener);
+  act.call(document, "mouseout", onLeave as EventListener);
+  if (!on) target = null;
+}
+
 type Pose = { px: number; py: number; open: number; brow: number; alert: number };
 
 function draw(svg: SVGSVGElement, p: Pose) {
@@ -105,11 +134,13 @@ function watch(svg: SVGSVGElement, alert: () => boolean): () => void {
   const now = typeof performance === "undefined" ? 0 : performance.now();
   const m: Mark = { svg, alert, s: { px: 0, py: 0, vx: 0, vy: 0, tx: 0, ty: 0, a: alert() ? 1 : 0, va: 0, brow: 0, browT: 0,
     browUntil: 0, blinkAt: -1e9, nextLook: now + rand(300, 2400), nextBlink: now + rand(800, 5000) } };
+  if (!marks.size) listen(true);
   marks.add(m);
   if (typeof requestAnimationFrame === "function" && !frame) frame = requestAnimationFrame(loop);
   else draw(svg, { px: 0, py: 0, open: m.s.a ? 1.12 : OPEN, brow: 0, alert: m.s.a });
   return () => {
     marks.delete(m);
+    if (!marks.size) listen(false);
     if (!marks.size && frame) { cancelAnimationFrame(frame); frame = 0; }
   };
 }
@@ -134,6 +165,12 @@ function step({ svg, alert, s }: Mark, now: number, dt: number, calm: boolean) {
   s.va += ((on ? 1 : 0) - s.a) * ka * dt - s.va * ca * dt;
   s.a += s.va * dt;
   if (on) { s.tx = 0; s.ty = 0; }
+  else if (target && now - target.at < FOLLOW_MS) {
+    const r = svg.getBoundingClientRect();
+    const g = gazeToward(r.left + r.width / 2, r.top + r.height / 2, target.x, target.y);
+    s.tx = g.x; s.ty = g.y;
+    s.nextLook = now + 400; // when the pointer goes still, wander again soon after the follow window ends
+  }
   else if (now > s.nextLook) {
     if (Math.random() < 0.3) { s.tx = rand(-0.15, 0.15); s.ty = rand(-0.1, 0.1); } // back to centre
     else { const ang = rand(0, Math.PI * 2), r = Math.sqrt(rand(0.35, 1)); s.tx = Math.cos(ang) * r; s.ty = Math.sin(ang) * r * 0.8; }
