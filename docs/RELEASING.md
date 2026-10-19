@@ -11,7 +11,8 @@ open and records nothing.
 3. **Write the changelog** entry in `CHANGELOG.md`. Say when a migration is included and that users must run
    `seen upgrade`.
 4. **Run the gates** from `CLAUDE.md` (ruff, mypy, pytest, `pii_benchmark.py --check`, `gen_openapi.py --check`, web
-   checks, Playwright).
+   checks, Playwright). CI also runs the `audit` workflow (pip-audit, npm audit, gitleaks, trivy) and the Postgres team
+   tests; a release waits for both to be green.
 5. **Commit, then tag**: `git tag vX.Y.Z && git push origin main vX.Y.Z`. `seen doctor` and `seen upgrade` compare
    against the highest `vX.Y.Z` tag on GitHub, so a release without a tag is invisible to them.
 6. **Check an upgrade by hand** on a machine with the previous version: `seen upgrade --check`, then `--yes`, restart
