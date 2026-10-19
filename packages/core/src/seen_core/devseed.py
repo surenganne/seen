@@ -153,7 +153,8 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
                         continue
                     sess_id = f"demo-{pid}-{rnd.getrandbits(48):012x}"
                     db.add(Session(id=sess_id, project_id=pid, started_at=_iso(start), ended_at=_iso(start + timedelta(minutes=40)),
-                                   tool="claude-code", tool_version="2.1.302", user_id=rnd.choice(["u_demo", "u_alex", "u_sam"])))
+                                   tool="claude-code", tool_version="2.1.302", user_id=rnd.choice(["u_demo", "u_alex", "u_sam"]),
+                                   entrypoint="sdk-py" if int(sess_id[-1], 16) < 3 else "cli"))  # ~1 in 5: a plugin's background session
                     counts["sessions"] += 1
                     events.append({"type": "session.start", "occurred_at": _iso(start), "actor_kind": "system",
                                    "actor_id": "u_demo", "project_id": pid, "session_id": sess_id,

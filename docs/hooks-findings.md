@@ -37,3 +37,4 @@ git repos. Each experiment is a separate headless session. Scrubbed payloads are
 - **Sideloaded plugins:** hook payloads carry no plugin list (only the `-p` stream `init` event does). Seen marks an invoked skill as `sideload` when its name is not in the scanned inventory.
 - **Managed (org) skill folder:** `/Library/Application Support/ClaudeCode/` on macOS (`/etc/claude-code/` on Linux). Not present on the dev machine. The scanner checks it when it exists.
 - **Stop fires once per turn;** SessionEnd payload has `reason` (`other` in `-p` mode). SubagentStop carries `agent_transcript_path`.
+- **Entrypoint (spikes/entrypoint):** hooks inherit `CLAUDE_CODE_ENTRYPOINT`: `cli` for an interactive session, `sdk-cli` for `claude -p`, `sdk-py`/`sdk-ts` for the Agent SDK. Plugins that run background agents (reflectors, summarisers) start `sdk-*` sessions in the repo's folder, so they fire Seen's hooks too. Transcript lines carry the same value as `entrypoint`.

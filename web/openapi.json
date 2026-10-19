@@ -1780,8 +1780,36 @@
         "title": "ProjectOut",
         "type": "object"
       },
+      "SessionCounts": {
+        "properties": {
+          "all": {
+            "title": "All",
+            "type": "integer"
+          },
+          "background": {
+            "title": "Background",
+            "type": "integer"
+          },
+          "yours": {
+            "title": "Yours",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "all",
+          "yours",
+          "background"
+        ],
+        "title": "SessionCounts",
+        "type": "object"
+      },
       "SessionOut": {
         "properties": {
+          "background": {
+            "default": false,
+            "title": "Background",
+            "type": "boolean"
+          },
           "cost_usd": {
             "title": "Cost Usd",
             "type": "number"
@@ -1796,6 +1824,17 @@
               }
             ],
             "title": "Ended At"
+          },
+          "entrypoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entrypoint"
           },
           "events": {
             "title": "Events",
@@ -1904,6 +1943,9 @@
             "title": "Active",
             "type": "integer"
           },
+          "counts": {
+            "$ref": "#/components/schemas/SessionCounts"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/SessionOut"
@@ -1927,6 +1969,7 @@
         "required": [
           "total",
           "active",
+          "counts",
           "page",
           "page_size",
           "items"
@@ -3772,6 +3815,21 @@
             "required": true,
             "schema": {
               "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "yours",
+                "background"
+              ],
+              "title": "Kind",
               "type": "string"
             }
           },

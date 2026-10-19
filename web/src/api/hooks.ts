@@ -75,10 +75,11 @@ export const useAudit = (pid: string, f: AuditFilters) =>
   });
 
 /** Polls so a running session's activity shows up without a reload. */
-export const useSessions = (pid: string, page = 1, page_size = 50) =>
+export type SessionKind = "yours" | "background" | "all";
+export const useSessions = (pid: string, page = 1, kind: SessionKind = "all", page_size = 50) =>
   useQuery({
-    queryKey: ["sessions", pid, page, page_size],
-    queryFn: () => unwrap(api.GET("/api/projects/{pid}/sessions", { params: { path: { pid }, query: { page, page_size } } })),
+    queryKey: ["sessions", pid, kind, page, page_size],
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/sessions", { params: { path: { pid }, query: { kind, page, page_size } } })),
     refetchInterval: 10_000,
     placeholderData: keepPreviousData,
   });

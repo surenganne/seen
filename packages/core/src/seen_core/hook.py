@@ -98,7 +98,7 @@ def _on_session_start(p: dict[str, Any]) -> Result:
     seen_dir = Path(root) / ".seen" if root else None
     spool.append(p["session_id"], {
         "ev": "session_start", "source": p.get("source"), "cwd": paths.redact_home(p.get("cwd") or ""),
-        "plugin_version": brand.VERSION, "config_hash": _file_hash(paths.config_toml()),
+        "plugin_version": brand.VERSION, "entrypoint": os.environ.get("CLAUDE_CODE_ENTRYPOINT"), "config_hash": _file_hash(paths.config_toml()),
         "lock_hash": _file_hash(seen_dir / "skills.lock.json") if seen_dir else None,
         "policies_hash": _file_hash(seen_dir / "policies.yaml") if seen_dir else None,
         "transcript_path": p.get("transcript_path"),

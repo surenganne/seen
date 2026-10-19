@@ -28,3 +28,17 @@ def test_spa_pages_answer_head(seeded: Path, tmp_path: Path) -> None:
     for path in ("/projects", f"/p/{PID}/sessions", "/"):
         assert c.get(path).status_code == 200, path
         assert c.head(path).status_code == 200, path
+
+
+def test_spa_shell_is_never_cached_but_hashed_assets_are(seeded: Path, tmp_path: Path) -> None:
+    """A cached index.html after an upgrade points at asset hashes that no longer exist: a blank page."""
+    from seen_local.app import create_app
+
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text("<!doctype html><div id=root></div>")
+    (dist / "assets" / "index-abc123.js").write_text("console.log(1)")
+    c = TestClient(create_app(web_dist=dist), base_url="http://localhost")
+    for path in ("/", f"/p/{PID}/sessions"):
+        assert c.get(path).headers["cache-control"] == "no-cache", path
+    assert "immutable" in c.get("/assets/index-abc123.js").headers["cache-control"]

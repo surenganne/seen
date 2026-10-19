@@ -1,21 +1,11 @@
-.eyes { display: block; flex: none; overflow: visible; }
-.eyes-rim { fill: #fff; stroke: #e85d26; stroke-width: 2.6; }
-.eyes-pupil { fill: #061629; transition: r 250ms ease; }
-.eyes-glint { fill: #fff; }
-.eyes-brow { fill: none; stroke: #e85d26; stroke-width: 3; stroke-linecap: round; transform-box: fill-box; transform-origin: center;
-  transition: transform 250ms cubic-bezier(0.25, 1, 0.5, 1); }
-.eyes-eye { transform-box: fill-box; transform-origin: center; }
-.eyes-idle .eyes-eye { animation: eyes-blink 5.4s infinite; }
-.eyes-idle .eyes-look { animation: eyes-look 7s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
-.eyes-idle .eyes-brow { animation: eyes-brow 7s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
-/* alert: same colours, brows drawn down and in, narrow pupil, no wandering */
-.eyes-alert .eyes-brow-l { transform: translate(1px, 2.5px) rotate(14deg); }
-.eyes-alert .eyes-brow-r { transform: translate(-1px, 2.5px) rotate(-14deg); }
-.eyes-alert .eyes-pupil { r: 2.4; }
-@keyframes eyes-look {
-  0%, 16% { transform: translate(0, 0); } 22%, 38% { transform: translate(-4.5px, 0.8px); }
-  44%, 60% { transform: translate(4.5px, -0.6px); } 66%, 82% { transform: translate(1px, 3px); } 88%, 100% { transform: translate(0, 0); }
+/* The Seen mark. Brand colours are fixed (DESIGN.md "The mark"); only the outline and lids follow the background:
+   navy on light, light outline with navy-2 lids on dark so the eyes keep a crisp edge. */
+.eyes { --eyes-ring: #0a2540; --eyes-lid: #0a2540; display: block; flex: none; overflow: visible; }
+.eyes-on-dark { --eyes-ring: #f5f5f5; --eyes-lid: #1a3a5c; }
+:root[data-theme="dark"] .eyes { --eyes-ring: #f5f5f5; --eyes-lid: #1a3a5c; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .eyes { --eyes-ring: #f5f5f5; --eyes-lid: #1a3a5c; }
 }
-@keyframes eyes-brow { 0%, 40%, 62%, 100% { transform: translateY(0); } 46%, 56% { transform: translateY(-1.8px); } }
-@keyframes eyes-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
-@media (prefers-reduced-motion: reduce) { .eyes-eye, .eyes-look, .eyes-brow { animation: none !important; } }
+.eyes-ring { fill: var(--eyes-lid); stroke: var(--eyes-ring); stroke-width: 2; }
+.eyes-pupil { fill: #0a2540; }
+.eyes-tuft { fill: #e85d26; }

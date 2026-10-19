@@ -124,10 +124,16 @@ def import_project(cwd: str | Path, dry_run: bool = False) -> Result:
     files_ = sorted({f for d in transcript_dirs(proj.root, proj.worktree) for f in d.glob("*.jsonl")})
     with ledger_session() as db:
         known = dict(db.query(Session.id, Session.source).all())
+        no_ep = {sid for (sid,) in db.query(Session.id).filter(Session.entrypoint.is_(None))}
     cfg = config.load()["pii"]
     pcfg = load_project(proj.root)
     for tp in files_:
         sid = tp.stem
+        if sid in no_ep and not dry_run and (ep := _entrypoint(tp)):
+            with ledger_session() as db:
+                if (row := db.get(Session, sid)) is not None:
+                    row.entrypoint = ep
+                    db.commit()
         if sid in known and known[sid] != "imported":
             res.skipped += 1
             continue
@@ -154,6 +160,23 @@ def import_project(cwd: str | Path, dry_run: bool = False) -> Result:
         audit.record_head()
     res.cost_usd = round(res.cost_usd, 4)
     return res
+
+
+def _entrypoint(tp: Path) -> str | None:
+    """The first entrypoint field, read line by line: a long session's transcript can be over 100 MB."""
+    try:
+        with open(tp, encoding="utf-8") as fh:
+            for ln in fh:
+                if '"entrypoint"' in ln:
+                    try:
+                        ep = json.loads(ln).get("entrypoint")
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(ep, str):
+                        return ep[:40]
+    except OSError:
+        pass
+    return None
 
 
 def _cid(sid: str, first: dict[str, Any]) -> str:
@@ -201,7 +224,8 @@ def _import_session(tp: Path, sid: str, lines: list[tuple[int, dict[str, Any]]],
             db.add(Project(id=pid, name=proj.name, remote=proj.remote, root_path=root, created_at=stamps[0]))
         if db.get(Session, sid) is None:
             db.add(Session(id=sid, project_id=pid, started_at=stamps[0], tool="claude-code", tool_version=version,
-                           user_id=ingest._user_id(), source="imported"))
+                           user_id=ingest._user_id(), source="imported",
+                           entrypoint=next((str(d["entrypoint"])[:40] for _, d in lines if d.get("entrypoint")), None)))
         for k, i in enumerate(starts):
             if k not in new:
                 continue
