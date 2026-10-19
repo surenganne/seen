@@ -178,6 +178,7 @@ table.data { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
 .data .num { text-align: right; white-space: nowrap; font-family: var(--font-mono); font-size: 0.8125rem; }
 .data .when { white-space: nowrap; color: var(--ink-3); font-family: var(--font-mono); font-size: 0.75rem; }
 .data .title { font-weight: 500; color: var(--ink); }
+.clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .data .meta { margin-top: 0.15rem; color: var(--ink-3); font-size: 0.75rem; }
 .plus { color: var(--good); }
 .minus { color: var(--critical); }

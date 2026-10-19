@@ -124,11 +124,13 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
                 file: str | None = None, skill: str | None = None, policy_missed: bool | None = None,
                 mem: Literal["loaded", "missed", "none"] | None = None, pii: bool | None = None,
                 days: int | None = Query(None, ge=1, le=3650), sort: str = "time",
-                dir: Literal["asc", "desc"] = "desc", session: str | None = None, page: int = Query(1, ge=1),
+                dir: Literal["asc", "desc"] = "desc", session: str | None = None,
+                kind: Literal["all", "yours", "background"] = "all", page: int = Query(1, ge=1),
                 page_size: int = Query(50, ge=1, le=200)) -> S.ChangePage:
         project_or_404(db, pid)
         return queries.changes(db, pid, tool=tool, status=status, q=q, file=file, skill=skill, policy_missed=policy_missed,
-                               mem=mem, pii=pii, days=days, sort=sort, dir=dir, session=session, page=page, page_size=page_size)
+                               mem=mem, pii=pii, days=days, sort=sort, dir=dir, session=session, kind=kind, page=page,
+                               page_size=page_size)
 
     @app.get("/api/projects/{pid}/sessions", response_model=S.SessionPage)
     def sessions(pid: str, db: Db, kind: Literal["all", "yours", "background"] = "all", page: int = Query(1, ge=1),

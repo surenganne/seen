@@ -49,3 +49,18 @@ def test_other_project_and_no_ledger(tmp_path: Path, seen_home: Path) -> None:
     assert not mark_stale([m], "p1")[0].stale  # no ledger yet
     change("c", "agent/stt.py", "2026-10-12T00:00:00Z", pid="other")
     assert not mark_stale([m], "p1")[0].stale
+
+
+def test_change_that_wrote_the_note_is_its_source(tmp_path: Path, seen_home: Path) -> None:
+    """A note written (by `seen memory add` or the model) in the same turn that edited its file is not stale:
+    the change whose files include the note is its source, even with no source_change in the front matter."""
+    m = mem(tmp_path, None)
+    with ledger_session() as db:
+        db.add(Change(id="wrote", project_id="p1", session_id="s", seq=2, started_at="2099-01-01T00:00:00Z", ended_at="2099-01-01T00:05:00Z"))
+        db.add(ChangeFile(change_id="wrote", path="agent/stt.py", added=1, removed=0))
+        db.add(ChangeFile(change_id="wrote", path=".seen/memory/m.md", added=8, removed=0))
+        db.commit()
+    out = mark_stale([m], "p1")[0]
+    assert not out.stale and out.source_change == "wrote"
+    change("later", "agent/stt.py", "2099-01-02T00:00:00Z", seq=3)
+    assert mark_stale([m], "p1")[0].stale

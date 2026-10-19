@@ -26,7 +26,8 @@ export function ChangeDetail() {
       </div>
       <div className="page-head">
         <div style={{ minWidth: 0 }}>
-          <h1>{c.summary ?? "(no summary)"}</h1>
+          <h1 className="clamp-2">{c.prompt_text ? c.prompt_text.split(/\s+/).join(" ").slice(0, 240) : c.summary ?? "(no summary)"}</h1>
+          {c.prompt_text && c.summary && <p className="small">{c.summary}</p>}
           <p className="mono small">Change #{c.seq} · {when(c.started_at)} · {c.tool} · {c.model ?? "unknown model"}{c.duration_s != null ? ` · ${c.duration_s}s` : ""}</p>
         </div>
         <div className="checks">

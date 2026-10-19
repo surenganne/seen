@@ -29,6 +29,7 @@ export function Changes() {
   const grouped = sp.get("view") !== "list";
   const page = Math.max(1, Number(sp.get("page") || 1));
   const f: ChangeFilters = {
+    kind: (["yours", "background", "all"] as const).find((k) => k === sp.get("kind")) ?? "yours",
     q: sp.get("q") || undefined,
     tool: sp.get("tool") || undefined,
     status: sp.get("status") || undefined,
@@ -60,13 +61,13 @@ export function Changes() {
     <main className="page">
       <PageHead
         title="Changes"
-        description="One row per agent turn, grouped by the session it ran in. Open a row for files, tokens, memory, skills and PII."
+        description="One row per request you made, with what it changed, grouped by session. Background shows turns that plugins ran through the Agent SDK. Open a row for files, tokens, memory, skills and PII."
         actions={<span className="mono small muted" data-testid="changes-count">{data ? `${data.total} changes · ${money(data.cost_usd)}` : ""}</span>}
       />
       <div className="toolbar" role="search">
         <label className="search">
           <Search aria-hidden="true" />
-          <input className="input" type="search" placeholder="Search summaries and files" aria-label="Search changes"
+          <input className="input" type="search" placeholder="Search requests, results and files" aria-label="Search changes"
             defaultValue={f.q} onChange={(e) => set("q", e.target.value || undefined)} />
         </label>
         <select className="select" aria-label="Git status" value={f.status ?? ""} onChange={(e) => set("status", e.target.value || undefined)}>
@@ -85,6 +86,15 @@ export function Changes() {
         </div>
       </div>
       <div className="toolbar" aria-label="Filters">
+        {data && (
+          <div className="seg" role="group" aria-label="Whose requests" data-testid="change-kind">
+            {(["yours", "background", "all"] as const).map((k) => (
+              <button key={k} type="button" aria-pressed={f.kind === k} onClick={() => set("kind", k)}>
+                {k === "yours" ? "Yours" : k === "background" ? "Background" : "All"} <span className="mono">{data.counts[k]}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <button type="button" className="chip" aria-pressed={f.tool === "claude-code"} onClick={() => toggle("tool", "claude-code")}>claude-code</button>
         <button type="button" className="chip" aria-pressed={f.mem === "missed"} onClick={() => toggle("mem", "missed")}><Brain aria-hidden="true" />Memory not loaded</button>
         <button type="button" className="chip" aria-pressed={!!f.policy_missed} onClick={() => toggle("policy_missed", "true")}><Sparkles aria-hidden="true" />Skill policy missed</button>

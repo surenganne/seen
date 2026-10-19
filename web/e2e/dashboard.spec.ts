@@ -242,6 +242,19 @@ test.describe("sessions", () => {
   });
 });
 
+test.describe("changes are your requests", () => {
+  test("defaults to Yours; background turns are separate and tagged", async ({ page }) => {
+    await page.goto("/p/demo-payments/changes?range=28&view=list");
+    const kind = page.getByTestId("change-kind");
+    await expect(kind.getByRole("button", { name: /Yours/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("change-row").first()).toBeVisible();
+    await expect(page.getByTestId("change-row").filter({ hasText: "background" })).toHaveCount(0);
+    await kind.getByRole("button", { name: /Background/ }).click();
+    await expect(page).toHaveURL(/kind=background/);
+    await expect(page.getByTestId("change-row").first()).toContainText("background");
+  });
+});
+
 test.describe("changes grouped by session, with paging", () => {
   test("default view groups by session; list view pages", async ({ page }) => {
     await page.goto("/p/demo-payments/changes?range=28");

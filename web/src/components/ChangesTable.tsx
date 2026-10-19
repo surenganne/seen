@@ -47,8 +47,9 @@ export function ChangesTable({ rows, pid, sort, compact }: { rows: S["ChangeRow"
             <tr key={c.id} className="clickable" tabIndex={0} onClick={() => open(c.id)} onKeyDown={(e) => e.key === "Enter" && open(c.id)} data-testid="change-row">
               <td className="when">{when(c.started_at)}<div className="tiny">#{c.seq}</div></td>
               <td style={{ minWidth: 240 }}>
-                <div className="title">{c.summary ?? <span className="muted">(no summary)</span>}</div>
-                <div className="meta mono">{c.model ?? "—"}{c.skills.length ? ` · ${c.skills.join(", ")}` : ""}</div>
+                <div className="title clamp-2" data-testid="change-request">{c.request ?? c.summary ?? <span className="muted">(no request text stored)</span>}</div>
+                {c.request && c.summary && <div className="meta clamp-2">{c.summary}</div>}
+                <div className="meta mono">{c.background && <span className="tag" title="A plugin's background session (Agent SDK)">background</span>}{c.model ?? "—"}{c.skills.length ? ` · ${c.skills.join(", ")}` : ""}</div>
               </td>
               {!compact && <td className="num">{c.files.length}</td>}
               <td className="num"><span className="plus">+{c.added}</span> <span className="minus">−{c.removed}</span></td>

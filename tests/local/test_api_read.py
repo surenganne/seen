@@ -37,7 +37,7 @@ def test_changes_filters_and_sort(client: TestClient) -> None:
     cost = client.get(f"/api/projects/{PID}/changes", params={"sort": "cost", "dir": "asc"}).json()["items"]
     assert [c["cost_usd"] for c in cost] == sorted(c["cost_usd"] for c in cost)
     q = client.get(f"/api/projects/{PID}/changes", params={"q": "refund"}).json()["items"]
-    assert q and all("refund" in ((c["summary"] or "") + " ".join(c["files"])).lower() for c in q)
+    assert q and all("refund" in ((c["summary"] or "") + (c["request"] or "") + " ".join(c["files"])).lower() for c in q)
     st = client.get(f"/api/projects/{PID}/changes", params={"status": "committed"}).json()["items"]
     assert all(c["git_status"] == "committed" for c in st)
 
