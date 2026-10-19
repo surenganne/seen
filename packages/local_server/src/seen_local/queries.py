@@ -5,6 +5,7 @@ ponytail: O(n) per request; move filters into SQL if a project passes ~50k chang
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -51,7 +52,7 @@ class Row:
         c = self.c
         return S.ChangeRow(
             id=c.id, seq=c.seq, session_id=c.session_id, started_at=c.started_at,
-            request=" ".join(c.prompt_text.split())[:400] if c.prompt_text else None, summary=c.summary,
+            request=request_line(c.prompt_text), summary=c.summary,
             background=self.background, model=c.model,
             tool=self.tool, files=[f.path for f in self.files], added=sum(f.added for f in self.files),
             removed=sum(f.removed for f in self.files), tokens=c.tok_in + c.tok_out + c.tok_cache_read + c.tok_cache_write,
@@ -60,6 +61,21 @@ class Row:
             pii_state=c.pii_state, pii_count=sum(p.count for p in self.pii if p.status == "open") if self.pii else c.pii_count,
             pii_high=any(p.confidence == "high" and p.status == "open" for p in self.pii),
             unapproved_skill=any(s.status in ("changed", "unreviewed", "blocked") for s in self.skills))
+
+
+_TAG = re.compile(r"<(command-name|command-args|summary)>(.*?)</\1>", re.S)
+
+
+def request_line(prompt: str | None) -> str | None:
+    """The request on one line. Text Claude Code injects reads as what it is, not as raw tags."""
+    if not prompt:
+        return None
+    tags = {k: " ".join(v.split()) for k, v in _TAG.findall(prompt)}
+    if prompt.lstrip().startswith("<task-notification>"):
+        return "Automatic follow-up: a background task finished" + (f" ({tags['summary'][:300]})" if tags.get("summary") else "")
+    if tags.get("command-name"):
+        return " ".join(x for x in (tags["command-name"], tags.get("command-args", "")) if x)[:400]
+    return " ".join(prompt.split())[:400]
 
 
 PII_CHECKED = ("Structured identifiers (email, phone, Aadhaar, PAN, card, IBAN, SSN, UPI, DOB, GSTIN, passport, secrets) in the "
@@ -147,8 +163,11 @@ def deny_rule(source_kind: str, source_ref: str) -> str | None:
 
 
 def overview(db: DB, pid: str, days: int, audit_ok: bool) -> S.Overview:
-    rows = load_rows(db, pid, days)
+    every = load_rows(db, pid, days)
+    rows = [r for r in every if not r.background]  # the person's requests; PII and the alert still count every session
+    bg = [r for r in every if r.background]
     outs = [r.out() for r in rows]
+    every_out = outs + [r.out() for r in bg]
     today = (datetime.now(UTC) + TZ_OFFSET).date()
     by_day: dict[str, dict[str, float]] = {(today - timedelta(days=i)).isoformat(): {} for i in range(days - 1, -1, -1)}
     for r in rows:
@@ -177,7 +196,7 @@ def overview(db: DB, pid: str, days: int, audit_ok: bool) -> S.Overview:
         m.tok_cache_read += r.c.tok_cache_read
         m.tok_cache_write += r.c.tok_cache_write
         m.cost_usd = round(m.cost_usd + (r.c.cost_usd or 0), 6)
-    findings = [p for r in rows for p in r.pii if p.status == "open"]
+    findings = [p for r in every for p in r.pii if p.status == "open"]
     by_type: dict[str, list[Any]] = defaultdict(lambda: [0, set()])
     sources: dict[tuple[str, str], list[Any]] = defaultdict(lambda: [set(), 0, set()])
     for p in findings:
@@ -192,8 +211,9 @@ def overview(db: DB, pid: str, days: int, audit_ok: bool) -> S.Overview:
                     lines_removed=sum(o.removed for o in outs), tokens=sum(o.tokens for o in outs),
                     cost_usd=round(sum(o.cost_usd for o in outs), 4),
                     mem_loaded_pct=round(sum(o.mem_state == "loaded" for o in mem_rows) / len(mem_rows), 4) if mem_rows else None,
-                    policy_missed=sum(o.policy_missed for o in outs), pii_changes=sum(o.pii_count > 0 for o in outs),
-                    pii_high=sum(o.pii_high for o in outs))
+                    policy_missed=sum(o.policy_missed for o in outs), pii_changes=sum(o.pii_count > 0 for o in every_out),
+                    pii_high=sum(o.pii_high for o in every_out), background_changes=len(bg),
+                    background_cost_usd=round(sum(r.c.cost_usd or 0 for r in bg), 4))
     return S.Overview(
         range=days, tiles=tiles, cost_by_day=[S.DayCost(date=d, by_tool=v) for d, v in by_day.items()],
         recent_changes=outs[:8],
@@ -204,7 +224,7 @@ def overview(db: DB, pid: str, days: int, audit_ok: bool) -> S.Overview:
         pii_top_sources=[S.PiiSource(source_kind=k, source_ref=ref, changes=len(v[0]), count=v[1], types=sorted(v[2]),
                                      deny_rule=deny_rule(k, ref))
                          for (k, ref), v in sorted(sources.items(), key=lambda x: -len(x[1][0]))[:8]],
-        alert=alert(rows, audit_ok))
+        alert=alert(every, audit_ok))
 
 
 SORTS = {"time": lambda o: o.started_at or "", "cost": lambda o: o.cost_usd, "tokens": lambda o: o.tokens,
@@ -331,6 +351,8 @@ def skills(db: DB, pid: str | None, kind: str | None, status: str | None, q: str
                 (q and q.lower() not in f"{o.id} {o.description or ''}".lower()):
             continue
         out.append(o)
+    out.sort(key=lambda o: o.id)
+    out.sort(key=lambda o: o.last_used or "", reverse=True)  # most recently used first, never-used last (by name)
     return out
 
 

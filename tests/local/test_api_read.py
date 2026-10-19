@@ -92,3 +92,11 @@ def test_settings_read(client: TestClient) -> None:
 def test_openapi_schema(client: TestClient) -> None:
     spec = client.get("/openapi.json").json()
     assert "/api/projects/{pid}/overview" in spec["paths"]
+
+
+def test_skills_most_recently_used_first(client: TestClient) -> None:
+    items = client.get("/api/skills", params={"project": PID}).json()
+    used = [s["last_used"] for s in items if s["last_used"]]
+    assert used and used == sorted(used, reverse=True)
+    first_unused = next(i for i, s in enumerate(items) if not s["last_used"])
+    assert all(not s["last_used"] for s in items[first_unused:])  # never-used skills come after every used one

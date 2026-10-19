@@ -1122,6 +1122,16 @@ export interface components {
         };
         /** Tiles */
         Tiles: {
+            /**
+             * Background Changes
+             * @default 0
+             */
+            background_changes: number;
+            /**
+             * Background Cost Usd
+             * @default 0
+             */
+            background_cost_usd: number;
             /** Changes */
             changes: number;
             /** Cost Usd */

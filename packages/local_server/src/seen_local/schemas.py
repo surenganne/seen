@@ -63,6 +63,8 @@ class Tiles(BaseModel):
     policy_missed: int
     pii_changes: int
     pii_high: int
+    background_changes: int = 0  # plugin background turns, left out of every figure above except PII (ADR 0010)
+    background_cost_usd: float = 0.0
 
 
 class DayCost(BaseModel):
