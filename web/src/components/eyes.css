@@ -1,22 +1,21 @@
 .eyes { display: block; flex: none; overflow: visible; }
-.eyes-rim { fill: #fff; stroke: var(--navy); stroke-width: 2.4; stroke-linejoin: round; }
-.eyes-on-dark .eyes-rim, :root[data-theme="dark"] .eyes-rim { stroke: oklch(0.86 0.02 255); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .eyes-rim { stroke: oklch(0.86 0.02 255); } }
-.eyes-iris-hi { stop-color: #ff9a5c; transition: stop-color 250ms ease; }
-.eyes-iris-mid { stop-color: #e85d26; transition: stop-color 250ms ease; }
-.eyes-iris-lo { stop-color: #b8401a; transition: stop-color 250ms ease; }
-.eyes-pupil { fill: #0a2540; transition: r 250ms ease; }
+.eyes-rim { fill: #fff; stroke: #e85d26; stroke-width: 2.6; transition: stroke 250ms ease; }
+.eyes-iris-hi { stop-color: #5aa9e6; transition: stop-color 250ms ease; }
+.eyes-iris-mid { stop-color: #1f5f99; transition: stop-color 250ms ease; }
+.eyes-iris-lo { stop-color: #0a2540; transition: stop-color 250ms ease; }
+.eyes-pupil { fill: #061629; transition: r 250ms ease; }
 .eyes-glint { fill: #fff; }
 .eyes-eye { transform-box: fill-box; transform-origin: center; }
 .eyes-idle .eyes-eye { animation: eyes-blink 5.4s infinite; }
-.eyes-idle .eyes-look { animation: eyes-look 7s ease-in-out infinite; }
-.eyes-alert .eyes-iris-hi { stop-color: #ff6b7a; }
+.eyes-idle .eyes-look { animation: eyes-look 7s cubic-bezier(0.25, 1, 0.5, 1) infinite; }
+.eyes-alert .eyes-rim { stroke: #d42a45; }
+.eyes-alert .eyes-iris-hi { stop-color: #ff8a95; }
 .eyes-alert .eyes-iris-mid { stop-color: #d42a45; }
-.eyes-alert .eyes-iris-lo { stop-color: #8f1530; }
-.eyes-alert .eyes-pupil { r: 2.2; }
+.eyes-alert .eyes-iris-lo { stop-color: #7a1028; }
+.eyes-alert .eyes-pupil { r: 2.4; }
 @keyframes eyes-look {
-  0%, 16% { transform: translate(0, 0); } 22%, 38% { transform: translate(-4px, 0.6px); }
-  44%, 60% { transform: translate(4px, -0.4px); } 66%, 82% { transform: translate(0.8px, 2px); } 88%, 100% { transform: translate(0, 0); }
+  0%, 16% { transform: translate(0, 0); } 22%, 38% { transform: translate(-4.5px, 0.8px); }
+  44%, 60% { transform: translate(4.5px, -0.6px); } 66%, 82% { transform: translate(1px, 3px); } 88%, 100% { transform: translate(0, 0); }
 }
-@keyframes eyes-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.08); } }
+@keyframes eyes-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
 @media (prefers-reduced-motion: reduce) { .eyes-eye, .eyes-look { animation: none !important; } }

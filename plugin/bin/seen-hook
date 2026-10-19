@@ -5,9 +5,9 @@ if [ -n "$SEEN_HOOK_BIN" ] && [ -x "$SEEN_HOOK_BIN" ]; then exec "$SEEN_HOOK_BIN
 if command -v seen-hook >/dev/null 2>&1; then exec seen-hook "$@"; fi
 if [ -x "$HOME/.local/bin/seen-hook" ]; then exec "$HOME/.local/bin/seen-hook" "$@"; fi
 log="${SEEN_HOME:-$HOME/.seen}/log"
-mkdir -p "$log" 2>/dev/null && echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $1: seen-hook not found; run: uv tool install seen-cli" >> "$log/hook.log"
+mkdir -p "$log" 2>/dev/null && echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $1: seen-hook not found; run: uv tool install git+https://github.com/surenganne/seen#subdirectory=packages/cli" >> "$log/hook.log"
 cat >/dev/null
 if [ "$1" = "session-start" ]; then
-  printf '%s' '{"systemMessage":"Seen: seen-cli is not installed, so this session is not recorded. Run: uv tool install seen-cli"}'
+  printf '%s' '{"systemMessage":"Seen: seen-cli is not installed, so this session is not recorded. Run: uv tool install git+https://github.com/surenganne/seen#subdirectory=packages/cli"}'
 fi
 exit 0
