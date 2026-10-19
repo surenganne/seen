@@ -15,6 +15,9 @@ export interface ChangeFilters {
   days?: number;
   sort?: string;
   dir?: "asc" | "desc";
+  session?: string;
+  page?: number;
+  page_size?: number;
 }
 
 export const useProjects = () =>
@@ -72,11 +75,12 @@ export const useAudit = (pid: string, f: AuditFilters) =>
   });
 
 /** Polls so a running session's activity shows up without a reload. */
-export const useSessions = (pid: string) =>
+export const useSessions = (pid: string, page = 1, page_size = 50) =>
   useQuery({
-    queryKey: ["sessions", pid],
-    queryFn: () => unwrap(api.GET("/api/projects/{pid}/sessions", { params: { path: { pid } } })),
+    queryKey: ["sessions", pid, page, page_size],
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/sessions", { params: { path: { pid }, query: { page, page_size } } })),
     refetchInterval: 10_000,
+    placeholderData: keepPreviousData,
   });
 
 export const useSessionActivity = (pid: string, session: string) =>

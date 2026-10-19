@@ -485,8 +485,23 @@ export interface components {
         };
         /** ChangePage */
         ChangePage: {
+            /**
+             * Cost Usd
+             * @default 0
+             */
+            cost_usd: number;
             /** Items */
             items: components["schemas"]["ChangeRow"][];
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Page Size
+             * @default 50
+             */
+            page_size: number;
             /** Total */
             total: number;
         };
@@ -894,6 +909,19 @@ export interface components {
             tool_version: string | null;
             /** Turns */
             turns: number;
+        };
+        /** SessionPage */
+        SessionPage: {
+            /** Active */
+            active: number;
+            /** Items */
+            items: components["schemas"]["SessionOut"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
         };
         /** SettingsIn */
         SettingsIn: {
@@ -1426,6 +1454,9 @@ export interface operations {
                 days?: number | null;
                 sort?: string;
                 dir?: "asc" | "desc";
+                session?: string | null;
+                page?: number;
+                page_size?: number;
             };
             header?: never;
             path: {
@@ -1624,7 +1655,10 @@ export interface operations {
     };
     sessions_api_projects__pid__sessions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
             header?: never;
             path: {
                 pid: string;
@@ -1639,7 +1673,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SessionOut"][];
+                    "application/json": components["schemas"]["SessionPage"];
                 };
             };
             /** @description Validation Error */

@@ -1,10 +1,10 @@
-import { Activity, X } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Activity, ListChecks, X } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import type { S } from "../api/client";
 import { useSessionActivity, useSessions } from "../api/hooks";
-import { Badge, Empty, ErrorBox, Loading, PageHead } from "../components/ui";
+import { Badge, Empty, ErrorBox, Loading, PageHead, Pager } from "../components/ui";
 import { int, money, short, when } from "../lib/format";
-import { usePid } from "../lib/nav";
+import { usePid, useRange, withRange } from "../lib/nav";
 
 const STATUS = {
   active: <Badge tone="good">active</Badge>,
@@ -17,27 +17,28 @@ export function Sessions() {
   const [sp, setSp] = useSearchParams();
   const open = sp.get("session") || undefined;
   const select = (id?: string) => setSp((p) => { if (id) p.set("session", id); else p.delete("session"); return p; }, { replace: true });
-  const { data, error, isLoading } = useSessions(pid);
-  const active = data?.filter((s) => s.status === "active").length ?? 0;
+  const page = Math.max(1, Number(sp.get("page") || 1));
+  const { data, error, isLoading } = useSessions(pid, page);
+  const goPage = (n: number) => setSp((p) => { p.set("page", String(n)); return p; }, { replace: true });
   return (
     <main className="page">
       <PageHead
         title="Sessions"
         description="Every Claude Code session in this repo, newest first. Active means no session end yet and activity in the last 30 minutes. Refreshes every 10 seconds."
-        actions={data && <span className="mono small muted" data-testid="sessions-count">{data.length} sessions · {active} active</span>}
+        actions={data && <span className="mono small muted" data-testid="sessions-count">{data.total} sessions · {data.active} active</span>}
       />
       {isLoading && <Loading what="Loading sessions" />}
       {error && <ErrorBox error={error} />}
       {data && (
         <section className="panel">
-          {data.length === 0 ? (
+          {data.total === 0 ? (
             <Empty icon={Activity} title="No sessions recorded yet">Sessions appear here once Claude Code starts in this repo with the Seen plugin enabled. A session that was already running when the plugin was installed is not recorded.</Empty>
           ) : (
             <div className="table-wrap">
               <table className="data" data-testid="sessions-table">
                 <thead><tr><th>Session</th><th>Status</th><th>Started</th><th>Last activity</th><th>Model</th><th className="num">Turns</th><th className="num">Tool calls</th><th className="num">Files</th><th className="num">Cost</th></tr></thead>
                 <tbody>
-                  {data.map((s) => (
+                  {data.items.map((s) => (
                     <tr key={s.id} className="clickable" tabIndex={0} onClick={() => select(s.id)} onKeyDown={(e) => e.key === "Enter" && select(s.id)}
                       aria-selected={open === s.id} data-testid="session-row" data-status={s.status}>
                       <td className="mono">{short(s.id, 8)}<div className="meta">{s.tool}{s.tool_version ? ` ${s.tool_version}` : ""}</div></td>
@@ -55,15 +56,17 @@ export function Sessions() {
               </table>
             </div>
           )}
+          <Pager page={data.page} pageSize={data.page_size} total={data.total} onPage={goPage} what="sessions" />
         </section>
       )}
-      {open && data && <SessionDrawer pid={pid} s={data.find((x) => x.id === open)} id={open} onClose={() => select()} />}
+      {open && data && <SessionDrawer pid={pid} s={data.items.find((x) => x.id === open)} id={open} onClose={() => select()} />}
     </main>
   );
 }
 
 function SessionDrawer({ pid, id, s, onClose }: { pid: string; id: string; s?: S["SessionOut"]; onClose: () => void }) {
   const { data, error, isLoading } = useSessionActivity(pid, id);
+  const [range] = useRange();
   const events = data?.items.slice().reverse();
   return (
     <aside className="drawer" aria-label={`Session ${short(id, 8)}`} data-testid="session-activity">
@@ -81,6 +84,9 @@ function SessionDrawer({ pid, id, s, onClose }: { pid: string; id: string; s?: S
             <dt>Events</dt><dd className="mono">{s.events}</dd>
           </dl>
         )}
+        <Link className="btn sm" style={{ alignSelf: "start" }} to={withRange(`/p/${pid}/changes`, range, { session: id })} data-testid="session-changes">
+          <ListChecks aria-hidden="true" />{s ? `View ${s.turns} ${s.turns === 1 ? "change" : "changes"}` : "View changes"}
+        </Link>
         <section>
           <h3 style={{ marginBottom: 6 }}>Activity{data && data.items.length >= data.page_size ? <span className="muted small" style={{ fontWeight: 400 }}> · latest {data.page_size}, full history in Audit</span> : null}</h3>
           {isLoading && <Loading what="Loading activity" rows={4} />}

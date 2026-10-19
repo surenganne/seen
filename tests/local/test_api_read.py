@@ -21,7 +21,7 @@ def test_overview_ranges(client: TestClient) -> None:
 
 
 def test_changes_filters_and_sort(client: TestClient) -> None:
-    all_ = client.get(f"/api/projects/{PID}/changes").json()
+    all_ = client.get(f"/api/projects/{PID}/changes", params={"page_size": 200}).json()
     assert all_["total"] == len(all_["items"]) > 10
     f = all_["items"][0]["files"][0]
     by_file = client.get(f"/api/projects/{PID}/changes", params={"file": f}).json()["items"]

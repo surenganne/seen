@@ -105,7 +105,7 @@ export function ChangeDetail() {
         )}
       </Card>
 
-      <div className="grid cols">
+      <div className="grid cols3">
         <Card title="Memory read" flush aside={<span className="hint">{c.mem_injected_tokens} tokens</span>}>
           {c.memories.length === 0 ? <Empty icon={Brain} title="No memory injected" /> : (
             <ul className="rows">{c.memories.map((m) => <li key={m.memory_id}><span className="mono">{m.memory_id}</span><span className="muted tiny">{m.type ?? ""}</span></li>)}</ul>

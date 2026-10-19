@@ -46,7 +46,7 @@ export function Overview() {
         <Tile label="Changes" icon={FileStack} value={int(t.changes)} sub={`${int(t.files_changed)} files · +${int(t.lines_added)} −${int(t.lines_removed)}`} />
         <Tile label="Cost" icon={CircleDollarSign} value={money(t.cost_usd)} sub="API-equivalent" />
         <Tile label="Tokens" icon={Coins} value={tokens(t.tokens)} sub="in, out and cache" />
-        <Tile label="Memory loaded" icon={Brain} value={pct(t.mem_loaded_pct)} sub="of turns" alert={(t.mem_loaded_pct ?? 1) < 0.95} />
+        <Tile label="Memory loaded" icon={Brain} value={pct(t.mem_loaded_pct)} sub={t.mem_loaded_pct == null ? "not observed (imported turns)" : "of turns"} alert={(t.mem_loaded_pct ?? 1) < 0.95} />
         <Tile label="Policy missed" icon={Sparkles} value={int(t.policy_missed)} sub="required skill not run" alert={t.policy_missed > 0} />
         <Tile label="Changes with PII exposure" icon={ShieldAlert} value={int(t.pii_changes)}
           sub={t.pii_high ? `${t.pii_high} high-confidence` : "structured identifiers"} alert={t.pii_high > 0} />
@@ -91,7 +91,7 @@ export function Overview() {
         <ChangesTable rows={o.recent_changes} pid={pid} compact />
       </Card>
 
-      <div className="grid cols">
+      <div className="grid cols3">
         <Card title="Most edited files" flush>
           {o.top_files.length === 0 ? <Empty title="No files changed" /> : (
             <ul className="rows" data-testid="top-files">
@@ -110,7 +110,7 @@ export function Overview() {
               {o.top_skills.map((s) => (
                 <li key={s.skill_id}>
                   <button type="button" className="link mono" onClick={() => goChanges({ skill: s.skill_id })}>{s.skill_id}</button>
-                  <span className="mono tiny muted">{s.runs} runs</span>
+                  <span className="mono tiny muted">{s.runs} {s.runs === 1 ? "run" : "runs"}</span>
                 </li>
               ))}
             </ul>
@@ -123,7 +123,7 @@ export function Overview() {
               <tbody>
                 {o.by_model.map((m) => (
                   <tr key={m.model}>
-                    <td className="mono" style={{ whiteSpace: "nowrap" }}>{m.model}</td><td className="num">{m.changes}</td>
+                    <td className="mono" style={{ whiteSpace: "nowrap" }}>{m.model === "unknown" ? <span className="muted" title="Turns with no model reply, for example interrupted ones">no reply</span> : m.model}</td><td className="num">{m.changes}</td>
                     <td className="num">{tokens(m.tok_out)}</td><td className="num">{money(m.cost_usd)}</td>
                   </tr>
                 ))}
@@ -146,9 +146,9 @@ export function Overview() {
             <ul className="rows" data-testid="pii-sources">
               {o.pii_top_sources.map((s) => (
                 <li key={s.source_kind + s.source_ref} style={{ flexDirection: "column", alignItems: "stretch", gap: "0.35rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem" }}>
+                  <div className="source-row">
                     <span className="path">{s.source_ref}</span>
-                    <span className="mono tiny muted" style={{ whiteSpace: "nowrap" }}>{s.changes} {s.changes === 1 ? "change" : "changes"} · {s.types.join(", ")}</span>
+                    <span className="meta mono tiny muted">{s.changes} {s.changes === 1 ? "change" : "changes"} · {s.types.join(", ")}</span>
                   </div>
                   {s.deny_rule && <DenySnippet rule={s.deny_rule} />}
                 </li>
