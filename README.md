@@ -22,6 +22,16 @@ Local first: everything works with no server. Prompts and diffs never leave the 
 | PII | Types and counts of personal data and secrets that reached the model, the network or the repo, and from where. Never the values |
 | Audit | Append-only, hash-chained events. `seen audit verify` finds the first edited, deleted or reordered row |
 
+## Architecture
+
+![Seen architecture: hooks write to a local ledger; the host dashboard reads it live, the Docker dashboard reads a snapshot, the team server is opt-in](docs/architecture.svg)
+
+Hooks never touch the network or write SQLite: they append to a spool file and ingest folds it into the ledger
+and the hash-chained audit database when the turn stops. The host dashboard reads `~/.seen` live. A container
+cannot safely share SQLite WAL files with the host, so the Docker dashboard serves a snapshot made by
+`seen docker-sync` ([ADR 0011](docs/adr/0011-real-data-snapshot-in-docker.md)). The team server only ever
+receives metadata, and only when you switch sync on. Source: [docs/architecture.html](docs/architecture.html).
+
 ## Install
 
 Seen is not on PyPI yet; install the CLI and the plugin straight from GitHub.
@@ -39,7 +49,18 @@ cd your-repo && seen init          # .seen/ folder + memory write permissions
 seen doctor                        # checks Python, hooks, plugin, databases, PATH
 ```
 
-Upgrade with `uv tool upgrade seen-cli` and `claude plugin marketplace update seen-tools`.
+Upgrade the CLI and the plugin together:
+
+```bash
+seen upgrade --check          # versions, skew warnings, and the commands it would run
+seen upgrade --yes            # reinstall the CLI from where it came from, then update the plugin
+seen version                  # every piece's version and the ledger schema
+```
+
+Then restart Claude Code. `seen doctor` also warns when the plugin, the `seen-hook` binary or the ledger schema
+disagree with the CLI, and when a newer release tag exists on GitHub (one anonymous GET; opt out with
+`SEEN_NO_UPDATE_CHECK=1`). Inside Claude Code, `/seen:upgrade` does the check and asks before upgrading
+([ADR 0013](docs/adr/0013-upgrade-flow.md)).
 
 Teams can enable it for everyone from the repo's `.claude/settings.json`; Claude Code installs it after a
 contributor accepts the workspace trust dialog:
@@ -62,6 +83,8 @@ seen memory list | verify <id> | archive <id>
 seen skills scan | list
 seen import --dry-run         # past sessions from Claude Code transcripts (before the plugin was installed)
 seen audit verify
+seen purge --before 2026-01-01      # report what would be erased; add --yes to erase (DPDP)
+seen docker-sync --watch 300 --restart   # keep the Docker dashboard's copy of ~/.seen fresh
 seen audit export --format csv --from 2026-10-01 --to 2026-10-31
 ```
 
@@ -72,9 +95,10 @@ the test suites and the team server. Ports avoid the common defaults.
 
 | Command | What | URL |
 |---|---|---|
-| `docker compose up -d` | Dashboard on generated mock data | http://127.0.0.1:47821 |
+| `seen docker-sync && docker compose up -d --build` | Dashboard on a snapshot of your real `~/.seen` ([ADR 0011](docs/adr/0011-real-data-snapshot-in-docker.md)) | http://127.0.0.1:47821 |
+| `seen docker-sync --watch 300 --restart` (host) | Keep the container near-live: snapshot every 5 minutes, then restart the dashboard | |
 | `docker compose --profile dev up -d` | Plus the Vite dev server with hot reload | http://127.0.0.1:47822 |
-| `SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open` (on the host, not Docker) | Dashboard on your real `~/.seen`. SQLite WAL locking does not cross the Docker Desktop VM, so the live ledger is never served from a container ([ADR 0008](docs/adr/0008-real-data-dashboard-on-host.md)) | http://127.0.0.1:47825 |
+| `SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open` (on the host, not Docker) | Live (not snapshot) dashboard on your real `~/.seen`. The container never opens the live ledger: SQLite WAL locking does not cross the Docker Desktop VM ([ADR 0008](docs/adr/0008-real-data-dashboard-on-host.md)) | http://127.0.0.1:47825 |
 | `docker compose --profile test run --rm tests` | Python lint, types and unit tests | |
 | `docker compose --profile test run --rm e2e` | Playwright against a throwaway, freshly seeded test database (tmpfs) | |
 | `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (Phase 5 skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 |
@@ -109,7 +133,9 @@ lint/types/tests, the web checks, Playwright and the Docker suites on every push
 | [docs/TESTING.md](docs/TESTING.md) | Step-by-step guide to check every feature by hand |
 | [DESIGN.md](DESIGN.md) / [PRODUCT.md](PRODUCT.md) | Dashboard design system and who it is for |
 | [docs/schema.md](docs/schema.md) | Where every piece of data lives |
+| [docs/architecture.html](docs/architecture.html) | Architecture diagram (also `.svg` and `.png`) |
 | [docs/adr/](docs/adr) | Architecture decisions |
+| [docs/RELEASING.md](docs/RELEASING.md) | How to cut a release and what `seen upgrade` relies on |
 | [docs/pii-benchmark.md](docs/pii-benchmark.md) | Detector precision and recall on the labelled corpus |
 | [docs/plan/SEEN_BUILD_PLAN.md](docs/plan/SEEN_BUILD_PLAN.md) | The build plan; progress in [docs/build-ledger.md](docs/build-ledger.md) |
 

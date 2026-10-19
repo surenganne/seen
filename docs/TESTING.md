@@ -57,12 +57,12 @@ The same checks run in CI on every push: <https://github.com/surenganne/seen/act
 ## Part 2. Docker (no host Python needed)
 
 ```bash
-docker compose up -d --build                     # dashboard on generated mock data
+seen docker-sync && docker compose up -d --build  # dashboard on a snapshot of your real ~/.seen
 open http://127.0.0.1:47821                      # or paste into a browser
 docker compose --profile test run --rm tests     # lint, types, unit tests in a container
 docker compose --profile test run --rm e2e       # Playwright against a tmpfs test database
 docker compose --profile dev up -d               # optional: Vite hot reload on :47822
-docker compose down                              # stop (add -v to drop the mock-data volume)
+docker compose down                              # stop (the snapshot stays in ~/.seen-docker)
 ```
 
 Expected:
@@ -313,6 +313,24 @@ claude -p "Customer PAN ABCPE1234F, contact jane.doe@fictional-corp.in. Made-up 
 
 ---
 
+## Part 12b. Secrets, IPs and erasure
+
+Synthetic values only.
+
+```bash
+cd "$SEEN_TEST/demo"
+claude -p 'config {"api_key": "Xk9Lm2Qp7Rt4Vw8Zb3Nc"} and client 52.95.110.1. Made-up test values. Reply OK.'
+seen purge --all                  # reports only
+seen purge --all --yes            # erases the ledger; the audit trail keeps a ledger.purge event
+seen audit verify
+```
+
+- [ ] In `report` mode the change lists a `secret` and an `ip` finding (counts only, never the values).
+- [ ] In `block` mode the prompt is stopped, and the stored turn has no prompt text even with `store_prompt_text = "full"`.
+- [ ] `seen purge --all` prints `Would erase (add --yes)` and deletes nothing. With `--yes` the dashboard is empty and `seen audit verify` still passes.
+
+---
+
 ## Part 13. Dashboard on your real data (optional)
 
 ```bash
@@ -320,7 +338,18 @@ unset SEEN_HOME                                   # your real ~/.seen
 SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open
 ```
 
-- [ ] Shows your real `~/.seen` ledger. It runs on the host, not in Docker: SQLite WAL locking does not cross the Docker Desktop VM, so a container would read a torn database while hooks write (ADR 0008). Stop it with Ctrl-C.
+- [ ] Shows your real `~/.seen` ledger live. It runs on the host: SQLite WAL locking does not cross the Docker Desktop VM, so a container never opens the live database (ADR 0008). Stop it with Ctrl-C.
+
+Docker route (a copy, ADR 0011):
+
+```bash
+seen docker-sync && docker compose up -d --build     # then open http://127.0.0.1:47821
+seen docker-sync --watch 300 --restart               # optional: refresh every 5 minutes
+```
+
+- [ ] The Docker dashboard shows your real projects and change counts, not generated mock data.
+- [ ] With no snapshot folder, `docker compose up` exits with "Run 'seen docker-sync' on the host" instead of showing mock data.
+- [ ] Settings changed in the container dashboard are lost on the next refresh (change them on the host dashboard).
 
 ---
 
@@ -339,6 +368,23 @@ uv run pytest -m pg                                     # team tests against the
 - [ ] The `pg` suite passes. It uses the `seen_team_test` database, not the team data.
 - [ ] Sync check: mint a member key through `POST /api/keys` with the admin key from `deploy/.env` (read it into a variable; do not paste it into chat or tickets). Set `[sync] enabled = true` and `server = "http://127.0.0.1:47824"` in `$SEEN_HOME/config.toml`, export the member key as `SEEN_TEAM_API_KEY`, and run `seen sync`. It reports the batch and `audit anchored through seq N`, and the local audit trail records a `sync.batch` event.
 - [ ] Only metadata syncs: no prompts, diffs, file contents or PII values.
+
+---
+
+## Part 15. Version and upgrade
+
+```bash
+seen version
+seen upgrade --check
+seen doctor
+```
+
+- [ ] `seen version` lists the CLI, plugin, `seen-hook` (with its path), ledger schema and where the tool was installed from.
+- [ ] `seen upgrade --check` prints current and latest versions, any `!!` skew lines, and `Would run (add --yes)` with the exact commands. It changes nothing.
+- [ ] `seen doctor` shows `versions in step`, or a `!!` line naming the piece that is out of step.
+- [ ] `seen upgrade --yes` refuses when `seen doctor` reports a broken audit chain. Otherwise it reinstalls, updates the plugin, and tells you to restart Claude Code.
+- [ ] In Claude Code, `/seen:upgrade` runs only the check without a prompt and asks before the real upgrade.
+- [ ] With `SEEN_NO_UPDATE_CHECK=1`, `seen doctor` makes no network call.
 
 ---
 

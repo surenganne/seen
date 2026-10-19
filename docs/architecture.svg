@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1240 636" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="architecture-title architecture-desc">
+  <title id="architecture-title">Seen architecture</title>
+  <desc id="architecture-desc">Claude Code hooks write to a local ledger and audit database; a host dashboard reads it live, a Docker dashboard reads a snapshot copy, an opt-in team server receives metadata, and the CLI purges data and upgrades the plugin.</desc>
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#9FB3C8"/></marker>
+    <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#E85D26"/></marker>
+    <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#7FB2E5"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#0A2540"/>
+  <g>
+    <rect x="24" y="64" width="880" height="352" rx="8" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.16)" stroke-width="0.8"/>
+    <rect x="40" y="68" width="132" height="12" rx="2" fill="#0A2540"/>
+    <text x="106" y="77" fill="rgba(245,245,245,0.60)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">HOST: YOUR MACHINE</text>
+    <rect x="944" y="64" width="272" height="352" rx="8" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.16)" stroke-width="0.8"/>
+    <rect x="960" y="68" width="52" height="12" rx="2" fill="#0A2540"/>
+    <text x="986" y="77" fill="rgba(245,245,245,0.60)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">DOCKER</text>
+    <rect x="944" y="448" width="272" height="112" rx="8" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.16)" stroke-width="0.8"/>
+    <rect x="960" y="452" width="100" height="12" rx="2" fill="#0A2540"/>
+    <text x="1010" y="461" fill="rgba(245,245,245,0.60)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.14em">TEAM (OPT-IN)</text>
+    <path d="M200,128 H264" fill="none" stroke="#9FB3C8" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <path d="M416,128 H480" fill="none" stroke="#9FB3C8" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <path d="M632,128 H696" fill="none" stroke="#E85D26" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+    <path d="M872,112 H968" fill="none" stroke="#9FB3C8" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <path d="M744,160 V288 Q744,296 736,296 H632" fill="none" stroke="#9FB3C8" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <path d="M340,328 V360 Q340,368 348,368 H816 Q824,368 824,360 V160" fill="none" stroke="#9FB3C8" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <path d="M264,296 H132 Q124,296 124,288 V160" fill="none" stroke="#9FB3C8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+    <path d="M1080,160 V264" fill="none" stroke="#7FB2E5" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+    <path d="M872,144 H916 Q924,144 924,152 V504 Q924,512 932,512 H968" fill="none" stroke="#7FB2E5" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-link)"/>
+    <rect x="212" y="108" width="40" height="12" rx="2" fill="#0A2540"/>
+    <text x="232" y="117" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">HOOKS</text>
+    <rect x="428" y="108" width="40" height="12" rx="2" fill="#0A2540"/>
+    <text x="448" y="117" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SPOOL</text>
+    <rect x="644" y="108" width="40" height="12" rx="2" fill="#0A2540"/>
+    <text x="664" y="117" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">WRITE</text>
+    <rect x="892" y="92" width="56" height="12" rx="2" fill="#0A2540"/>
+    <text x="920" y="101" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SNAPSHOT</text>
+    <rect x="752" y="216" width="36" height="12" rx="2" fill="#0A2540"/>
+    <text x="770" y="225" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">READ</text>
+    <rect x="560" y="348" width="40" height="12" rx="2" fill="#0A2540"/>
+    <text x="580" y="357" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">PURGE</text>
+    <rect x="132" y="216" width="52" height="12" rx="2" fill="#0A2540"/>
+    <text x="158" y="225" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">UPGRADE</text>
+    <rect x="1088" y="204" width="36" height="12" rx="2" fill="#0A2540"/>
+    <text x="1106" y="213" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SERVE</text>
+    <rect x="840" y="300" width="76" height="12" rx="2" fill="#0A2540"/>
+    <text x="878" y="309" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">SYNC (OPT-IN)</text>
+    <rect x="48" y="96" width="152" height="64" rx="6" fill="#0A2540"/>
+    <rect x="48" y="96" width="152" height="64" rx="6" fill="#1A3A5C" stroke="rgba(245,245,245,0.40)" stroke-width="1"/>
+    <text x="124" y="124" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Claude Code</text>
+    <text x="124" y="140" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">plugin hooks + shim</text>
+    <text x="124" y="152" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">events in, stdin JSON</text>
+    <rect x="264" y="96" width="152" height="64" rx="6" fill="#0A2540"/>
+    <rect x="264" y="96" width="152" height="64" rx="6" fill="#1A3A5C" stroke="rgba(245,245,245,0.40)" stroke-width="1"/>
+    <text x="340" y="124" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">seen-hook</text>
+    <text x="340" y="140" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">stdlib only, fails open</text>
+    <text x="340" y="152" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">spool/*.jsonl</text>
+    <rect x="480" y="96" width="152" height="64" rx="6" fill="#0A2540"/>
+    <rect x="480" y="96" width="152" height="64" rx="6" fill="#1A3A5C" stroke="rgba(245,245,245,0.40)" stroke-width="1"/>
+    <text x="556" y="124" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Ingest</text>
+    <text x="556" y="140" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">at Stop: git delta, cost</text>
+    <text x="556" y="152" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">PII scan, policy results</text>
+    <rect x="696" y="96" width="176" height="64" rx="6" fill="#0A2540"/>
+    <rect x="696" y="96" width="176" height="64" rx="6" fill="rgba(232,93,38,0.16)" stroke="#E85D26" stroke-width="1"/>
+    <text x="784" y="124" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Ledger + audit</text>
+    <text x="784" y="140" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">ledger.db, audit.db</text>
+    <text x="784" y="152" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">hash-chained, WAL</text>
+    <rect x="480" y="264" width="152" height="64" rx="6" fill="#0A2540"/>
+    <rect x="480" y="264" width="152" height="64" rx="6" fill="#1A3A5C" stroke="rgba(245,245,245,0.40)" stroke-width="1"/>
+    <text x="556" y="292" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Local API + UI</text>
+    <text x="556" y="308" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">host :47825</text>
+    <text x="556" y="320" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">live read of ~/.seen</text>
+    <rect x="264" y="264" width="152" height="64" rx="6" fill="#0A2540"/>
+    <rect x="264" y="264" width="152" height="64" rx="6" fill="#1A3A5C" stroke="rgba(245,245,245,0.40)" stroke-width="1"/>
+    <text x="340" y="292" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">seen CLI</text>
+    <text x="340" y="308" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">doctor, purge, upgrade</text>
+    <text x="340" y="320" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">docker-sync, version</text>
+    <rect x="968" y="96" width="224" height="64" rx="6" fill="#0A2540"/>
+    <rect x="968" y="96" width="224" height="64" rx="6" fill="rgba(245,245,245,0.06)" stroke="#9FB3C8" stroke-width="1"/>
+    <text x="1080" y="124" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Snapshot</text>
+    <text x="1080" y="140" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">~/.seen-docker/current</text>
+    <text x="1080" y="152" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">sqlite backup, no secret.key</text>
+    <rect x="968" y="264" width="224" height="64" rx="6" fill="#0A2540"/>
+    <rect x="968" y="264" width="224" height="64" rx="6" fill="#1A3A5C" stroke="rgba(245,245,245,0.40)" stroke-width="1"/>
+    <text x="1080" y="292" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Docker dashboard</text>
+    <text x="1080" y="308" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">host port 47821</text>
+    <text x="1080" y="320" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">serves the copy, not live</text>
+    <rect x="968" y="480" width="224" height="64" rx="6" fill="#0A2540"/>
+    <rect x="968" y="480" width="224" height="64" rx="6" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.40)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="1080" y="508" fill="#F5F5F5" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Team server</text>
+    <text x="1080" y="524" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">FastAPI, Postgres :47824</text>
+    <text x="1080" y="536" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">metadata only, off by default</text>
+    <line x1="32" y1="588" x2="1208" y2="588" stroke="rgba(245,245,245,0.16)" stroke-width="0.8"/>
+    <text x="32" y="612" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+    <rect x="120" y="602" width="16" height="12" rx="2" fill="rgba(232,93,38,0.16)" stroke="#E85D26"/>
+    <text x="144" y="612" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace">Ledger of record</text>
+    <rect x="276" y="602" width="16" height="12" rx="2" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.40)" stroke-dasharray="4,3"/>
+    <text x="300" y="612" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace">Opt-in, off by default</text>
+    <line x1="460" y1="608" x2="488" y2="608" stroke="#9FB3C8" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <text x="496" y="612" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace">Data flow</text>
+    <line x1="588" y1="608" x2="616" y2="608" stroke="#9FB3C8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+    <text x="624" y="612" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace">Control or opt-in</text>
+    <line x1="756" y1="608" x2="784" y2="608" stroke="#7FB2E5" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+    <text x="792" y="612" fill="#9FB3C8" font-size="8" font-family="'Geist Mono', monospace">HTTP or copy to another runtime</text>
+  </g>
+</svg>

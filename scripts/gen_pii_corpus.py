@@ -105,6 +105,25 @@ NEG = [
 ]
 
 
+def ip() -> str:
+    return f"{R.choice([13, 18, 34, 52, 54, 99, 104, 151, 185])}.{R.randint(1, 254)}.{R.randint(1, 254)}.{R.randint(1, 254)}"
+
+
+# added after the shuffle so the rows above stay byte-identical (2026-10-19 recall work)
+EXTRA_NEG = ["service at 10.2.3.4 healthy", "service at 192.168.0.17 healthy", "service at 127.0.0.1 healthy",
+             "service at 172.16.8.9 healthy", "service at 8.8.8.8 healthy", "service at 192.0.2.55 healthy",
+             "password: changeme", "postgres://user:password@localhost/db", "token_count: 1234567890123456"]
+
+
+def extra() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = [{"text": f"login from {ip()} rejected", "labels": ["ip"]} for _ in range(20)]
+    for _ in range(10):
+        tok = "".join(R.choice(string.ascii_letters + string.digits) for _ in range(24))
+        text = R.choice([f'{{"api_key": "{tok}"}}', f"Authorization: Bearer {tok}", f"postgres://svc:{tok[:12]}@db.corp.test:5432/app"])
+        rows.append({"text": text, "labels": ["secret"]})
+    return rows + [{"text": t, "labels": []} for t in EXTRA_NEG]
+
+
 def main() -> None:
     rows = []
     for typ, gens in POS.items():
@@ -113,6 +132,7 @@ def main() -> None:
     for _ in range(400):
         rows.append({"text": R.choice(NEG)(), "labels": []})
     R.shuffle(rows)
+    rows += extra()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))
     print(f"wrote {len(rows)} samples to {OUT}")
