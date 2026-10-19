@@ -1,0 +1,4 @@
+# Project PII allowlist and custom rules (reviewed in PRs).
+allow_paths: ["tests/fixtures/**"]
+allow_values: ["*@example.com", "*@example.org", "*@test.local"]
+custom_rules: []

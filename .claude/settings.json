@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Write(.seen/memory/**)",
+      "Edit(.seen/memory/**)"
+    ]
+  }
+}

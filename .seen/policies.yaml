@@ -1,0 +1,7 @@
+# Required-skill rules. Each rule: when a change touches `paths`, `require_skill` must run.
+# mode: report (record only) | enforce (block Stop once until the skill runs)
+- id: pol-pii-review
+  title: Security review on PII detection code
+  paths: ["packages/core/src/seen_core/pii/**", "packages/core/src/seen_core/redact.py"]
+  require_skill: security-review
+  mode: report
