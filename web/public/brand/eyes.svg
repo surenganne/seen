@@ -1,34 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Seen">
-  <!-- Seen mark (placeholder until the owner's final set). Transparent. Idle: looks around, blinks. -->
+  <!-- Seen mark: two round eyes, transparent background. -->
   <defs>
-    <radialGradient id="iris" cx="45%" cy="40%" r="65%">
-      <stop offset="0" stop-color="#FF9A5C"/><stop offset=".55" stop-color="#E85D26"/><stop offset="1" stop-color="#B8401A"/>
+    <radialGradient id="iris" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#5AA9E6"/><stop offset=".6" stop-color="#1F5F99"/><stop offset="1" stop-color="#0A2540"/>
     </radialGradient>
-    <clipPath id="l"><path d="M5 32 Q19 14 33 32 Q19 50 5 32Z"/></clipPath>
-    <clipPath id="r"><path d="M31 32 Q45 14 59 32 Q45 50 31 32Z"/></clipPath>
+    <clipPath id="l"><circle cx="17" cy="32" r="12.2"/></clipPath>
+    <clipPath id="r"><circle cx="47" cy="32" r="12.2"/></clipPath>
   </defs>
   <style>
-    .rim { fill: #FFFFFF; stroke: #0A2540; stroke-width: 2.4; stroke-linejoin: round; }
+    .rim { fill: #FFFFFF; stroke: #E85D26; stroke-width: 2.6; }
     .eye { transform-box: fill-box; transform-origin: center; animation: blink 5.4s infinite; }
-    .look { animation: look 7s ease-in-out infinite; }
-    @keyframes look { 0%,16% { transform: translate(0,0) } 22%,38% { transform: translate(-4px,.6px) }
-      44%,60% { transform: translate(4px,-.4px) } 66%,82% { transform: translate(.8px,2px) } 88%,100% { transform: translate(0,0) } }
-    @keyframes blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.08) } }
-    @media (prefers-color-scheme: dark) { .rim { stroke: #C9D6E3; } }
+    .look { animation: look 7s cubic-bezier(.25,1,.5,1) infinite; }
+    @keyframes look { 0%,16% { transform: translate(0,0) } 22%,38% { transform: translate(-4.5px,.8px) }
+      44%,60% { transform: translate(4.5px,-.6px) } 66%,82% { transform: translate(1px,3px) } 88%,100% { transform: translate(0,0) } }
+    @keyframes blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.1) } }
     @media (prefers-reduced-motion: reduce) { .eye, .look { animation: none } }
   </style>
   <g class="eye">
-    <path class="rim" d="M4 32 Q18 13 32 32 Q18 51 4 32Z"/>
-    <g clip-path="url(#l)"><g class="look">
-      <circle cx="18" cy="32" r="6.9" fill="url(#iris)"/><circle cx="18" cy="32" r="3.1" fill="#0A2540"/>
-      <circle cx="20.2" cy="29.8" r="1.4" fill="#FFFFFF"/>
-    </g></g>
+    <circle class="rim" cx="17" cy="32" r="13.5"/>
+    <g clip-path="url(#l)"><g class="look"><circle cx="17" cy="32" r="7.2" fill="url(#iris)"/><circle cx="17" cy="32" r="3.4" fill="#061629"/><circle cx="19.6" cy="29.2" r="1.8" fill="#FFFFFF"/><circle cx="14.6" cy="34.6" r="0.8" fill="#FFFFFF"/></g></g>
   </g>
   <g class="eye">
-    <path class="rim" d="M32 32 Q46 13 60 32 Q46 51 32 32Z"/>
-    <g clip-path="url(#r)"><g class="look">
-      <circle cx="46" cy="32" r="6.9" fill="url(#iris)"/><circle cx="46" cy="32" r="3.1" fill="#0A2540"/>
-      <circle cx="48.2" cy="29.8" r="1.4" fill="#FFFFFF"/>
-    </g></g>
+    <circle class="rim" cx="47" cy="32" r="13.5"/>
+    <g clip-path="url(#r)"><g class="look"><circle cx="47" cy="32" r="7.2" fill="url(#iris)"/><circle cx="47" cy="32" r="3.4" fill="#061629"/><circle cx="49.6" cy="29.2" r="1.8" fill="#FFFFFF"/><circle cx="44.6" cy="34.6" r="0.8" fill="#FFFFFF"/></g></g>
   </g>
 </svg>

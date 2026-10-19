@@ -174,7 +174,7 @@ def doctor() -> None:
 
     line(sys.version_info >= (3, 11), f"python {sys.version.split()[0]} (need 3.11+)")
     hook = shutil.which("seen-hook")
-    line(bool(hook), f"seen-hook on PATH: {hook or 'not found (uv tool install seen-cli)'}")
+    line(bool(hook), f"seen-hook on PATH: {hook or 'not found (uv tool install git+https://github.com/surenganne/seen#subdirectory=packages/cli)'}")
     seens = [str(Path(d) / "seen") for d in os.environ.get("PATH", "").split(os.pathsep) if (Path(d) / "seen").is_file()]
     me = shutil.which("seen")
     mine = str(Path(sys.argv[0]).resolve()) if sys.argv and sys.argv[0] else ""
