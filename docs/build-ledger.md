@@ -125,3 +125,4 @@ Final: minor (deferred): 22 front matter strips values containing ' #'
 Final: minor (deferred): 23 dashboard memory reader follows symlinks
 Final: minor (deferred): 24 '[::1]' host entry is dead in TrustedHostMiddleware
 Security (post-review): ReDoS validator bypass via nested groups — sre parse-tree check RED→GREEN (5250098)
+Security (post-review): regex walker deny-by-default — RED→GREEN (76ba16c)
