@@ -149,6 +149,11 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 
 ---
 
+**Sessions**
+- [ ] Lists every session newest first with status (active, ended, incomplete), model, turns, tool calls, files and cost.
+- [ ] While a `claude` session is running in the repo, its row shows **active** and updates within 10 seconds.
+- [ ] Click a row: the drawer shows that session's activity in order (session.start, turns, tool calls, file changes, session.end).
+
 ## Part 7. Dashboard: Memory and Skills
 
 **Memory**

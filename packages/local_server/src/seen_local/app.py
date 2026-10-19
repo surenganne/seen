@@ -127,6 +127,11 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
         return queries.changes(db, pid, tool=tool, status=status, q=q, file=file, skill=skill, policy_missed=policy_missed,
                                mem=mem, pii=pii, days=days, sort=sort, dir=dir)
 
+    @app.get("/api/projects/{pid}/sessions", response_model=list[S.SessionOut])
+    def sessions(pid: str, db: Db) -> list[S.SessionOut]:
+        project_or_404(db, pid)
+        return queries.sessions(db, pid)
+
     @app.get("/api/changes/{cid}", response_model=S.ChangeDetail)
     def change(cid: str, db: Db) -> S.ChangeDetail:
         d = queries.change_detail(db, cid, config.load()["pii"]["store_prompt_text"])

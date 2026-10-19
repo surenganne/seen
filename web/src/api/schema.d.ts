@@ -259,6 +259,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{pid}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sessions */
+        get: operations["sessions_api_projects__pid__sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -833,6 +850,38 @@ export interface components {
             remote: string | null;
             /** Root Path */
             root_path: string | null;
+        };
+        /** SessionOut */
+        SessionOut: {
+            /** Cost Usd */
+            cost_usd: number;
+            /** Ended At */
+            ended_at: string | null;
+            /** Events */
+            events: number;
+            /** Files */
+            files: number;
+            /** Id */
+            id: string;
+            /** Last Event At */
+            last_event_at: string | null;
+            /** Models */
+            models: string[];
+            /** Started At */
+            started_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "ended" | "incomplete";
+            /** Tool */
+            tool: string;
+            /** Tool Calls */
+            tool_calls: number;
+            /** Tool Version */
+            tool_version: string | null;
+            /** Turns */
+            turns: number;
         };
         /** SettingsIn */
         SettingsIn: {
@@ -1548,6 +1597,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PolicyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sessions_api_projects__pid__sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"][];
                 };
             };
             /** @description Validation Error */

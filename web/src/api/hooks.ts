@@ -71,6 +71,21 @@ export const useAudit = (pid: string, f: AuditFilters) =>
     placeholderData: keepPreviousData,
   });
 
+/** Polls so a running session's activity shows up without a reload. */
+export const useSessions = (pid: string) =>
+  useQuery({
+    queryKey: ["sessions", pid],
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/sessions", { params: { path: { pid } } })),
+    refetchInterval: 10_000,
+  });
+
+export const useSessionActivity = (pid: string, session: string) =>
+  useQuery({
+    queryKey: ["audit", pid, { session }],
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/audit", { params: { path: { pid }, query: { session } } })),
+    refetchInterval: 10_000,
+  });
+
 export const useVerify = () => useQuery({ queryKey: ["verify"], queryFn: () => unwrap(api.GET("/api/audit/verify")) });
 
 export const useSettings = () => useQuery({ queryKey: ["settings"], queryFn: () => unwrap(api.GET("/api/settings")) });

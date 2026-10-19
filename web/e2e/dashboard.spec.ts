@@ -215,3 +215,17 @@ test.describe("P4B-8 PII in the dashboard", () => {
     await expect(page.getByText("Saved.")).toBeVisible();
   });
 });
+
+test.describe("sessions", () => {
+  test("lists sessions with status and opens a session's activity", async ({ page }) => {
+    await page.goto("/p/demo-payments/sessions");
+    await expect(page.getByTestId("sessions-count")).toContainText("sessions");
+    const row = page.getByTestId("session-row").first();
+    await expect(row).toHaveAttribute("data-status", /active|ended|incomplete/);
+    await row.click();
+    const drawer = page.getByTestId("session-activity");
+    await expect(drawer.getByTestId("activity-list")).toContainText("session.start");
+    await drawer.getByRole("button", { name: "Close" }).click();
+    await expect(drawer).toHaveCount(0);
+  });
+});
