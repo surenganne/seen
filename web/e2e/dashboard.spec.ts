@@ -17,7 +17,7 @@ test.describe("P2-4 overview, changes, change detail", () => {
     await expect(page.getByRole("heading", { name: "Changes" })).toBeVisible();
     await expect(page.getByTestId("changes-count")).toContainText("changes");
     const total = Number((await page.getByTestId("changes-count").textContent())!.split(" ")[0]);
-    await expect(page.getByTestId("change-row")).toHaveCount(total);
+    await expect(page.getByTestId("change-row")).toHaveCount(Math.min(total, 50)); // one page
     const before = total;
     await page.getByRole("button", { name: "PII exposed" }).click();
     await expect(page).toHaveURL(/pii=true/);
@@ -44,7 +44,7 @@ test.describe("P2-4 overview, changes, change detail", () => {
   });
 
   test("sort by cost toggles direction", async ({ page }) => {
-    await page.goto("/p/demo-payments/changes?range=28");
+    await page.goto("/p/demo-payments/changes?range=28&view=list"); // sorting is in the flat list view
     await page.getByRole("button", { name: /Cost/ }).click();
     await expect(page).toHaveURL(/sort=cost&dir=desc/);
     await page.getByRole("button", { name: /Cost/ }).click();
@@ -227,5 +227,29 @@ test.describe("sessions", () => {
     await expect(drawer.getByTestId("activity-list")).toContainText("session.start");
     await drawer.getByRole("button", { name: "Close" }).click();
     await expect(drawer).toHaveCount(0);
+  });
+});
+
+test.describe("changes grouped by session, with paging", () => {
+  test("default view groups by session; list view pages", async ({ page }) => {
+    await page.goto("/p/demo-payments/changes?range=28");
+    const groups = page.getByTestId("session-group");
+    await expect(groups.first()).toContainText("Session");
+    expect(await groups.count()).toBeGreaterThan(1);
+    await page.getByRole("button", { name: "All changes" }).click();
+    const pager = page.getByTestId("pager");
+    await expect(pager).toContainText("1–50 of");
+    await pager.getByRole("button", { name: "Next →" }).click();
+    await expect(pager).toContainText("page 2 of");
+    await expect(page).toHaveURL(/page=2/);
+  });
+
+  test("a session's changes are one click from its row", async ({ page }) => {
+    await page.goto("/p/demo-payments/sessions");
+    await page.getByTestId("session-row").first().click();
+    await page.getByTestId("session-changes").click();
+    await expect(page).toHaveURL(/session=/);
+    await expect(page.getByTestId("session-group")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /Clear session filter/ })).toBeVisible();
   });
 });

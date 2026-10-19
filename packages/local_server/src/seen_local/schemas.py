@@ -24,6 +24,14 @@ class SessionOut(BaseModel):
     cost_usd: float
 
 
+class SessionPage(BaseModel):
+    total: int
+    active: int
+    page: int
+    page_size: int
+    items: list[SessionOut]
+
+
 class ProjectOut(BaseModel):
     id: str
     name: str | None
@@ -133,6 +141,9 @@ class Overview(BaseModel):
 
 class ChangePage(BaseModel):
     total: int
+    page: int = 1
+    page_size: int = 50
+    cost_usd: float = 0.0  # across every page of the filtered set
     items: list[ChangeRow]
 
 

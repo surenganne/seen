@@ -122,15 +122,18 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
                 file: str | None = None, skill: str | None = None, policy_missed: bool | None = None,
                 mem: Literal["loaded", "missed", "none"] | None = None, pii: bool | None = None,
                 days: int | None = Query(None, ge=1, le=3650), sort: str = "time",
-                dir: Literal["asc", "desc"] = "desc") -> S.ChangePage:
+                dir: Literal["asc", "desc"] = "desc", session: str | None = None, page: int = Query(1, ge=1),
+                page_size: int = Query(50, ge=1, le=200)) -> S.ChangePage:
         project_or_404(db, pid)
         return queries.changes(db, pid, tool=tool, status=status, q=q, file=file, skill=skill, policy_missed=policy_missed,
-                               mem=mem, pii=pii, days=days, sort=sort, dir=dir)
+                               mem=mem, pii=pii, days=days, sort=sort, dir=dir, session=session, page=page, page_size=page_size)
 
-    @app.get("/api/projects/{pid}/sessions", response_model=list[S.SessionOut])
-    def sessions(pid: str, db: Db) -> list[S.SessionOut]:
+    @app.get("/api/projects/{pid}/sessions", response_model=S.SessionPage)
+    def sessions(pid: str, db: Db, page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)) -> S.SessionPage:
         project_or_404(db, pid)
-        return queries.sessions(db, pid)
+        all_ = queries.sessions(db, pid)
+        return S.SessionPage(total=len(all_), active=sum(s.status == "active" for s in all_), page=page, page_size=page_size,
+                             items=all_[(page - 1) * page_size: page * page_size])
 
     @app.get("/api/changes/{cid}", response_model=S.ChangeDetail)
     def change(cid: str, db: Db) -> S.ChangeDetail:

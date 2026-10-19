@@ -206,8 +206,11 @@ SORTS = {"time": lambda o: o.started_at or "", "cost": lambda o: o.cost_usd, "to
 
 
 def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | None, file: str | None, skill: str | None,
-            policy_missed: bool | None, mem: str | None, pii: bool | None, days: int | None, sort: str, dir: str) -> S.ChangePage:
+            policy_missed: bool | None, mem: str | None, pii: bool | None, days: int | None, sort: str, dir: str,
+            session: str | None = None, page: int = 1, page_size: int = 50) -> S.ChangePage:
     outs = [r.out() for r in load_rows(db, pid, days)]
+    if session:
+        outs = [o for o in outs if o.session_id == session]
     if tool:
         outs = [o for o in outs if o.tool == tool]
     if status:
@@ -226,7 +229,8 @@ def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | 
     if pii:
         outs = [o for o in outs if o.pii_count > 0]
     outs.sort(key=SORTS.get(sort, SORTS["time"]), reverse=dir != "asc")
-    return S.ChangePage(total=len(outs), items=outs)
+    return S.ChangePage(total=len(outs), page=page, page_size=page_size, cost_usd=round(sum(o.cost_usd for o in outs), 4),
+                        items=outs[(page - 1) * page_size: page * page_size])
 
 
 def _memory_files(root: str | None) -> list[tuple[Path, dict[str, Any]]]:

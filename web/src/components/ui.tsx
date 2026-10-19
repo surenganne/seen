@@ -119,3 +119,17 @@ export function PageHead({ title, description, actions }: { title: string; descr
     </div>
   );
 }
+
+/** Previous / next pager with "a–b of n". Hidden when everything fits on one page. */
+export function Pager({ page, pageSize, total, onPage, what = "items" }: { page: number; pageSize: number; total: number; onPage: (p: number) => void; what?: string }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  if (total <= pageSize && page === 1) return null;
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  return (
+    <nav className="pager" aria-label={`${what} pages`} data-testid="pager">
+      <button type="button" className="btn sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>← Previous</button>
+      <span className="mono tiny muted">{from}–{Math.min(page * pageSize, total)} of {total} {what} · page {page} of {pages}</span>
+      <button type="button" className="btn sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>Next →</button>
+    </nav>
+  );
+}

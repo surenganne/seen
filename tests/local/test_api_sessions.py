@@ -27,9 +27,9 @@ def test_sessions_list_status_and_counts(client: TestClient) -> None:
     now = datetime.now(UTC)
     _open_session("live-1", now - timedelta(minutes=1))
     _open_session("stale-1", now - timedelta(hours=3))
-    r = client.get(f"/api/projects/{PID}/sessions")
+    r = client.get(f"/api/projects/{PID}/sessions", params={"page_size": 200})
     assert r.status_code == 200
-    items = {s["id"]: s for s in r.json()}
+    items = {s["id"]: s for s in r.json()["items"]}
     assert items["live-1"]["status"] == "active" and items["live-1"]["tool_calls"] == 1
     assert items["live-1"]["last_event_at"] and items["live-1"]["tool_version"] == "9.9.9"
     assert items["stale-1"]["status"] == "incomplete"
@@ -37,7 +37,7 @@ def test_sessions_list_status_and_counts(client: TestClient) -> None:
     assert ended and all(s["status"] == "ended" for s in ended)
     seeded = next(s for s in ended if s["turns"] > 0)
     assert seeded["cost_usd"] > 0 and seeded["models"]
-    starts = [s["started_at"] for s in r.json()]
+    starts = [s["started_at"] for s in r.json()["items"]]
     assert starts == sorted(starts, reverse=True)
 
 
@@ -50,5 +50,5 @@ def test_quiet_imported_session_reads_as_ended(client: TestClient) -> None:
     with ledger_session() as db:
         db.add(Session(id="imp-quiet", project_id=PID, started_at=_iso(old), source="imported"))
         db.commit()
-    items = {s["id"]: s for s in client.get(f"/api/projects/{PID}/sessions").json()}
+    items = {s["id"]: s for s in client.get(f"/api/projects/{PID}/sessions", params={"page_size": 200}).json()["items"]}
     assert items["imp-quiet"]["status"] == "ended" and items["imp-quiet"]["source"] == "imported"

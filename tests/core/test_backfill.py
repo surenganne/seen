@@ -104,7 +104,7 @@ def test_dashboard_marks_imported_data(repo: Path) -> None:
     backfill.import_project(repo)
     c = TestClient(create_app(web_dist=None), base_url="http://localhost")
     pid = c.get("/api/projects").json()[0]["id"]
-    s = c.get(f"/api/projects/{pid}/sessions").json()
+    s = c.get(f"/api/projects/{pid}/sessions").json()["items"]
     assert s[0]["source"] == "imported" and s[0]["status"] == "ended" and s[0]["tool_calls"] == 3
     cid = c.get(f"/api/projects/{pid}/changes").json()["items"][0]["id"]
     assert c.get(f"/api/changes/{cid}").json()["source"] == "imported"
