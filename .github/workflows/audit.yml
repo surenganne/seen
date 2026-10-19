@@ -1,0 +1,58 @@
+name: audit
+# Dependency advisories, leaked secrets and image CVEs. Runs on every push and PR, and weekly: new advisories
+# appear without a commit. Tools run from pinned versions or image digests; no third-party action is added.
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "17 3 * * 1" }]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  python-deps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      # the lockfile, not whatever happens to be installed: every workspace package, no dev-only noise
+      - run: uv export --frozen --no-hashes --all-packages --no-emit-workspace --no-dev > requirements-audit.txt
+      - run: uvx --from pip-audit==2.10.1 pip-audit -r requirements-audit.txt --no-deps --disable-pip
+  npm-deps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      # production dependencies only: the dashboard ships as a built bundle, so dev tooling never reaches users
+      - run: npm audit --omit=dev --audit-level=high
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      # config in .gitleaks.toml, reviewed false positives in .gitleaksignore
+      - run: >
+          docker run --rm -v "$PWD:/repo"
+          zricethezav/gitleaks@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46
+          git /repo -c /repo/.gitleaks.toml --redact --no-banner
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: docker compose build dashboard
+      - run: docker build -f deploy/Dockerfile.team -t seen-team:dev .
+      # fixed HIGH and CRITICAL findings fail the build; unfixed ones are reported by the weekly run, not gated
+      - run: |
+          for image in seen-dashboard:dev seen-team:dev; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              aquasec/trivy@sha256:ab70a02200597efa04748f210f793936eb647cbcdb0ea69cc30b226d6f5a22c7 \
+              image --severity HIGH,CRITICAL --ignore-unfixed --scanners vuln --exit-code 1 "$image"
+          done

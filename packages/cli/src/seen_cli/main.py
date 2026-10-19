@@ -214,7 +214,16 @@ def doctor() -> None:
     try:
         with ledger_session() as db:
             db.execute(select(Change.id).limit(1))
+            from sqlalchemy import func as sqlfunc
+
+            from seen_core.db.models import Outbox
+
+            parked = db.execute(select(sqlfunc.count(Outbox.id), sqlfunc.max(Outbox.last_status))
+                                .where(Outbox.dead_at.is_not(None), Outbox.sent_at.is_(None))).one()
         line(True, f"ledger {paths.ledger_db()} migrated")
+        if parked[0]:
+            line(False, f"sync: {parked[0]} batch(es) rejected by the server (last status {parked[1]}): "
+                        "fix the key or server, then run `seen sync --retry-failed`")
     except Exception as e:  # doctor reports, never crashes
         line(False, f"ledger: {type(e).__name__}")
     v = audit.verify()
@@ -466,7 +475,7 @@ def memory_archive(mid: str) -> None:
 
 
 @app.command("sync")
-def sync_cmd() -> None:
+def sync_cmd(retry_failed: bool = typer.Option(False, "--retry-failed", help="Send batches the server rejected earlier (after fixing the key or server)")) -> None:
     """Send unsynced metadata to the team server (only the fields switched on in [sync])."""
     from seen_core import sync
 
@@ -474,12 +483,13 @@ def sync_cmd() -> None:
         typer.echo("Team sync is off. Turn it on in Settings or [sync] enabled = true.")
         return
     try:
-        r = sync.push()
+        r = sync.push(retry_dead=retry_failed)
     except sync.SyncError as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(2) from None
     a = sync.anchor()
     typer.echo(f"sent {r['sent']} batch(es), {r['failed']} failed (will retry with backoff)"
+               + (f", {r['dead']} rejected by the server (parked; fix the key or server, then `seen sync --retry-failed`)" if r["dead"] else "")
                + (f"; audit anchored through seq {a['seq']}" if a else ""))
 
 

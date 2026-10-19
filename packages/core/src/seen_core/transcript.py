@@ -65,7 +65,20 @@ def _text_of(content: Any) -> str:
     return "" if content is None else str(content)
 
 
-def _add_usage(turn: Turn, msg: dict[str, Any]) -> None:
+_FIELDS = ("tok_in", "tok_out", "tok_cache_read", "tok_cache_write", "cw_5m", "cw_1h")
+
+
+def _usage_of(u: dict[str, Any]) -> dict[str, int]:
+    cc: dict[str, Any] = u["cache_creation"] if isinstance(u.get("cache_creation"), dict) else {}
+    return {"tok_in": int(u.get("input_tokens") or 0), "tok_out": int(u.get("output_tokens") or 0),
+            "tok_cache_read": int(u.get("cache_read_input_tokens") or 0),
+            "tok_cache_write": int(u.get("cache_creation_input_tokens") or 0),
+            "cw_5m": int(cc.get("ephemeral_5m_input_tokens") or 0), "cw_1h": int(cc.get("ephemeral_1h_input_tokens") or 0)}
+
+
+def _add_usage(turn: Turn, msg: dict[str, Any], seen: dict[str, dict[str, int]]) -> None:
+    """One message streams as several lines with the same id. Count the largest value seen per field, so a partial
+    first line (output_tokens still growing) is topped up by the later lines rather than kept."""
     u = msg.get("usage")
     if not isinstance(u, dict):
         return
@@ -73,29 +86,25 @@ def _add_usage(turn: Turn, msg: dict[str, Any]) -> None:
     if model not in turn.models:
         turn.models.append(model)
     acc = turn.usage.setdefault(model, {"tok_in": 0, "tok_out": 0, "tok_cache_read": 0, "tok_cache_write": 0, "cw_5m": 0, "cw_1h": 0})
-    cc: dict[str, Any] = u["cache_creation"] if isinstance(u.get("cache_creation"), dict) else {}
-    acc["tok_in"] += int(u.get("input_tokens") or 0)
-    acc["tok_out"] += int(u.get("output_tokens") or 0)
-    acc["tok_cache_read"] += int(u.get("cache_read_input_tokens") or 0)
-    acc["tok_cache_write"] += int(u.get("cache_creation_input_tokens") or 0)
-    acc["cw_5m"] += int(cc.get("ephemeral_5m_input_tokens") or 0)
-    acc["cw_1h"] += int(cc.get("ephemeral_1h_input_tokens") or 0)
+    now = _usage_of(u)
+    prev = seen.setdefault(str(msg["id"]), {}) if msg.get("id") else {}
+    for k in _FIELDS:
+        acc[k] += max(0, now[k] - prev.get(k, 0))
+        prev[k] = max(now[k], prev.get(k, 0))
 
 
-def _walk(turn: Turn, lines: list[dict[str, Any]], seen: set[str], subagent: bool, tool_names: dict[str, tuple[str, str]],
-          agent_ids: list[str]) -> None:
+def _walk(turn: Turn, lines: list[dict[str, Any]], seen: dict[str, dict[str, int]], subagent: bool,
+          tool_names: dict[str, tuple[str, str]], agent_ids: list[str], since: str = "") -> None:
     for d in lines:
+        if since and str(d.get("timestamp") or "~") < since:
+            continue  # a resumed subagent's file holds its earlier turns too
         t = d.get("type")
         if d.get("version") and not turn.version:
             turn.version = str(d["version"])
         msg: dict[str, Any] = d["message"] if isinstance(d.get("message"), dict) else {}
         if t == "assistant":
             # one line per content block, same message id repeated: count usage once, read every block
-            mid = msg.get("id")
-            if not (mid and mid in seen):
-                _add_usage(turn, msg)
-            if mid:
-                seen.add(mid)
+            _add_usage(turn, msg, seen)
             for c in msg.get("content") or []:
                 if not isinstance(c, dict):
                     continue
@@ -135,13 +144,15 @@ def _walk(turn: Turn, lines: list[dict[str, Any]], seen: set[str], subagent: boo
 def parse_turn(transcript: str | Path, offset: int, end: int | None = None) -> Turn:
     path = Path(transcript)
     turn = Turn()
-    seen: set[str] = set()
+    seen: dict[str, dict[str, int]] = {}
     tools: dict[str, tuple[str, str]] = {}
     agents: list[str] = []
-    _walk(turn, _lines(path, offset, end), seen, False, tools, agents)
+    main = _lines(path, offset, end)
+    _walk(turn, main, seen, False, tools, agents)
+    since = min((str(d["timestamp"]) for d in main if d.get("timestamp")), default="")
     subdir = path.with_suffix("") / "subagents"
     for aid in agents:
         f = subdir / f"agent-{re.sub(r'[^A-Za-z0-9_-]', '', aid)}.jsonl"
         if f.exists():
-            _walk(turn, _lines(f, 0), seen, True, {}, [])
+            _walk(turn, _lines(f, 0), seen, True, {}, [], since)
     return turn

@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import type { S } from "../api/client";
 import { ChangesTable } from "./ChangesTable";
-import { Eyes, lens, lidAt } from "./Eyes";
+import { Eyes, gazeToward, lens, lidAt } from "./Eyes";
 import { PiiChip, SkillStatus } from "./ui";
 import { day, money, when } from "../lib/format";
 
@@ -21,6 +21,19 @@ describe("Eyes", () => {
     expect(screen.getByRole("img", { name: "Seen" })).toHaveAttribute("data-state", "idle");
     rerender(<Eyes state="alert" />);
     expect(screen.getByRole("img", { name: /needs attention/i })).toHaveAttribute("data-state", "alert");
+  });
+  it("looks toward the pointer: full deflection when far, less when it is close, none when on top of the eye", () => {
+    const right = gazeToward(100, 100, 900, 100);
+    expect(right.x).toBeCloseTo(1, 5);
+    expect(right.y).toBeCloseTo(0, 5);
+    const upLeft = gazeToward(100, 100, 0, 0);
+    expect(upLeft.x).toBeLessThan(-0.5);
+    expect(upLeft.y).toBeLessThan(-0.4);
+    expect(Math.hypot(upLeft.x, upLeft.y)).toBeLessThanOrEqual(1.0001);
+    const near = gazeToward(100, 100, 130, 100);
+    expect(near.x).toBeGreaterThan(0);
+    expect(near.x).toBeLessThan(0.5);
+    expect(gazeToward(100, 100, 100, 100)).toEqual({ x: 0, y: 0 });
   });
   it("blinks shut and back open within 275 ms", () => {
     expect(lidAt(-1)).toBe(1);

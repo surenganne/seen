@@ -35,7 +35,26 @@ def _validate(section: str, key: str, value: Any) -> Any:
         raise HTTPException(422, f"{section}.{key} must be one of {sorted(ENUMS[(section, key)])}")
     if isinstance(value, str) and len(value) > 200:
         raise HTTPException(422, f"{section}.{key} is too long")
+    if (section, key) == ("sync", "server") and value and not _safe_server(value):
+        raise HTTPException(422, "sync.server must be an https URL (http only for localhost), with no credentials in it")
     return value
+
+
+def _safe_server(url: str) -> bool:
+    """Sync carries the API key: a page or process that can edit settings must not be able to point it at plain http
+    on the internet or at a URL that smuggles credentials."""
+    from urllib.parse import urlparse
+
+    if any(ch.isspace() or ord(ch) < 32 for ch in url):
+        return False
+    try:
+        u = urlparse(url)
+        host = u.hostname
+    except ValueError:
+        return False
+    if not host or u.username or u.password:
+        return False
+    return u.scheme == "https" or (u.scheme == "http" and host in ("localhost", "127.0.0.1", "::1"))
 
 
 def _change_detail(section: str, key: str, old: Any, new: Any) -> dict[str, Any]:
