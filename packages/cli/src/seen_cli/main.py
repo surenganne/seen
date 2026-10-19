@@ -201,6 +201,16 @@ def doctor() -> None:
     has = inst.exists() and f"{brand.PLUGIN}@{brand.MARKETPLACE}" in inst.read_text()
     line(has, f"plugin {brand.PLUGIN}@{brand.MARKETPLACE} " + ("installed" if has else
          "not installed (claude plugin marketplace add surenganne/seen; claude plugin install seen@seen-tools)"))
+    from seen_core import upgrade
+
+    skews = upgrade.skew()
+    for m in skews:
+        line(False, m)
+    if not skews:
+        line(True, f"versions in step: cli {brand.VERSION}, plugin {upgrade.plugin_version() or 'not installed'}")
+    latest = upgrade.latest_release()
+    if upgrade.is_newer(latest, brand.VERSION):
+        line(False, f"update available: {latest} (you have {brand.VERSION}): run `seen upgrade`")
     try:
         with ledger_session() as db:
             db.execute(select(Change.id).limit(1))
@@ -218,6 +228,101 @@ def doctor() -> None:
     errors = log.read_text().count("Traceback") if log.exists() else 0
     line(errors == 0, f"hook log: {errors} errors in {log}")
     raise typer.Exit(0 if ok else 0)  # doctor is advisory; exit 0 so scripts can read the report
+
+
+@app.command("version")
+def version_cmd() -> None:
+    """Versions of every installed piece and the ledger schema."""
+    from importlib import metadata
+
+    from seen_core import upgrade
+
+    hook = shutil.which("seen-hook")
+    rows = [("seen-cli", metadata.version("seen-cli")), ("seen_core", brand.VERSION),
+            ("plugin", upgrade.plugin_version() or "not installed"),
+            ("seen-hook", f"{upgrade.hook_version(hook) or 'unknown'} ({hook or 'not on PATH'})"),
+            ("ledger schema", f"{upgrade.ledger_revision() or 'none yet'} (this CLI: {upgrade.schema_head()})"),
+            ("installed from", upgrade.install_source())]
+    for k, v in rows:
+        typer.echo(f"{k:<15} {v}")
+
+
+@app.command("upgrade")
+def upgrade_cmd(yes: bool = typer.Option(False, "--yes", help="Run the upgrade. Without this, only report the plan"),
+                check: bool = typer.Option(False, "--check", help="Report only (the default; kept for scripts and the plugin command)"),
+                source: str = typer.Option(None, help="Reinstall from this folder or git URL (default: where it was installed from)")) -> None:
+    """Upgrade the CLI and the plugin together. Reports first; `--yes` runs it."""
+    from seen_core import upgrade
+
+    latest = upgrade.latest_release()
+    typer.echo(f"current {brand.VERSION}; latest release " + (latest or "unknown (offline, no release tags, or SEEN_NO_UPDATE_CHECK set)"))
+    for m in upgrade.skew():
+        typer.echo(f"  !!  {m}")
+    try:
+        cmds = upgrade.plan(source or upgrade.install_source(), have_claude=bool(shutil.which("claude")))
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(2) from None
+    if not shutil.which("claude"):
+        typer.echo("`claude` not on PATH: afterwards run `claude plugin marketplace update seen-tools` and "
+                   "`claude plugin update seen@seen-tools` yourself.")
+    if check or not yes:
+        typer.echo("Would run (add --yes):")
+        for c in cmds:
+            typer.echo("  $ " + " ".join(c))
+        return
+    ok, why = upgrade.healthy()
+    if not ok:
+        typer.echo(f"Refusing to upgrade: {why}. Fix it first (`seen doctor`).")
+        raise typer.Exit(1)
+    for c in cmds:
+        typer.echo("  $ " + " ".join(c))
+    results = upgrade.run(cmds)
+    if len(results) < len(cmds) or any(rc for _c, rc in results):
+        typer.echo("Upgrade stopped at a failed step; nothing after it ran. Re-run, or run the steps above by hand.")
+        raise typer.Exit(1)
+    typer.echo("Upgraded. To load the new plugin version, restart Claude Code, then run `seen doctor`.")
+
+
+@app.command("purge")
+def purge_cmd(before: str = typer.Option(None, help="Erase changes and sessions started before this date (YYYY-MM-DD)"),
+              project: str = typer.Option(None, help="Erase everything recorded for one project id"),
+              everything: bool = typer.Option(False, "--all", help="Erase the whole ledger"),
+              yes: bool = typer.Option(False, "--yes", help="Do it. Without this, only report what would be erased")) -> None:
+    """Erase ledger data (DPDP retention/erasure). The audit trail is kept and records the purge (counts only)."""
+    from seen_core import purge
+
+    if not (before or project or everything):
+        typer.echo("Give --before, --project or --all.", err=True)
+        raise typer.Exit(2)
+    res = purge.purge(before=before, project=project, everything=everything, actor=user_id(), dry_run=not yes)
+    typer.echo(("Erased: " if yes else "Would erase (add --yes): ") + ", ".join(f"{v} {k}" for k, v in res.items()))
+    if yes:
+        typer.echo("Run `seen docker-sync` to refresh the Docker dashboard copy; older snapshots still hold the data until pruned.")
+
+
+@app.command("docker-sync")
+def docker_sync(dest: Path = typer.Option(Path("~/.seen-docker"), help="Snapshot folder mounted into the dashboard container"),
+                watch: int = typer.Option(0, help="Repeat every N seconds (0 = once)"),
+                restart: bool = typer.Option(False, help="Restart the dashboard container after each snapshot so it opens the new copy")) -> None:
+    """Snapshot ~/.seen for the Docker dashboard (ADR 0011). The container never opens the live ledger."""
+    import subprocess
+    import time
+
+    from seen_core import snapshot
+
+    while True:
+        try:
+            snap = snapshot.snapshot(paths.home(), dest.expanduser())
+        except SystemExit as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(2) from None
+        typer.echo(f"Snapshot {snap}")
+        if restart:
+            subprocess.run(["docker", "compose", "restart", "dashboard"], check=False)
+        if not watch:
+            return
+        time.sleep(watch)
 
 
 @app.command("dev-seed")

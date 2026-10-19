@@ -164,3 +164,20 @@ def test_sync_command_reports_config_errors(monkeypatch: pytest.MonkeyPatch, see
     paths.config_toml().write_text("[sync]\nenabled = true\n")
     r = cli.invoke(app, ["sync"])
     assert r.exit_code == 2 and "server" in r.output
+
+
+def test_docker_sync_snapshots_the_real_home_and_refuses_without_a_ledger(repo: Path, tmp_path: Path) -> None:
+    dest = tmp_path / "dock"
+    r = cli.invoke(app, ["docker-sync", "--dest", str(dest)])
+    assert r.exit_code == 2 and not dest.exists()
+    recorded(repo, tmp_path)
+    assert "Snapshot" in invoke("docker-sync", "--dest", str(dest))
+    assert (dest / "current" / "ledger.db").exists() and not (dest / "current" / "secret.key").exists()
+
+
+def test_purge_reports_first_and_erases_only_with_yes(repo: Path, tmp_path: Path) -> None:
+    recorded(repo, tmp_path)
+    assert "Would erase" in invoke("purge", "--all")
+    assert "Erased" in invoke("purge", "--all", "--yes")
+    assert "0 changes" in invoke("purge", "--all")
+    assert cli.invoke(app, ["purge"]).exit_code == 2
