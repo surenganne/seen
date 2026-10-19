@@ -30,7 +30,7 @@ export function Projects() {
                 <h2>{p.name ?? p.id}</h2>
                 <div className="path muted tiny" style={{ marginTop: 2 }}>{p.remote ?? p.root_path}</div>
               </div>
-              <Eyes state={p.alert ? "alert" : "idle"} size={30} label={p.alert ? "Needs attention" : "Nothing needs attention"} />
+              <Eyes size={26} label="Seen" />
             </div>
             <div className="facts">
               <div><div className="label">Changes</div><div className="value mono">{p.changes.toLocaleString()}</div></div>

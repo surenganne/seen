@@ -110,14 +110,14 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 ## Part 5. Dashboard: shell, Projects and Overview
 
 **Shell**
-- [ ] The left rail shows the round eyes mark (orange rim, blue iris) beside "Seen". It looks around and blinks.
+- [ ] The left rail shows the round eyes mark (orange rim and brows, blue iris) beside "Seen". It looks around, blinks and lifts its brows now and then.
 - [ ] Turn on "Reduce motion" in your OS settings and reload: the eyes stop moving.
 - [ ] The theme switch (sun / monitor / moon, top right) changes light and dark at once. Reload: your choice is kept.
 - [ ] The rail footer says `Audit chain verified (2,033)`.
 
 **Projects** (`/`)
-- [ ] Three project cards, each with changes, 7-day cost, last change and a red "Needs attention" badge. The eyes on each card are crimson and staring (alert).
-- [ ] Click payments-api: you land on its Overview, and the rail's Project select now shows payments-api.
+- [ ] Three project cards, each with the brand mark, changes, 7-day cost, last change and a red "Needs attention" badge.
+- [ ] Click payments-api: you land on its Overview, and the rail's Project select now shows payments-api. The rail eyes stop wandering and stare with lowered brows (alert), because this project has open findings.
 
 **Overview**
 - [ ] Six summary tiles: Changes, Cost, Tokens, Memory loaded, Policy missed, Changes with PII exposure. Tiles that need attention are tinted with an icon.
