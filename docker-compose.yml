@@ -35,6 +35,9 @@ services:
     build: { context: ., target: test }
     image: seen-tests:dev
     tmpfs: ["/tmp:exec"]
+    # Docker Desktop's VM starts processes several times slower than the host, where hooks really run.
+    # Host latency gates stay strict; the plan's 150 ms hook p95 gate is not scaled.
+    environment: { SEEN_PERF_FACTOR: "2.5" }
 
   # Isolated test database: tmpfs, seeded fresh on every start, never the dev or real data.
   dashboard-test:
