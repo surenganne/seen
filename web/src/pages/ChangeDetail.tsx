@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useChange } from "../api/hooks";
 import { MarkTestData } from "../components/PiiActions";
 import { Badge, Card, Empty, ErrorBox, GitStatus, Loading, MemState, Note, SkillStatus } from "../components/ui";
-import { int, money, pct, short, tokens, when } from "../lib/format";
+import { int, money, pct, short, tokens, truncateWords, when } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
 
 const SOURCE: Record<string, string> = { prompt: "Prompt", file_read: "File read", tool_output: "Tool output", mcp: "MCP tool", injected_memory: "Injected memory", diff_added: "Added lines" };
@@ -26,7 +26,7 @@ export function ChangeDetail() {
       </div>
       <div className="page-head">
         <div style={{ minWidth: 0 }}>
-          <h1 className="clamp-2">{c.prompt_text ? c.prompt_text.split(/\s+/).join(" ").slice(0, 240) : c.summary ?? "(no summary)"}</h1>
+          <h1 className="clamp-2">{c.prompt_text ? truncateWords(c.prompt_text, 240) : c.summary ?? "(no summary)"}</h1>
           {c.prompt_text && c.summary && <p className="small">{c.summary}</p>}
           <p className="mono small">Change #{c.seq} · {when(c.started_at)} · {c.tool} · {c.model ?? "unknown model"}{c.duration_s != null ? ` · ${c.duration_s}s` : ""}</p>
         </div>

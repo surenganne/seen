@@ -31,4 +31,6 @@
   overflow below 320px.
 - **Dashboard weight and drill-down:** pages load on demand (first page 727 KB to about 311 KB of script, capped by a test),
   the router is created once, and every Overview tile links to the changes behind its number.
+- **Page-level unit tests:** all nine dashboard pages render in vitest against captured API responses, in normal, empty and
+  API-down states (13 to 47 tests); `scripts/capture_web_fixtures.py` refreshes the fixtures. Change detail headings cut at a word boundary.
 - **The mark watches the pointer:** the eyes in the rail (topbar on a phone) follow the mouse and keyboard focus anywhere on the page, then go back to glancing; they stay still under reduced motion. The architecture diagram (`docs/architecture.html`) now has a light skin.

@@ -22,5 +22,9 @@ colour contrast of states axe cannot reach (hover, focus, open drawers). Follow-
 load on demand (`React.lazy`), which took the first download from 727 KB to about 311 KB of script (recharts now ships with the
 Overview page; a test caps the first page at 450 KB); the router is created once instead of inside render; each Overview tile
 is a link to the rows behind its number, covered by a click-through test per tile. Polling in hidden tabs needed no change:
-TanStack Query v5 already pauses `refetchInterval` while the tab is in the background. Still open: prompt text in page headings
-(Sessions and Change detail) and page-level unit tests.
+TanStack Query v5 already pauses `refetchInterval` while the tab is in the background. Page-level unit tests (`src/pages/pages.test.tsx`) now render all nine pages against responses captured from a seeded scratch home
+(`scripts/capture_web_fixtures.py` writes `src/test/fixtures.json`; synthetic data only) with a fetch mock that can answer normally,
+with every list empty, or with 500: each page is checked for loading, data, an alert when the API is down, and no alert when empty
+(47 vitest tests, up from 13). A request shown as the Change detail heading is now cut at a word boundary with an ellipsis instead of
+mid-word at 240 characters (`truncateWords`); it stays the heading on purpose, since the request is what the page is about, and it is
+stored redacted by default. Re-run the capture script after a response shape changes.
