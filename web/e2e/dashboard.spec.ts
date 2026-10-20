@@ -186,15 +186,27 @@ test.describe("P4B-8 PII in the dashboard", () => {
 });
 
 test.describe("timeline", () => {
-  test("lists changes by day with the user, filters by user and opens a change", async ({ page }) => {
+  test("shows file-changing requests as points with a one-line headline, by day", async ({ page }) => {
     await page.goto("/p/demo-payments/timeline");
     await expect(page.getByTestId("timeline-count")).toContainText("changes");
-    await expect(page.getByTestId("timeline-day").first()).toBeVisible();
+    const day = page.getByTestId("timeline-day").first();
+    await expect(day).toContainText(/commits?/);
     const entry = page.getByTestId("timeline-entry").first();
     await expect(entry).toContainText("u_demo");
+    await expect(entry).toContainText(/\d+ files?/);
+    expect((await entry.getByRole("link").textContent())?.length).toBeGreaterThan(14);
+    await expect(page.getByRole("table")).toHaveCount(0); // a timeline, not a second Changes table
+  });
+
+  test("filters by user, can include turns without file changes, and opens a change", async ({ page }) => {
+    await page.goto("/p/demo-payments/timeline");
     await page.getByLabel("User").selectOption("u_demo");
     await expect(page).toHaveURL(/actor=u_demo/);
-    await entry.getByRole("link").click();
+    const before = await page.getByTestId("timeline-entry").count();
+    await page.getByRole("button", { name: /Include turns without file changes/ }).click();
+    await expect(page).toHaveURL(/turns=all/);
+    await expect.poll(() => page.getByTestId("timeline-entry").count()).toBeGreaterThanOrEqual(before);
+    await page.getByTestId("timeline-entry").first().getByRole("link").click();
     await expect(page.getByTestId("change-detail")).toBeVisible();
   });
 });
