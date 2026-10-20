@@ -35,3 +35,4 @@ deploy/.env
 
 # local security-audit reports (gstack /cso)
 .gstack/
+*.tsbuildinfo
