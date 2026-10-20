@@ -50,6 +50,16 @@ Expected:
 - Playwright: `37 passed, 1 skipped`, desktop and phone. The run fails on any CSP violation or console error.
 - The benchmark exits 0.
 
+Never run tests, scenario builders or scripts that write a ledger against `~/.seen`. Under pytest every test gets a tmp
+`SEEN_HOME`; `tests/conftest.py` makes that hard to break: `paths.home()` raises if it resolves outside the test's tmp dir
+(so a stray `monkeypatch.undo()`, which also reverts the isolation, or an unset `SEEN_HOME` fails the test instead of writing),
+and at the end of the session the run fails if the real ledger's project list changed (read-only check; it can also fire if your
+own Seen session added a project meanwhile). `Replay` and the scenario `Scene` refuse the real home with an error naming
+`SEEN_HOME`. Scope a patch with `with monkeypatch.context() as m:`, never `monkeypatch.undo()`. To see the scenario
+precision/recall table run `uv run python spikes/provenance/compare.py` (scratch repos only, no ledger); to run the scenario
+suite use `uv run pytest tests/provenance/test_scenarios.py`, never an ad-hoc script importing `scenarios.py`; if you must, export
+`SEEN_HOME=$(mktemp -d)` first.
+
 The same checks run in CI on every push: <https://github.com/surenganne/seen/actions>.
 
 ---

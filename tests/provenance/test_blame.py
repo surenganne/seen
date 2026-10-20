@@ -351,46 +351,57 @@ def test_parse_porcelain_rejects_nul_in_a_header() -> None:
         parse_porcelain(f"{sha} 1 1 1\nauthor x\0y\nfilename a.py\n\tcode_line_one\n")
 
 
-def _spy_run_raw(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
+def _spy_git(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
+    """Every argv that reaches git through gitutil.run or gitutil.run_raw, so the checks below cannot pass vacuously if
+    blame moves from one to the other."""
     seen: list[tuple[str, ...]] = []
-    real = blame.gitutil.run_raw
+    real_raw, real_run = blame.gitutil.run_raw, blame.gitutil.run
 
-    def spy(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
+    def raw(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
         seen.append(args)
-        return real(cwd, *args, timeout=timeout)
+        return real_raw(cwd, *args, timeout=timeout)
 
-    monkeypatch.setattr(blame.gitutil, "run_raw", spy)
+    def run(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
+        seen.append(args)
+        return real_run(cwd, *args, timeout=timeout)
+
+    monkeypatch.setattr(blame.gitutil, "run_raw", raw)
+    monkeypatch.setattr(blame.gitutil, "run", run)
     return seen
 
 
 def test_blame_argv_has_no_end_of_options(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """git 2.39 (the Docker image) rejects --end-of-options in every position of `git blame` and prints usage; 2.54 accepts it,
     so host-only runs hide the break. ADR 0019."""
-    seen = _spy_run_raw(monkeypatch)
+    seen = _spy_git(monkeypatch)
     with ledger_session() as db:
         fp = blame.blame_file(db, project(repo), "a.py")
     assert fp.reason is None
-    (argv,) = [a for a in seen if a[0] == "blame"]
+    (argv,) = [a for a in seen if "blame" in a]
     assert "--end-of-options" not in argv
     assert argv == ("blame", "--porcelain", "--no-textconv", "-w", "-M", "-C", "HEAD", "--", "a.py")
 
 
 @pytest.mark.parametrize("rev,path", [("-n", "a.py"), ("HEAD", "-a.py")])
 def test_blame_never_passes_a_dash_leading_value_to_git(repo: Path, monkeypatch: pytest.MonkeyPatch, rev: str, path: str) -> None:
-    seen = _spy_run_raw(monkeypatch)
+    seen = _spy_git(monkeypatch)
     with ledger_session() as db, pytest.raises(ValueError):
         blame.blame_file(db, project(repo), path, rev)
-    assert not [a for a in seen if a[0] == "blame"]
+    assert not seen  # no git call at all, through run or run_raw
 
 
-def test_blame_guard_at_the_call_holds_when_earlier_checks_are_bypassed(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    seen = _spy_run_raw(monkeypatch)
-    monkeypatch.setattr(blame, "resolve_path", lambda root, p: "-a.py")
-    with ledger_session() as db, pytest.raises(ValueError):
-        blame.blame_file(db, project(repo), "a.py")
-    monkeypatch.undo()
-    seen2 = _spy_run_raw(monkeypatch)
-    monkeypatch.setattr(blame, "REV", re.compile(r".*"))
-    with ledger_session() as db, pytest.raises(ValueError):
-        blame.blame_file(db, project(repo), "a.py", "-n")
-    assert not seen and not seen2  # refused before any git call
+def test_blame_guard_holds_when_earlier_checks_are_bypassed(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With resolve_path or REV patched to let a '-' value through, blame_file's own check still raises before any git call
+    (checked on both gitutil.run and gitutil.run_raw)."""
+    with monkeypatch.context() as m:
+        seen = _spy_git(m)
+        m.setattr(blame, "resolve_path", lambda root, p: "-a.py")
+        with ledger_session() as db, pytest.raises(ValueError):
+            blame.blame_file(db, project(repo), "a.py")
+        assert not seen
+    with monkeypatch.context() as m:
+        seen = _spy_git(m)
+        m.setattr(blame, "REV", re.compile(r".*"))
+        with ledger_session() as db, pytest.raises(ValueError):
+            blame.blame_file(db, project(repo), "a.py", "-n")
+        assert not seen

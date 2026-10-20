@@ -8,11 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from seen_core import hook
-from tests.conftest import FIXTURES
+from tests.conftest import FIXTURES, assert_not_real_home
 
 
 class Replay:
     def __init__(self, repo: Path, tmp: Path, transcript: str = "run1", sid: str = "sess-1") -> None:
+        assert_not_real_home()
         self.repo, self.sid = repo, sid
         self.src = FIXTURES / "transcripts" / f"{transcript}.jsonl"
         self.tp = tmp / "transcripts" / f"{sid}.jsonl"
