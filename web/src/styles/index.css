@@ -416,3 +416,16 @@ pre.snippet { margin: 0; padding: 0.75rem; overflow-x: auto; font-family: var(--
   .project .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .project > .badge { align-self: flex-start; }
+
+/* ---------- provenance ---------- */
+.prov-scroll { max-height: 32rem; overflow: auto; }
+.prov-block { display: grid; grid-template-columns: 8.5rem 7rem minmax(0, 1fr); gap: 0.25rem 0.75rem; align-items: baseline; padding: 0.55rem 1rem; border-bottom: 1px solid var(--border); }
+.prov-block:last-child { border-bottom: 0; }
+.prov-block .prov-main { min-width: 0; overflow-wrap: anywhere; }
+.prov-block .prov-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: center; color: var(--ink-3); font-size: 0.75rem; }
+.prov-counts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+.prov-counts li { display: inline-flex; align-items: center; gap: 0.35rem; }
+.prov-counts svg { width: 14px; height: 14px; }
+@media (max-width: 560px) { .prov-block { grid-template-columns: 1fr; } }
+.prov-list { list-style: none; margin: 0; padding: 0; }
+.prov-block .badge { justify-self: start; }

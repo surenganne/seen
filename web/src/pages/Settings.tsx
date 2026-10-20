@@ -45,6 +45,9 @@ export function Settings() {
         <Card title="Skill auditing"><KV obj={s.skills} /></Card>
         <Card title="Audit retention"><KV obj={s.audit} /></Card>
       </div>
+      <div className="grid cols">
+        <Card title="Provenance"><KV obj={s.provenance} /></Card>
+      </div>
       <div className="grid split">
         <Card title="Price table" flush aside={s.prices.verified ? <Badge tone="good">verified</Badge> : <Badge tone="warning">unverified</Badge>}>
           <div className="table-wrap" tabIndex={0} role="region" aria-label="Price table">

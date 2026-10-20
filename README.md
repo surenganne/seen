@@ -90,7 +90,7 @@ seen audit export --format csv --from 2026-10-01 --to 2026-10-31
 
 A local web UI over the same ledger: **Projects** and **Overview** (cost, tokens, skills, PII),
 **Changes**, **Sessions** and **Timeline** (every agent turn, by session and by day, with the files, skills and findings behind each number),
-**Skills** (versions and approvals), **Audit** (the hash-chained trail, with verify and export) and
+**Skills** (versions and approvals), **Provenance** (who wrote each line of a file: agent, human or not observed), **Audit** (the hash-chained trail, with verify and export) and
 **Settings** (PII detection is editable; sync and retention are shown). Summaries link to the rows behind them.
 
 The UI is a built bundle that is not packaged with the CLI, so build it once from a clone:
