@@ -11,6 +11,8 @@ from ..db.models import Change, ChangeFile, SkillInvocation
 from ..headline import headline_of, request_line
 from .blame import Block
 
+CHUNK = 900  # SQLite allows 999 variables per statement
+
 
 @dataclass(frozen=True)
 class EnrichedBlock:
@@ -26,19 +28,19 @@ class EnrichedBlock:
 
 
 def enrich_blocks(db: Any, blocks: list[Block]) -> list[EnrichedBlock]:
-    """Three queries in all (changes, files, skills), however many blocks. Local scale: the id list stays short
-    (one id per agent block); ponytail: chunk the IN lists if a file ever has ~900 distinct changes."""
+    """Three queries per chunk of 900 ids (changes, files, skills). Local scale: the id list stays short
+    (one id per agent block); """
     ids = sorted({b.change_id for b in blocks if b.change_id})
     changes: dict[str, Change] = {}
     files: dict[str, list[str]] = {i: [] for i in ids}
     skills: dict[str, list[str]] = {i: [] for i in ids}
-    if ids:
-        changes = {c.id: c for c in db.scalars(sa.select(Change).where(Change.id.in_(ids)))}
-        for cid, path in db.execute(sa.select(ChangeFile.change_id, ChangeFile.path).where(ChangeFile.change_id.in_(ids))
+    for chunk in (ids[i:i + CHUNK] for i in range(0, len(ids), CHUNK)):
+        changes.update({c.id: c for c in db.scalars(sa.select(Change).where(Change.id.in_(chunk)))})
+        for cid, path in db.execute(sa.select(ChangeFile.change_id, ChangeFile.path).where(ChangeFile.change_id.in_(chunk))
                                     .order_by(ChangeFile.path)):
             files[cid].append(path)
         for cid, sk in db.execute(sa.select(SkillInvocation.change_id, SkillInvocation.skill_id)
-                                  .where(SkillInvocation.change_id.in_(ids)).order_by(SkillInvocation.ordinal)):
+                                  .where(SkillInvocation.change_id.in_(chunk)).order_by(SkillInvocation.ordinal)):
             if sk:
                 skills[cid].append(sk)
     out = []

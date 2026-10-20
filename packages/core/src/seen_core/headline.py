@@ -28,13 +28,21 @@ def areas_of(paths: list[str]) -> list[str]:
     return [a for a, _ in Counter(area(p) for p in paths).most_common(3)]
 
 
+_CTRL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def clean(text: str | None) -> str:
+    """Printable text only: whitespace runs become one space, other control characters (ANSI/OSC escapes) are dropped."""
+    return _CTRL.sub("", " ".join((text or "").split()))
+
+
 _SENTENCE = re.compile(r"(?<=[.!?])\s")
 
 
 def headline_of(summary: str | None, request: str | None, files: list[str]) -> str:
     """One line for a change: the first sentence of the reply, else the request, else what was touched."""
     for src in (summary, request):
-        text = " ".join((src or "").replace("*", "").replace("`", "").split())
+        text = clean((src or "").replace("*", "").replace("`", ""))
         text = _SENTENCE.split(text, 1)[0] if text else ""
         if len(text) >= 15:
             return text if len(text) <= 140 else text[:139].rstrip() + "…"
