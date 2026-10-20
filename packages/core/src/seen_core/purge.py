@@ -14,6 +14,7 @@ from .db import ledger_engine, ledger_session
 from .db.models import (
     Change,
     ChangeFile,
+    LinePrint,
     Outbox,
     PiiFinding,
     PolicyResult,
@@ -22,7 +23,7 @@ from .db.models import (
     SkillInvocation,
 )
 
-CHILDREN = (ChangeFile, SkillInvocation, PolicyResult, PiiFinding)
+CHILDREN = (ChangeFile, SkillInvocation, PolicyResult, PiiFinding, LinePrint)
 
 
 def _run(db: sa.orm.Session, stmt: sa.Delete) -> int:
