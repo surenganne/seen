@@ -230,7 +230,7 @@ def test_purge_removes_prints_with_the_change(...):
   - `test_resolve_path_refuses_escape` for `../x`, `/etc/passwd`, `-n`, and a symlink pointing outside.
   - `test_scenarios` (acceptance 1 to 3), each built in a scratch repo through `Replay` plus real `git`: in-turn commit; human commit later; human edits half the lines; squash merge; rename; Bash-generated file; human-only repo; CRLF file. Assertions: zero `agent` lines in the human-only repo; precision at least 0.99 and recall at least 0.90 over the rest; the Bash-generated file has no `agent`; pre-Seen code is `not_observed`.
 - [ ] **Step 2: Run to verify failure.**
-- [ ] **Step 3: Implement** the signatures above. `blame_file` runs `gitutil.run(root, "blame", "--porcelain", "-w", "-M", "-C", "--end-of-options", rev, "--", path, timeout=budget_s)` and returns `truncated=True` on timeout; a file over 1 MB or 20,000 lines, a binary or an untracked file returns `reason` set and all lines `not_observed`. Fingerprints use `secret.key()`.
+- [ ] **Step 3: Implement** the signatures above. `blame_file` runs `gitutil.run(root, "blame", "--porcelain", "--no-textconv", "-w", "-M", "-C", rev, "--", path, timeout=budget_s)` (no `--end-of-options`: git 2.39 rejects it for blame, ADR 0019; the rev and path are checked not to start with `-`) and returns `truncated=True` on timeout; a file over 1 MB or 20,000 lines, a binary or an untracked file returns `reason` set and all lines `not_observed`. Fingerprints use `secret.key()`.
 - [ ] **Step 4: Run to verify pass.**
 - [ ] **Step 5: Commit** `PV-4: blame parsing and line attribution`.
 

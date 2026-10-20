@@ -13,8 +13,8 @@ git -C "$r" add -A && c 1790000000 base
 git -C "$r" mv old_name.py new_name.py
 printf 'def second_function(beta):\n    return beta * 2\n' >> "$r/new_name.py"
 git -C "$r" add -A && c 1790000100 rename
-# rev first then path: "blame --end-of-options <rev> -- <path>" fails on git 2.54 (see docs/adr/0019)
-b() { git -C "$r" blame --porcelain -w -M -C --end-of-options -- "$3" "$1"; }
+# no --end-of-options: git 2.39 rejects it for blame (docs/adr/0019)
+b() { git -C "$r" blame --porcelain -w -M -C "$1" -- "$3"; }
 b HEAD -- new_name.py > "$out/blame_rename.txt"
 printf 'spaced_and_quoted = "value one"\n' > "$r/my \"odd\" file.py"
 printf 'line_with_crlf_ending = 1\r\nsecond_crlf_line_here = 2\r\n' > "$r/crlf.txt"

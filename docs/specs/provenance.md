@@ -1,7 +1,7 @@
 # Spec: Provenance ("git blame for AI")
 
 Status: implemented, 2026-10-20. This text describes what was built (tasks PV-0 to PV-10). ADR 0018 records the
-capture method and the tool set; ADR 0019 (blame argument order) is still `proposed` for the owner.
+capture method and the tool set; ADR 0019 (blame without --end-of-options) is still `proposed` for the owner.
 
 ## 1. Problem
 
@@ -123,9 +123,11 @@ Unknown or malformed `prints` lines are ignored (an older ingest ignores the who
 
 ### 6.1 Blame
 
-`git blame --porcelain --no-textconv -w -M -C --end-of-options -- <path> <rev>`, run through `seen_core.gitutil` (repo files
-and git config are untrusted input). The argument order is the form that works on git 2.54; the order first written in
-this spec failed (ADR 0019, still `proposed` for the owner). `-w` ignores whitespace-only changes, `-M -C` follow moved and
+`git blame --porcelain --no-textconv -w -M -C <rev> -- <path>`, run through `seen_core.gitutil` (repo files and git config
+are untrusted input). Blame gets no `--end-of-options`: git 2.39 (the Docker image) rejects it in every position, and
+2.54 only accepted one form of it (ADR 0019, still `proposed` for the owner). Instead `rev` must match `blame.REV` (never
+starts with `-`) and `<path>` comes from `resolve_path` (never starts with `-`), and `blame_file` raises before any git call
+if either does. `-w` ignores whitespace-only changes, `-M -C` follow moved and
 copied lines. The porcelain output gives, per line: the blamed commit, that commit's committer time, the file name *at that
 commit*, and the text. Output is read through `gitutil.run_raw`, with no newline translation, because a lone CR in a file
 would otherwise forge a porcelain header. `gitutil` neutralises git output encodings, textconv and diff drivers, and
@@ -247,7 +249,7 @@ Both are reads (no audit event, like other reads) and return no line text. Failu
 | Budget timeout (default 5 s) | 200 with `truncated: true` and the blocks found so far |
 
 Headline text is run through `clean()` (control characters stripped) everywhere it is shown. Git runs through `gitutil`
-with `--end-of-options`.
+with `--end-of-options`, except `blame` (section 6.1).
 
 ### 7.3 Dashboard
 
@@ -358,5 +360,5 @@ Taken with the recommended defaults (2026-10-20):
 3. **Retention.** Fingerprints are kept as long as the ledger rows they belong to.
 4. **Trivial-line threshold.** Stays at 10 alphanumerics (ADR 0018).
 
-Open for the owner: v2 sharing is still undecided (cost and any text, such as headlines, are proposed as excluded). ADR 0019 stays `proposed` (blame argument order). The closed-stdin refusal and a few minor findings
+Open for the owner: v2 sharing is still undecided (cost and any text, such as headlines, are proposed as excluded). ADR 0019 stays `proposed` (blame without `--end-of-options`). The closed-stdin refusal and a few minor findings
 are tracked in the review ledger, not here.

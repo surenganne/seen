@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -269,7 +270,7 @@ def test_blame_file_lone_cr_cannot_forge_lines(repo: Path) -> None:
     payload = "real = 2\r" + "a" * 40 + " 1 9 1\rfilename injected_path.py\r\t" + forged
     (repo / "a.py").write_bytes(b"first_real_line_here = 1\n" + payload.encode() + b"\nthird_real_line_here = 3\n")
     commit_all(repo, "lone CR")
-    out = blame.gitutil.run_raw(str(repo), "blame", "--porcelain", "--end-of-options", "--", "a.py", "HEAD")
+    out = blame.gitutil.run_raw(str(repo), "blame", "--porcelain", "-w", "-M", "-C", "HEAD", "--", "a.py")
     assert out is not None
     got = parse_porcelain(out)
     assert [(x.n, x.path) for x in got] == [(1, "a.py"), (2, "a.py"), (3, "a.py")]
@@ -348,3 +349,48 @@ def test_parse_porcelain_rejects_nul_in_a_header() -> None:
     sha = "a" * 40
     with pytest.raises(ValueError):
         parse_porcelain(f"{sha} 1 1 1\nauthor x\0y\nfilename a.py\n\tcode_line_one\n")
+
+
+def _spy_run_raw(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]]:
+    seen: list[tuple[str, ...]] = []
+    real = blame.gitutil.run_raw
+
+    def spy(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
+        seen.append(args)
+        return real(cwd, *args, timeout=timeout)
+
+    monkeypatch.setattr(blame.gitutil, "run_raw", spy)
+    return seen
+
+
+def test_blame_argv_has_no_end_of_options(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """git 2.39 (the Docker image) rejects --end-of-options in every position of `git blame` and prints usage; 2.54 accepts it,
+    so host-only runs hide the break. ADR 0019."""
+    seen = _spy_run_raw(monkeypatch)
+    with ledger_session() as db:
+        fp = blame.blame_file(db, project(repo), "a.py")
+    assert fp.reason is None
+    (argv,) = [a for a in seen if a[0] == "blame"]
+    assert "--end-of-options" not in argv
+    assert argv == ("blame", "--porcelain", "--no-textconv", "-w", "-M", "-C", "HEAD", "--", "a.py")
+
+
+@pytest.mark.parametrize("rev,path", [("-n", "a.py"), ("HEAD", "-a.py")])
+def test_blame_never_passes_a_dash_leading_value_to_git(repo: Path, monkeypatch: pytest.MonkeyPatch, rev: str, path: str) -> None:
+    seen = _spy_run_raw(monkeypatch)
+    with ledger_session() as db, pytest.raises(ValueError):
+        blame.blame_file(db, project(repo), path, rev)
+    assert not [a for a in seen if a[0] == "blame"]
+
+
+def test_blame_guard_at_the_call_holds_when_earlier_checks_are_bypassed(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _spy_run_raw(monkeypatch)
+    monkeypatch.setattr(blame, "resolve_path", lambda root, p: "-a.py")
+    with ledger_session() as db, pytest.raises(ValueError):
+        blame.blame_file(db, project(repo), "a.py")
+    monkeypatch.undo()
+    seen2 = _spy_run_raw(monkeypatch)
+    monkeypatch.setattr(blame, "REV", re.compile(r".*"))
+    with ledger_session() as db, pytest.raises(ValueError):
+        blame.blame_file(db, project(repo), "a.py", "-n")
+    assert not seen and not seen2  # refused before any git call

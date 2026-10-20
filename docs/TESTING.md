@@ -59,11 +59,15 @@ The same checks run in CI on every push: <https://github.com/surenganne/seen/act
 ```bash
 seen docker-sync && docker compose up -d --build  # dashboard on a snapshot of your real ~/.seen
 open http://127.0.0.1:47821                      # or paste into a browser
-docker compose --profile test run --rm tests     # lint, types, unit tests in a container
+docker compose --profile test build tests && docker compose --profile test run --rm tests  # lint, types, unit tests in a container
 docker compose --profile test run --rm e2e       # Playwright against a tmpfs test database
 docker compose --profile dev up -d               # optional: Vite hot reload on :47822
 docker compose down                              # stop (the snapshot stays in ~/.seen-docker)
 ```
+
+The containerised suite runs git 2.39 (`python:3.12-slim-bookworm`); a Mac host usually has git 2.5x, so a git flag that works
+on the host can fail here (`git blame --end-of-options` did, ADR 0019). `docker compose run` does not rebuild a stale image: run
+`docker compose --profile test build tests` first or you test old code.
 
 Expected:
 - [ ] The dashboard opens with three projects: data-pipelines, patient360-web and payments-api.
