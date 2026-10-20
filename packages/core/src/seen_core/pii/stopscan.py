@@ -156,17 +156,6 @@ def scan_transcript(c: Collector, turn: Turn, root: str | None) -> None:
                 c.add(text, "tool_input", "Bash network command", "network")
 
 
-def scan_memory(c: Collector, root: str | None, project_id: str | None, ids: list[str]) -> None:
-    if not ids:
-        return
-    from ..memory.files import load
-
-    personal = paths.personal_memory_dir(project_id) if project_id else None
-    for m in load(root, personal):
-        if m.ok and m.id in ids:
-            c.add(m.body, "injected_memory", f"Memory {m.id}", "model")
-
-
 def _read_capped(p: Path) -> str:
     try:
         st = os.lstat(p)

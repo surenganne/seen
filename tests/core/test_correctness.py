@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from seen_core import audit, paths, secret
-from seen_core.memory import session as msess
+from seen_core import audit, paths, secret, sessionstate
 from seen_core.skills import lock
 
 
@@ -69,17 +68,8 @@ def test_a_short_key_file_is_replaced_not_trusted(seen_home: Path) -> None:
 
 # C. parallel hooks share one session state file
 def test_session_state_survives_parallel_writers(seen_home: Path) -> None:
-    errs = run_threads(8, lambda i: [msess.write("s", {"i": i, "n": n}) for n in range(40)])
-    assert not errs and "i" in msess.read("s")
-
-
-def test_modify_does_not_lose_updates(seen_home: Path) -> None:
-    def add(i: int) -> None:
-        for n in range(25):
-            msess.modify("s", lambda st, tag=f"{i}-{n}": st.setdefault("ids", []).append(tag))
-
-    assert not run_threads(8, add)
-    assert len(msess.read("s")["ids"]) == 200
+    errs = run_threads(8, lambda i: [sessionstate.write("s", {"i": i, "n": n}) for n in range(40)])
+    assert not errs and "i" in sessionstate.read("s")
 
 
 # D. a planted FIFO must not hang the pre-read scan
