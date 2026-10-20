@@ -105,7 +105,8 @@ def test_deleted_file_is_404(client: TestClient, root: Path) -> None:
     assert get_file(client, DEMO, "HEAD~1").status_code == 200
 
 
-def test_project_without_a_usable_repo_is_404(client: TestClient, tmp_path: Path) -> None:
+def test_project_without_a_usable_repo(client: TestClient, tmp_path: Path) -> None:
+    """No repository on this machine is not an error of the request: 200 with a reason (file); the range route keeps its 404."""
     empty = tmp_path / "empty"
     empty.mkdir()
     git(empty, "init", "-q", "-b", "main")  # a repo with no HEAD
@@ -114,10 +115,19 @@ def test_project_without_a_usable_repo_is_404(client: TestClient, tmp_path: Path
                     Project(id="p-gone", name="g", root_path=str(tmp_path / "gone"), created_at="2026-01-01T00:00:00Z"),
                     Project(id="p-nohead", name="h", root_path=str(empty), created_at="2026-01-01T00:00:00Z")])
         db.commit()
-    for pid in ("p-noroot", "p-gone", "p-nohead"):
-        for tail, params in (("file", {"path": "a.py"}), ("range", {"base": "HEAD~1"})):
-            r = client.get(f"/api/projects/{pid}/provenance/{tail}", params=params)
-            assert r.status_code == 404, (pid, tail, r.status_code, r.text)
+    for pid in ("p-noroot", "p-gone"):
+        r = client.get(f"/api/projects/{pid}/provenance/file", params={"path": "src/a.py", "rev": "main"})
+        assert r.status_code == 200, (pid, r.text)
+        assert r.json() == {"path": "src/a.py", "rev": "main", "counts": {"agent": 0, "human": 0, "not_observed": 0, "neutral": 0},
+                            "blocks": [], "truncated": False, "reason": "no repository on this machine"}
+        for bad in ("../x", "/etc/passwd", "-x", "a\x00b", "", "."):  # validation still comes first
+            assert client.get(f"/api/projects/{pid}/provenance/file", params={"path": bad}).status_code == 422, (pid, bad)
+        assert client.get(f"/api/projects/{pid}/provenance/file", params={"path": "a.py", "rev": "-x"}).status_code == 422
+        assert client.get(f"/api/projects/{pid}/provenance/range", params={"base": "HEAD~1"}).status_code == 404
+    assert client.get("/api/projects/p-unknown/provenance/file", params={"path": "a.py"}).status_code == 404
+    # a repository with no HEAD is a real failure of the request, not a missing repository
+    assert client.get("/api/projects/p-nohead/provenance/file", params={"path": "a.py"}).status_code == 404
+    assert client.get("/api/projects/p-nohead/provenance/range", params={"base": "HEAD~1"}).status_code == 404
 
 
 def test_binary_and_huge_files_are_capped_not_failed(client: TestClient, root: Path) -> None:

@@ -448,6 +448,22 @@ test.describe("PV-8 provenance", () => {
       });
     }
 
+    test("no repository on this machine: a calm explanation and no failed file request", async ({ page }) => {
+      // The e2e ledger's demo repos exist on disk, so the server's 200-with-reason answer is covered at API level
+      // (tests/local/test_api_provenance.py); here the page is driven with that exact contract.
+      await page.route("**/provenance/file?*", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        path: "src/payments/charge.py", rev: "HEAD", counts: { agent: 0, human: 0, not_observed: 0, neutral: 0 }, blocks: [], truncated: false, reason: "no repository on this machine" }) }));
+      const failed: string[] = [];
+      page.on("response", (r) => { if (r.url().includes("/provenance/file") && r.status() >= 400) failed.push(`${r.status()} ${r.url()}`); });
+      await page.goto(`${list}?path=src/payments/charge.py`);
+      await expect(page.getByTestId("prov-note")).toContainText("This dashboard has no copy of the repository");
+      await expect(page.getByTestId("prov-note")).toContainText("seen serve");
+      await expect(page.getByText(/No lines attributed/)).toHaveCount(0);
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      await expect(page.locator("details summary")).toBeVisible(); // the list stays reachable
+      expect(failed).toEqual([]);
+    });
+
     test.describe("at 320px", () => {
       test.use({ viewport: { width: 320, height: 640 } });
       test("the list reflows without horizontal page scroll", async ({ page }) => {

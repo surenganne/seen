@@ -17,6 +17,9 @@ const WHO: Record<Who, { label: string; icon: LucideIcon; tone: string; meaning:
 };
 const WHOS = Object.keys(WHO) as Who[];
 
+/** The API's reason when the project has no repository on this machine (provenance_api.REASON_NO_REPO). */
+const NO_REPO = "no repository on this machine";
+
 const lines = (b: S["ProvenanceBlock"]) => (b.start === b.end ? `Line ${b.start}` : `Lines ${b.start}–${b.end}`);
 
 function WhoBadge({ who }: { who: Who }) {
@@ -67,6 +70,7 @@ function BlockTable({ blocks, pid, range, path }: { blocks: S["ProvenanceBlock"]
 function Result({ f, pid, range }: { f: S["ProvenanceFile"]; pid: string; range: 7 | 14 | 28 }) {
   const [asTable, setAsTable] = useState(false);
   const blocks = f.blocks.filter((b) => b.who !== "neutral");
+  if (f.reason === NO_REPO) return <Note tone="info" testId="prov-note">This dashboard has no copy of the repository, so line-by-line blame cannot run here. The file list and the ledger still work. Run the dashboard on the host (<code>seen serve</code>) to see who wrote each line.</Note>;
   if (f.reason) return <Note tone="info" testId="prov-note">No lines attributed: {f.reason}</Note>;
   const n = (k: string) => f.counts[k] ?? 0;
   return (

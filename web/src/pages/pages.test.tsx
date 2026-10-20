@@ -212,6 +212,15 @@ describe("page details", () => {
       expect(await screen.findByText(/not tracked by git/)).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
+    it("no repository on this machine is a calm explanation, not the generic no-lines line, and the list stays usable", async () => {
+      file(200, { ...base, reason: "no repository on this machine" });
+      mount(at("?path=src/auth/tokens.py"));
+      expect(await screen.findByText(/This dashboard has no copy of the repository/)).toBeInTheDocument();
+      expect(screen.getByText(/seen serve/)).toBeInTheDocument();
+      expect(screen.queryByText(/No lines attributed/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByText(/^Choose another file/)).toBeInTheDocument();
+    });
     it("a reason says no lines were attributed, with no counts", async () => {
       file(200, { ...base, reason: "binary file" });
       mount(byName("Provenance"));
