@@ -96,7 +96,7 @@ def test_ingest_command_replays_session(repo: Path, tmp_path: Path) -> None:
 def test_dev_seed_into_explicit_home(tmp_path: Path) -> None:
     home = tmp_path / "dev"
     out = invoke("dev-seed", "--home", str(home))
-    assert "changes" in out and (home / "ledger.db").exists() and (home / "demo-repos/payments-api/.seen/memory").is_dir()
+    assert "changes" in out and (home / "ledger.db").exists() and (home / "demo-repos/payments-api/.seen/policies.yaml").is_file()
 
 
 def test_dev_seed_refuses_real_home(monkeypatch: pytest.MonkeyPatch) -> None:
