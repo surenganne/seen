@@ -17,11 +17,11 @@ from .. import paths
 _ALEMBIC = Path(__file__).parent / "alembic"
 
 
-def upgrade(url: str) -> None:
+def upgrade(url: str, revision: str = "head") -> None:
     cfg = Config()
     cfg.set_main_option("script_location", str(_ALEMBIC))
     cfg.set_main_option("sqlalchemy.url", url)
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, revision)
 
 
 def _sqlite_pragmas(dbapi_conn: object, _rec: object) -> None:

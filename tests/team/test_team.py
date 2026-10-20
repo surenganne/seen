@@ -7,7 +7,7 @@ from tests.team.conftest import BOOT, admin, make_key
 def batch(pid: str = "p1", cid: str = "c1", cost: float = 0.5) -> dict:
     return {"changes": [{"id": cid, "project_id": pid, "session_id": "s1", "seq": 1, "started_at": "2026-10-18T10:00:00Z",
                          "duration_s": 30, "tool": "claude-code", "user_id": "u_a", "model": "claude-sonnet-5-5", "git_status": "committed",
-                         "mem_state": "loaded", "file_count": 2, "lines_added": 10, "lines_removed": 3, "tok_in": 5, "tok_out": 900,
+                         "file_count": 2, "lines_added": 10, "lines_removed": 3, "tok_in": 5, "tok_out": 900,
                          "tok_cache_read": 1000, "tok_cache_write": 100, "cost_usd": cost, "price_version": "v1",
                          "skills": [{"skill": "tdd", "kind": "plugin", "hash": "a" * 64, "trigger": "model", "status": "approved"}],
                          "policies": [{"policy": "p1:pol", "met": False}], "pii": {"state": "found", "counts": {"email": 2}}}],

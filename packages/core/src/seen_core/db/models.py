@@ -55,8 +55,6 @@ class Change(Base):
     git_head_before: Mapped[str | None] = mapped_column(T)
     git_head_after: Mapped[str | None] = mapped_column(T)
     git_status: Mapped[str | None] = mapped_column(T)  # committed | uncommitted | reverted
-    mem_state: Mapped[str | None] = mapped_column(T)  # loaded | missed | none
-    mem_injected_tokens: Mapped[int] = mapped_column(Integer, default=0)
     pii_state: Mapped[str | None] = mapped_column(T)  # none | found | blocked
     pii_count: Mapped[int] = mapped_column(Integer, default=0)
     synced_at: Mapped[str | None] = mapped_column(T)
@@ -68,13 +66,6 @@ class ChangeFile(Base):
     path: Mapped[str] = mapped_column(String, primary_key=True)
     added: Mapped[int] = mapped_column(Integer, default=0)
     removed: Mapped[int] = mapped_column(Integer, default=0)
-
-
-class ChangeMemory(Base):
-    __tablename__ = "change_memories"
-    change_id: Mapped[str] = mapped_column(String, primary_key=True)
-    memory_id: Mapped[str] = mapped_column(String, primary_key=True)
-    content_hash: Mapped[str | None] = mapped_column(T)
 
 
 class Skill(Base):
