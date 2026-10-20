@@ -1,7 +1,8 @@
 """Line attribution from git blame (spec section 6). Read side: never stores or logs line text.
 
 Repo files, refs and git config are untrusted: paths are checked by `resolve_path`, revs by a safe pattern, and git runs
-only through `gitutil`, with `--end-of-options` (ADR 0019 has the argument order blame needs)."""
+only through `gitutil`. Every git call but `blame` passes `--end-of-options`; blame cannot (git 2.39 rejects it), so its rev and
+path are checked not to start with '-' instead (ADR 0019)."""
 
 from __future__ import annotations
 
@@ -280,6 +281,10 @@ def blame_file(db: Any, project: Project, path: str, rev: str = "HEAD", budget_s
             return None
         return done([], True, "time budget exceeded") if time.monotonic() >= deadline else None
 
+    # git blame rejects --end-of-options on git 2.39 (ADR 0019), so nothing here may start with '-'. REV and resolve_path
+    # already guarantee it; this is the last check before any git call below.
+    if rev.startswith("-") or rel.startswith("-"):
+        raise ValueError("unsafe rev or path")
     ls = gitutil.run(root, "--literal-pathspecs", "ls-tree", "-z", "-l", "--end-of-options", rev, "--", rel, timeout=left())
     if r := failed(ls):
         return r
@@ -299,8 +304,7 @@ def blame_file(db: Any, project: Project, path: str, rev: str = "HEAD", budget_s
     if n > MAX_LINES:
         return unseen(n, "over 20,000 lines")
     # run_raw: newline translation would turn a lone CR in the file into a porcelain line break (forged headers)
-    out = gitutil.run_raw(root, "blame", "--porcelain", "--no-textconv", "-w", "-M", "-C", "--end-of-options", "--", rel, rev,
-                          timeout=left())
+    out = gitutil.run_raw(root, "blame", "--porcelain", "--no-textconv", "-w", "-M", "-C", rev, "--", rel, timeout=left())
     if r := failed(out):
         return r
     if out is None:

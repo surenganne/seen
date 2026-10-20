@@ -1,7 +1,7 @@
 """`seen pr-report`: who wrote the lines a branch adds (spec sections 6, 7.1, 8, 9).
 
 Read side only. Refs and the diff come from an untrusted repo: refs are checked by pattern, git runs through
-`gitutil` with `--end-of-options`. Never stores or prints line text, and never uses the prompt (a posted report
+`gitutil` with `--end-of-options` (blame is in blame.py and cannot use it, ADR 0019). Never stores or prints line text, and never uses the prompt (a posted report
 leaves the machine): request headlines come from the redacted assistant summary only."""
 
 from __future__ import annotations
