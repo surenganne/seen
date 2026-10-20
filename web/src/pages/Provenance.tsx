@@ -32,7 +32,7 @@ function Block({ b, pid, range }: { b: S["ProvenanceBlock"]; pid: string; range:
       <span className="mono small">{lines(b)}</span>
       {who === "agent" ? (
         <div className="prov-main">
-          {b.change_id ? <Link to={withRange(`/p/${pid}/changes/${b.change_id}`, range)}>{b.headline ?? "(no summary)"}</Link> : (b.headline ?? "(no summary)")}
+          {b.change_id ? <Link to={withRange(`/p/${pid}/changes/${b.change_id}`, range)}>{b.headline ?? "(no summary)"}<span className="sr-only">, {lines(b).toLowerCase()}</span></Link> : (b.headline ?? "(no summary)")}
           <div className="prov-meta">
             <span className="mono">{when(b.started_at)}</span>
             {b.model && <span className="mono">{b.model}</span>}
@@ -56,7 +56,7 @@ function BlockTable({ blocks, pid, range, path }: { blocks: S["ProvenanceBlock"]
             <td>{b.headline ?? <span className="muted">—</span>}</td>
             <td className="mono">{when(b.started_at)}</td>
             <td className="mono">{b.model ?? "—"}</td>
-            <td>{b.change_id ? <Link to={withRange(`/p/${pid}/changes/${b.change_id}`, range)}>Open change</Link> : <span className="muted">—</span>}</td>
+            <td>{b.change_id ? <Link to={withRange(`/p/${pid}/changes/${b.change_id}`, range)} aria-label={`Open change: ${b.headline ?? "no summary"}, ${lines(b).toLowerCase()}`}>Open change</Link> : <span className="muted">—</span>}</td>
           </tr>
         ))}
       </tbody>
@@ -83,12 +83,17 @@ function Result({ f, pid, range }: { f: S["ProvenanceFile"]; pid: string; range:
         <p className="muted small prose">Attribution follows line content recorded when an agent edited a file; edits made through Bash are not attributed.</p>
       </Card>
       {f.truncated && <Note tone="warning" testId="prov-note">This result is partial: blame ran out of time, so lines after the last block shown are not attributed.</Note>}
-      <Card title="Blocks" flush aside={<button type="button" className="btn ghost sm" aria-pressed={asTable} onClick={() => setAsTable(!asTable)}>{asTable ? "Blocks" : "Table view"}</button>}>
+      <Card title="Blocks" flush aside={<button type="button" className="btn ghost sm" aria-pressed={asTable} onClick={() => setAsTable(!asTable)}>Table view</button>}>
         {blocks.length === 0 ? <Empty icon={Fingerprint} title="No line blocks returned for this file" /> : (
-          <div className="prov-scroll" tabIndex={0} role="region" aria-label={`Line blocks of ${f.path}${asTable ? ", as a table" : ""}`}>
-            {asTable ? <div className="table-wrap"><BlockTable blocks={blocks} pid={pid} range={range} path={f.path} /></div>
-              : <ul className="prov-list">{blocks.map((b) => <Block key={`${b.start}-${b.end}`} b={b} pid={pid} range={range} />)}</ul>}
-          </div>
+          asTable ? (
+            <div className="table-wrap" tabIndex={0} role="region" aria-label={`Line blocks of ${f.path}, as a table`}>
+              <BlockTable blocks={blocks} pid={pid} range={range} path={f.path} />
+            </div>
+          ) : (
+            <div className="prov-scroll" tabIndex={0} role="region" aria-label={`Line blocks of ${f.path}`}>
+              <ul className="prov-list">{blocks.map((b) => <Block key={`${b.start}-${b.end}`} b={b} pid={pid} range={range} />)}</ul>
+            </div>
+          )
         )}
       </Card>
     </>

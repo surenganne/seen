@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "./fixtures";
 
 test.describe("P2-4 overview, changes, change detail", () => {
@@ -326,9 +327,14 @@ test.describe("PV-8 provenance", () => {
     const count = page.getByTestId("prov-count");
     await expect(count).toContainText(/agent/i);
     await expect(page.getByText("Not observed means Seen could not have seen it; it is not a claim that a person wrote it.")).toBeVisible();
-    await page.getByRole("button", { name: "Table view" }).click();
+    const toggle = page.getByRole("button", { name: "Table view" });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("table").getByRole("row")).toHaveCount(n + 1);
-    await page.getByRole("button", { name: "Blocks" }).click();
+    const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]); // table view too
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
     await expect(blocks).toHaveCount(n);
     await blocks.first().getByRole("link").click();
     await expect(page.getByTestId("change-detail")).toBeVisible();
