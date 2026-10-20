@@ -1,10 +1,10 @@
-import { Bot, EyeOff, Fingerprint, type LucideIcon, User } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Bot, EyeOff, Fingerprint, type LucideIcon, Search, User } from "lucide-react";
+import { type FormEvent, useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { S } from "../api/client";
 import { ApiError } from "../api/client";
-import { useChanges, useProvenanceFile } from "../api/hooks";
-import { Card, Empty, ErrorBox, Loading, Note, PageHead } from "../components/ui";
+import { useProvenanceFile, useProvenanceFiles } from "../api/hooks";
+import { Card, Empty, ErrorBox, Loading, Note, PageHead, Pager, RowButton } from "../components/ui";
 import { int, when } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
 
@@ -100,22 +100,77 @@ function Result({ f, pid, range }: { f: S["ProvenanceFile"]; pid: string; range:
   );
 }
 
+const SORTS = [["recent", "Most recent"], ["requests", "Most requests"], ["lines", "Most lines"]] as const;
+const PAGE = 50;
+
+/** Files your requests changed, ranked. Built from the ledger, so it works with no repo on this machine. */
+function FileList({ pid, path }: { pid: string; path?: string }) {
+  const [range] = useRange();
+  const nav = useNavigate();
+  const [sp, setSp] = useSearchParams();
+  const q = sp.get("q") ?? "";
+  const sort = SORTS.some(([k]) => k === sp.get("sort")) ? sp.get("sort")! : "recent";
+  const page = Math.max(1, Number(sp.get("page")) || 1);
+  const [draft, setDraft] = useState(q);
+  useEffect(() => setDraft(q), [q]);
+  const { data, error, isLoading } = useProvenanceFiles(pid, { q: q || undefined, sort, page, days: range, page_size: PAGE });
+  const set = (k: string, v: string | undefined) =>
+    setSp((p) => { if (v) p.set(k, v); else p.delete(k); if (k !== "page") p.delete("page"); return p; }, { replace: true });
+  const open = (f: string) => nav({ search: (() => { const p = new URLSearchParams(sp); p.set("path", f); return p.toString(); })() });
+  const submit = (e: FormEvent) => { e.preventDefault(); set("q", draft.trim() || undefined); };
+  return (
+    <>
+      <div className="toolbar">
+        <form className="toolbar" role="search" aria-label="Search files" onSubmit={submit} style={{ flex: "1 1 18rem" }}>
+          <input className="input mono" style={{ flex: "1 1 12rem" }} aria-label="Filter files" data-testid="prov-filter" value={draft} onChange={(e) => setDraft(e.target.value)}
+            placeholder="Part of a path, e.g. payments" autoComplete="off" spellCheck={false} />
+          <button type="submit" className="btn"><Search aria-hidden="true" />Filter</button>
+          {q && data?.total !== 0 && <button type="button" className="btn ghost" onClick={() => set("q", undefined)}>Clear filter</button>}
+        </form>
+        <div className="seg" role="group" aria-label="Sort files" data-testid="prov-sort">
+          {SORTS.map(([k, label]) => <button key={k} type="button" aria-pressed={sort === k} onClick={() => set("sort", k === "recent" ? undefined : k)}>{label}</button>)}
+        </div>
+      </div>
+      {isLoading && <Loading what="Loading files" rows={3} />}
+      {error && <ErrorBox error={error} />}
+      {data && (data.total === 0 ? (
+        <Empty icon={Fingerprint} title="No files changed by requests in this period">
+          Checked: files edited by your requests in the last {range} days{q ? <>, whose path contains <span className="mono">{q.slice(0, 60)}</span></> : ""}. Background sessions are left out.
+          {q && <> <button type="button" className="btn sm" onClick={() => set("q", undefined)}>Clear filter</button></>}
+        </Empty>
+      ) : (
+        <>
+          <div className="table-wrap" tabIndex={0} role="region" aria-label="Files agents changed">
+            <table className="data" aria-label="Files agents changed" data-testid="prov-files">
+              <thead><tr><th>File</th><th className="num">Requests</th><th className="num">Lines</th><th>Last changed (IST)</th></tr></thead>
+              <tbody>
+                {data.items.map((f) => (
+                  <tr key={f.path} className="clickable" data-testid="prov-file-row" aria-current={f.path === path ? "true" : undefined} onClick={() => open(f.path)}>
+                    <td className="mono" style={{ minWidth: "16rem" }}><RowButton onClick={() => open(f.path)}>{f.path}</RowButton></td>
+                    <td className="num">{int(f.requests)}</td>
+                    <td className="num"><span className="plus">+{int(f.added)}</span> <span className="minus">−{int(f.removed)}</span></td>
+                    <td className="when">{when(f.last_changed_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pager page={data.page} pageSize={data.page_size} total={data.total} onPage={(n) => set("page", String(n))} what="files" />
+        </>
+      ))}
+    </>
+  );
+}
+
 export function Provenance() {
   const pid = usePid();
   const [range] = useRange();
-  const [sp, setSp] = useSearchParams();
+  const [sp] = useSearchParams();
   const path = sp.get("path")?.trim() || undefined;
-  const [draft, setDraft] = useState(path ?? "");
-  useEffect(() => setDraft(path ?? ""), [path]);
+  const [listOpen, setListOpen] = useState(false);
+  useEffect(() => setListOpen(false), [path]);
   const notebook = !!path && path.toLowerCase().endsWith(".ipynb");
   const { data, error, isLoading } = useProvenanceFile(pid, notebook ? undefined : path);
-  const { data: changes } = useChanges(pid, { page_size: 200 });
-  const files = useMemo(() => Array.from(new Set(changes?.items.flatMap((c) => c.files) ?? [])).sort(), [changes]);
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const v = draft.trim();
-    setSp((p) => { if (v) p.set("path", v); else p.delete("path"); return p; });
-  };
   const missing = error instanceof ApiError && error.status === 404;
 
   return (
@@ -124,17 +179,16 @@ export function Provenance() {
         title="Provenance"
         description="Who wrote each line of a file: an agent request Seen recorded, a person, or not observed. Blame finds the commit for every line, then matches each line to what an agent wrote in a request."
       />
-      <form className="toolbar" onSubmit={submit} role="search" aria-label="Choose a file">
-        <label htmlFor="prov-path" className="small muted">File path</label>
-        <input id="prov-path" className="input mono" style={{ flex: "1 1 18rem" }} data-testid="prov-path" list="prov-files" value={draft}
-          onChange={(e) => setDraft(e.target.value)} placeholder="src/app.py" autoComplete="off" spellCheck={false} />
-        <datalist id="prov-files">{files.map((f) => <option key={f} value={f} />)}</datalist>
-        <button type="submit" className="btn primary">Show provenance</button>
-      </form>
-      {!path && (
-        <section className="panel"><Empty icon={Fingerprint} title="Choose a file">
-          Type a path relative to the repo, or pick one an agent recently changed. You will see each run of lines marked agent, human or not observed, with the request behind the agent ones.
-        </Empty></section>
+      {!path ? (
+        <Card title="Files agents changed" aside={<span className="hint">your requests, last {range} days</span>}>
+          <p className="small prose" style={{ marginBottom: 12 }}>Pick a file to see which lines an agent wrote.</p>
+          <FileList pid={pid} />
+        </Card>
+      ) : (
+        <details className="panel" open={listOpen} onToggle={(e) => setListOpen(e.currentTarget.open)}>
+          <summary className="panel-head"><h2>Choose another file</h2></summary>
+          <div className="panel-body">{listOpen && <FileList pid={pid} path={path} />}</div>
+        </details>
       )}
       {notebook && <Note tone="info" testId="prov-note">Notebook files are not line-attributed: a .ipynb file is JSON, so its lines do not map to the cells an agent edited.</Note>}
       {isLoading && <Loading what="Loading provenance" />}

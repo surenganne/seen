@@ -52,6 +52,15 @@ export const useProvenanceFile = (pid: string, path: string | undefined, rev?: s
     queryFn: () => unwrap(api.GET("/api/projects/{pid}/provenance/file", { params: { path: { pid }, query: { path: path ?? "", rev } } })),
   });
 
+export type FileQuery = { q?: string; sort?: string; page?: number; days?: number; page_size?: number };
+/** The ranked "files agents changed" list: from the ledger, so it needs no repo. */
+export const useProvenanceFiles = (pid: string, query: FileQuery) =>
+  useQuery({
+    queryKey: ["provenance-files", pid, query],
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/provenance/files", { params: { path: { pid }, query } })),
+    placeholderData: keepPreviousData,
+  });
+
 export const useChange = (cid: string) =>
   useQuery({ queryKey: ["change", cid], queryFn: () => unwrap(api.GET("/api/changes/{cid}", { params: { path: { cid } } })) });
 

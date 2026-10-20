@@ -4,8 +4,10 @@
 
 - **Provenance (who wrote which line):** `seen blame <path>` marks each line agent, human or not observed (`--rev`, `--json`);
   `seen pr-report --base main` summarises the lines a branch adds for a PR, and `--post` comments through `gh` only after
-  you confirm (or pass `--yes`); `GET /api/projects/{pid}/provenance/file` and `/range`; and a **Provenance** page (file
-  picker, counts, a block per run of lines linking to its Change, a table view). Attribution follows line fingerprints
+  you confirm (or pass `--yes`); `GET /api/projects/{pid}/provenance/file` and `/range`; and a **Provenance** page (a ranked,
+  searchable list of files agents changed, built from the ledger so it also works in the Docker dashboard, with
+  `GET /api/projects/{pid}/provenance/files`; counts, a block per run of lines linking to its Change, a table view; the
+  browser datalist picker is gone, and Overview folders and Timeline area chips link to the list filtered by that folder). Attribution follows line fingerprints
   (`line_prints`, never line text) recorded when an agent edited a file. Limits: edits made through Bash are not
   attributed, and a Write over an uncommitted file credits the file's lines to the agent. Not observed means Seen could
   not have seen it, not that a person wrote it. Settings shows the read-only `provenance` configuration.

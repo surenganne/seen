@@ -50,6 +50,7 @@ def main() -> None:
             grab(f"/api/projects/{pid}/{tail}")
         cid = got[f"/api/projects/{pid}/changes"]["items"][0]["id"]  # type: ignore[index]
         grab(f"/api/changes/{cid}")
+        grab(f"/api/projects/{pid}/provenance/files")
         grab(f"/api/projects/{pid}/provenance/file?path=src/payments/charge.py")  # the first file of demo-payments
         got["_ids"] = {"pid": pid, "cid": cid}
         OUT.parent.mkdir(parents=True, exist_ok=True)

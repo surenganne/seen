@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { ids, state } from "../test/mock-api";
 import { Audit } from "./Audit";
@@ -79,6 +80,17 @@ describe("page details", () => {
       expect(tile.querySelector("a.stat-link")).toHaveAttribute("href", expect.stringContaining(`/p/${pid}/`));
     }
   });
+  it("Overview folders link to the Provenance file list, filtered by that folder", async () => {
+    mount(byName("Overview"));
+    const folder = (await screen.findAllByRole("link", { name: /^See files in / }))[0]!;
+    expect(folder).toHaveAttribute("href", expect.stringMatching(new RegExp(`^/p/${pid}/provenance\\?.*q=`)));
+  });
+  it("Timeline area chips link to the Provenance file list, filtered by that area", async () => {
+    mount(byName("Timeline"));
+    const chip = (await screen.findAllByRole("link", { name: "Files in src/auth" }))[0]!;
+    expect(chip).toHaveClass("tag");
+    expect(chip).toHaveAttribute("href", expect.stringMatching(new RegExp(`^/p/${pid}/provenance\\?.*q=src%2Fauth`)));
+  });
   it("Change detail shows the change panel", async () => {
     mount(byName("Change detail"));
     expect(await screen.findByTestId("change-detail")).toBeInTheDocument();
@@ -94,10 +106,67 @@ describe("page details", () => {
     const at = (path: string) => ({ ...byName("Provenance"), at: `/p/${pid}/provenance${path}` });
     const base = { path: "a.bin", rev: "HEAD", counts: {}, blocks: [], truncated: false, reason: null };
 
-    it("shows the instruction state with no path, and makes no file request", async () => {
+    it("with no path the ranked file list is the page: rows, one instruction, no datalist, no file request", async () => {
       mount(at(""));
-      expect(await screen.findByText(/choose a file/i)).toBeInTheDocument();
+      const rows = await screen.findAllByTestId("prov-file-row");
+      expect(rows.length).toBeGreaterThan(1);
+      expect(screen.getByText("Pick a file to see which lines an agent wrote.")).toBeInTheDocument();
+      expect(screen.getByRole("table", { name: /files agents changed/i })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: /files agents changed/i })).toHaveAttribute("tabindex", "0");
+      expect(screen.getByLabelText("Filter files")).toBeInTheDocument();
+      expect(document.querySelector("datalist")).toBeNull();
+      expect(document.querySelector("details")).toBeNull(); // the list is the page, not tucked away
       expect(state.calls.some((c) => c.endsWith("/provenance/file"))).toBe(false);
+    });
+    it("a row opens on click and on Enter, and the chosen row is aria-current", async () => {
+      const u = userEvent.setup();
+      mount(at(""));
+      const rows = await screen.findAllByTestId("prov-file-row");
+      await u.click(rows[1]!);
+      await waitFor(() => expect(state.calls.some((c) => c.endsWith("/provenance/file"))).toBe(true));
+      expect(await screen.findByTestId("prov-count")).toBeInTheDocument();
+    });
+    it("Enter on a row's button sets ?path= and the list closes into Choose another file", async () => {
+      const u = userEvent.setup();
+      mount(at("?q=charge"));
+      const rows = await screen.findAllByTestId("prov-file-row");
+      const btn = rows[0]!.querySelector("button")!;
+      btn.focus();
+      await u.keyboard("{Enter}");
+      expect(await screen.findByTestId("prov-count")).toBeInTheDocument();
+      const details = document.querySelector("details")!;
+      expect(details).not.toHaveAttribute("open");
+      expect(details.querySelector("summary")).toHaveTextContent("Choose another file");
+    });
+    it("the selected file's row carries aria-current when the list is open", async () => {
+      const u = userEvent.setup();
+      mount(at("?path=src/auth/tokens.py"));
+      await screen.findByTestId("prov-count");
+      await u.click(screen.getByText("Choose another file"));
+      const rows = await screen.findAllByTestId("prov-file-row");
+      const cur = rows.filter((r) => r.getAttribute("aria-current") === "true");
+      expect(cur).toHaveLength(1);
+      expect(cur[0]).toHaveTextContent("src/auth/tokens.py");
+    });
+    it("sort and filter go to the API", async () => {
+      const u = userEvent.setup();
+      mount(at(""));
+      await screen.findAllByTestId("prov-file-row");
+      await u.click(screen.getByRole("button", { name: "Most requests" }));
+      expect(screen.getByRole("button", { name: "Most requests" })).toHaveAttribute("aria-pressed", "true");
+      await u.type(screen.getByLabelText("Filter files"), "charge{Enter}");
+      await waitFor(() => expect(state.calls.filter((c) => c.endsWith("/provenance/files")).length).toBeGreaterThan(2));
+    });
+    it("an empty list says what was checked and offers to clear the filter", async () => {
+      state.replies["/provenance/files"] = { status: 200, body: { total: 0, page: 1, page_size: 50, items: [] } };
+      mount(at("?q=zzz"));
+      expect(await screen.findByText(/No files changed by requests in this period/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /clear filter/i })).toBeInTheDocument();
+    });
+    it("API down shows the standard alert for the list", async () => {
+      state.replies["/provenance/files"] = { status: 500, body: { detail: "the ledger is unavailable" } };
+      mount(at(""));
+      expect(await screen.findByRole("alert")).toHaveTextContent(/ledger is unavailable/);
     });
     it("counts and the limits, each block with a word for who", async () => {
       mount(byName("Provenance"));

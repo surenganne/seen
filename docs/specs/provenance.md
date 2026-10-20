@@ -253,13 +253,23 @@ with `--end-of-options`, except `blame` (section 6.1).
 
 ### 7.3 Dashboard
 
-- New page **Provenance** (`/p/:pid/provenance?path=`): a path field with a datalist of files that appear in Changes, then
-  the file as blocks. Each block is marked with who (an icon and a word, never colour alone: agent / human / not observed),
+- New page **Provenance** (`/p/:pid/provenance?path=`): a ranked, searchable list of the files your requests changed
+  (no browser datalist), then the file as blocks. With no `?path=` the list is the page ("Pick a file to see which lines
+  an agent wrote."); with one, the list stays in a closed `<details>` "Choose another file". The list has a "Filter files"
+  search (`?q=`, submit on Enter), a sort of Most recent / Most requests / Most lines (`?sort=`), a pager, and rows (File,
+  Requests, Lines, Last changed in IST) that open on click or Enter and set `?path=`; the chosen row has `aria-current`.
+  It follows the page's 7/14/28 day range. An empty list says what was checked and offers to clear the filter. Each block is marked with who (an icon and a word, never colour alone: agent / human / not observed),
   the headline, time and a link to the Change. A summary line gives the counts for the file.
 - States: nothing chosen (empty state), loading, an error box, a 404 reason shown as a note, `reason` shown as "No lines
   attributed: <reason>", `truncated` shown as a "result is partial" warning, and a notebook note ("Notebook files are not
   line-attributed").
-- **Change detail** file rows get a "Provenance" link to that file.
+- **Change detail** file rows get a "Provenance" link to that file. **Overview** "Where the work happened" gets a "See files"
+  link per folder and each **Timeline** area chip becomes a link ("Files in <area>"), both to `/p/:pid/provenance?q=<folder>`.
+- API: `GET /api/projects/{pid}/provenance/files?days=&q=&sort=&page=&page_size=` returns `{total, page, page_size, items}`
+  with `path`, `requests` (distinct changes of yours, not background, that touched the file), `added`, `removed`,
+  `last_changed_at`, `last_change_id`. Read from the ledger (`change_files` and `changes`) only: no git, no file contents,
+  so it works where there is no repo. `sort` is `recent` (default), `requests` or `lines`; `q` is a case-insensitive path
+  substring of at most 200 characters; a bad `sort` or `q` is a 422 with a fixed message that never echoes the input.
 - Tokens only from `tokens.css`; IBM Plex; no side stripes; WCAG 2.2 AA in both themes; stable test ids. The block list is
   one scroll region, a focusable labelled region. A text-only table view of the blocks exists (as for charts).
 - Copy states what was checked and the limits, next to the numbers: "Not observed means Seen could not have seen who wrote

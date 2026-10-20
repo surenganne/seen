@@ -195,3 +195,97 @@ def test_validation_errors_never_echo_raw_input(client: TestClient) -> None:
     _assert_no_echo(client.get(url, params={"base": "HEAD", "head": ansi}), ansi)
     _assert_no_echo(client.get(url, params={"base": ""}), "")
     _assert_no_echo(client.get(url, params={"base": "HEAD", "head": ""}), "")
+
+
+# ---- PV-11: the ranked file list (ledger only, no git) ----
+FILES = f"/api/projects/{PID}/provenance/files"
+ROW_KEYS = {"path", "requests", "added", "removed", "last_changed_at", "last_change_id"}
+
+
+def listing(client: TestClient, **params: object) -> dict:
+    r = client.get(FILES, params=params)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def yours(client: TestClient, days: int | None = None) -> list[dict]:
+    p: dict[str, object] = {"kind": "yours", "page_size": 200}
+    if days:
+        p["days"] = days
+    return client.get(f"/api/projects/{PID}/changes", params=p).json()["items"]
+
+
+def test_files_sorted_for_each_sort_mode(client: TestClient) -> None:
+    for sort, key in (("recent", lambda r: r["last_changed_at"] or ""), ("requests", lambda r: r["requests"]),
+                      ("lines", lambda r: r["added"] + r["removed"])):
+        items = listing(client, sort=sort, page_size=200)["items"]
+        assert len(items) > 1
+        keys = [key(r) for r in items]
+        assert keys == sorted(keys, reverse=True), sort
+    assert listing(client)["items"] == listing(client, sort="recent")["items"]  # recent is the default
+
+
+def test_files_counts_match_the_changes_api(client: TestClient) -> None:
+    rows = {r["path"]: r for r in listing(client, page_size=200)["items"]}
+    assert DEMO in rows
+    chs = yours(client)
+    for path, r in rows.items():
+        mine = [c for c in chs if path in c["files"]]
+        assert r["requests"] == len(mine) > 0, path
+        assert r["last_changed_at"] == max(c["started_at"] for c in mine)
+        assert r["last_change_id"] in {c["id"] for c in mine}
+    assert set(rows) == {f for c in chs for f in c["files"]}  # only files that appear in a change
+
+
+def test_files_exclude_background_changes(client: TestClient) -> None:
+    allc = client.get(f"/api/projects/{PID}/changes", params={"page_size": 200}).json()["items"]
+    bg_only = {f for c in allc if c["background"] for f in c["files"]} - {f for c in yours(client) for f in c["files"]}
+    got = {r["path"] for r in listing(client, page_size=200)["items"]}
+    assert not (bg_only & got)
+
+
+def test_files_q_filters_case_insensitively(client: TestClient) -> None:
+    j = listing(client, q="CHARGE", page_size=200)
+    assert j["total"] >= 1 and all("charge" in r["path"].lower() for r in j["items"])
+    assert DEMO in {r["path"] for r in j["items"]}
+    assert listing(client, q="zz-no-such-file")["total"] == 0
+
+
+def test_files_paging_totals_are_consistent(client: TestClient) -> None:
+    whole = listing(client, page_size=200)
+    n = whole["total"]
+    assert n == len(whole["items"]) > 2
+    seen: list[str] = []
+    for page in range(1, n + 1):
+        j = listing(client, page=page, page_size=2)
+        assert (j["total"], j["page"], j["page_size"]) == (n, page, 2)
+        seen += [r["path"] for r in j["items"]]
+    assert seen == [r["path"] for r in whole["items"]] and len(set(seen)) == n
+
+
+def test_files_days_narrows(client: TestClient) -> None:
+    everything = listing(client, page_size=200)
+    wide, narrow = listing(client, days=3650, page_size=200), listing(client, days=1, page_size=200)
+    assert wide["total"] == everything["total"] >= narrow["total"]
+    assert {r["path"]: r["requests"] for r in narrow["items"]} == \
+        {p: n for p, n in ((f, sum(f in c["files"] for c in yours(client, 1))) for f in {x for c in yours(client, 1) for x in c["files"]})}
+
+
+def test_files_response_has_only_declared_fields(client: TestClient) -> None:
+    j = listing(client)
+    assert set(j) == {"total", "page", "page_size", "items"}
+    assert all(set(r) == ROW_KEYS for r in j["items"])
+
+
+@pytest.mark.parametrize("params", [{"sort": "bogus"}, {"q": "a" * 201}, {"q": "a\x00b"}])
+def test_files_bad_input_is_422_and_never_echoed(client: TestClient, params: dict[str, str]) -> None:
+    r = client.get(FILES, params=params)
+    _assert_no_echo(r, next(iter(params.values())))
+
+
+def test_files_unknown_project_is_404_and_needs_no_repo(client: TestClient) -> None:
+    assert client.get("/api/projects/nope/provenance/files").status_code == 404
+    with ledger_session() as db:  # no repository on this machine (the Docker dashboard): the list still answers
+        db.get(Project, PID).root_path = "/no/such/dir"  # type: ignore[union-attr]
+        db.commit()
+    assert listing(client)["total"] > 0

@@ -207,7 +207,7 @@ test.describe("timeline", () => {
     const entry = page.getByTestId("timeline-entry").first();
     await expect(entry).toContainText("u_demo");
     await expect(entry).toContainText(/\d+ files?/);
-    expect((await entry.getByRole("link").textContent())?.length).toBeGreaterThan(14);
+    expect((await entry.locator(".tl-headline").textContent())?.length).toBeGreaterThan(14);
     await expect(page.getByRole("table")).toHaveCount(0); // a timeline, not a second Changes table
   });
 
@@ -219,7 +219,7 @@ test.describe("timeline", () => {
     await page.getByRole("button", { name: /Include turns without file changes/ }).click();
     await expect(page).toHaveURL(/turns=all/);
     await expect.poll(() => page.getByTestId("timeline-entry").count()).toBeGreaterThanOrEqual(before);
-    await page.getByTestId("timeline-entry").first().getByRole("link").click();
+    await page.getByTestId("timeline-entry").first().locator(".tl-headline").click();
     await expect(page.getByTestId("change-detail")).toBeVisible();
   });
 });
@@ -351,10 +351,103 @@ test.describe("PV-8 provenance", () => {
     test.use({ expectedErrors: [/status of 404/] });
     test("shows a calm note with the reason, not an alert", async ({ page }) => {
       await page.goto("/p/demo-payments/provenance?path=no/such/file.py");
-      await expect(page.getByTestId("prov-path")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Provenance", level: 1 })).toBeVisible();
       await expect(page.getByTestId("prov-note")).toContainText(/\S/);
       await expect(page.getByRole("alert")).toHaveCount(0);
       await expect(page.getByTestId("prov-block")).toHaveCount(0);
+    });
+  });
+
+  test.describe("PV-11 the ranked file list", () => {
+    const list = "/p/demo-payments/provenance";
+    const AXE = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+    test("ranked rows, filter, open a row; no datalist; the limit sentence shows", async ({ page }) => {
+      await page.goto(list);
+      const rows = page.getByTestId("prov-file-row");
+      await expect(rows.first()).toBeVisible();
+      expect(await rows.count()).toBeGreaterThan(2);
+      await expect(page.getByText("Pick a file to see which lines an agent wrote.")).toBeVisible();
+      expect(await page.locator("datalist").count()).toBe(0);
+      await page.getByRole("button", { name: "Most requests" }).click();
+      await expect(page).toHaveURL(/sort=requests/);
+      await expect.poll(async () => { // the previous order stays on screen until the new one arrives
+        const n = (await rows.locator("td.num:nth-child(2)").allTextContents()).map((t) => Number(t.replace(/,/g, "")));
+        return n.every((v, i) => i === 0 || n[i - 1]! >= v);
+      }).toBe(true);
+      await page.getByLabel("Filter files").fill("charge");
+      await page.getByLabel("Filter files").press("Enter");
+      await expect(page).toHaveURL(/q=charge/);
+      const hit = rows.filter({ hasText: "src/payments/charge.py" });
+      await expect(hit).toHaveCount(1);
+      await hit.click();
+      await expect(page).toHaveURL(/path=src%2Fpayments%2Fcharge\.py/);
+      const blocks = page.getByTestId("prov-block");
+      await expect(blocks.first()).toContainText(/agent/i);
+      await expect(page.getByText("Not observed means Seen could not have seen it; it is not a claim that a person wrote it.")).toBeVisible();
+      await expect(page.locator("details summary")).toHaveText("Choose another file");
+      await page.locator("details summary").click();
+      await expect(page.locator("tr[aria-current='true']")).toContainText("src/payments/charge.py");
+    });
+
+    test("a row opens on Enter from the keyboard", async ({ page }) => {
+      await page.goto(`${list}?q=charge`);
+      await page.getByTestId("prov-file-row").first().getByRole("button").focus();
+      await page.keyboard.press("Enter");
+      await expect(page.getByTestId("prov-block").first()).toBeVisible();
+    });
+
+    test("?q= pre-filters the list and an unmatched filter says what was checked", async ({ page }) => {
+      await page.goto(`${list}?q=payments`);
+      await expect(page.getByTestId("prov-file-row").first()).toBeVisible();
+      const paths = await page.getByTestId("prov-file-row").locator("button").allTextContents();
+      expect(paths.length).toBeGreaterThan(0);
+      expect(paths.every((p) => p.includes("payments"))).toBe(true);
+      await page.goto(`${list}?q=zz-no-such-file`);
+      await expect(page.getByText("No files changed by requests in this period")).toBeVisible();
+      await page.getByRole("button", { name: "Clear filter" }).click();
+      await expect(page.getByTestId("prov-file-row").first()).toBeVisible();
+    });
+
+    test("Overview folders and Timeline area chips land on the filtered list", async ({ page }) => {
+      await page.goto("/p/demo-payments?range=28");
+      const card = page.locator(".panel", { has: page.getByRole("heading", { name: "Where the work happened" }) });
+      const more = card.getByRole("link", { name: /^See files in / }).first();
+      const folder = (await more.getAttribute("aria-label"))!.replace("See files in ", "");
+      await more.click();
+      await expect(page).toHaveURL(/\/provenance\?.*q=/);
+      await expect(page.getByLabel("Filter files")).toHaveValue(folder);
+      await expect(page.getByTestId("prov-file-row").first()).toBeVisible();
+      await page.goto("/p/demo-payments/timeline?range=28");
+      const chip = page.getByTestId("timeline-entry").first().getByRole("link", { name: /^Files in / }).first();
+      const area = (await chip.getAttribute("aria-label"))!.replace("Files in ", "");
+      await chip.click();
+      await expect(page).toHaveURL(/\/provenance\?.*q=/);
+      await expect(page.getByLabel("Filter files")).toHaveValue(area);
+      await expect(page.getByTestId("prov-file-row").first()).toBeVisible();
+    });
+
+    for (const scheme of ["light", "dark"] as const) {
+      test(`axe with the list and with a file open, ${scheme}`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+        await page.goto(list);
+        await expect(page.getByTestId("prov-file-row").first()).toBeVisible();
+        expect((await new AxeBuilder({ page }).withTags(AXE).analyze()).violations.map((v) => v.id)).toEqual([]);
+        await page.goto(`${list}?path=src/payments/charge.py`);
+        await expect(page.getByTestId("prov-block").first()).toBeVisible();
+        await page.locator("details summary").click();
+        await expect(page.getByTestId("prov-file-row").first()).toBeVisible();
+        expect((await new AxeBuilder({ page }).withTags(AXE).analyze()).violations.map((v) => v.id)).toEqual([]);
+      });
+    }
+
+    test.describe("at 320px", () => {
+      test.use({ viewport: { width: 320, height: 640 } });
+      test("the list reflows without horizontal page scroll", async ({ page }) => {
+        await page.goto(list);
+        await expect(page.getByTestId("prov-file-row").first()).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+      });
     });
   });
 });
