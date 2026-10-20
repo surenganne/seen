@@ -195,18 +195,58 @@ def test_duplicated_lines_in_one_file(tmp_path: Path) -> None:
     assert who[5:7] == [("human", "human"), ("human", "human")]
 
 
-def test_agent_write_over_a_person_file_claims_its_unchanged_lines(tmp_path: Path) -> None:
-    """Write fingerprints every line of `content` (spec section 5), so a Write that rewrites a person's file verbatim
-    except one line makes the person's earlier, unchanged lines agent (rule 6.2.3: the earliest change after the commit)."""
-    s = Scene(tmp_path, "rewrite")
+def s_write_over_person_file(s: Scene) -> None:
     s.pre("calc.py", BASE)
     with s.turn():
         s.write("other.py", lines("agent", 2))
     s.commit("agent")
-    s.human_write("util.py", lines("human", 4))
+    s.human_write("core.py", lines("human", 3))
     s.commit("person")
     with s.turn():
-        s.write("util.py", lines("human", 3) + "agent_rewritten_line = compute_agent(9)\n")
-    s.commit("agent rewrites the file")
+        s.write("core.py", lines("human", 3) + lines("agent", 2, start=10))
+    s.commit("agent rewrites the file, person commits")
+
+
+def s_rebase(s: Scene) -> None:
+    s.pre("calc.py", BASE)
+    s.git("checkout", "-q", "-b", "feature")
+    with s.turn():
+        s.write("feat.py", lines("agent", 6))
+        s.commit("agent commits in the turn")
+    s.git("checkout", "-q", "main")
+    s.human_write("main_only.py", lines("human", 5))
+    s.commit("person on main")
+    s.git("checkout", "-q", "feature")
+    old = s.git("rev-parse", "HEAD")
+    s.git("rebase", "-q", "main")
+    assert s.git("rev-parse", "HEAD") != old  # the SHAs changed
+
+
+SCENARIOS.update({"write over a person file": s_write_over_person_file, "rebase": s_rebase})
+
+
+def test_write_over_a_person_file_keeps_the_persons_lines_human(tmp_path: Path) -> None:
+    _, sc = run(tmp_path, "write over a person file")
+    assert [w for _, _, w in sc.who["core.py"]] == ["human"] * 3 + ["agent"] * 2
+
+
+def test_write_over_a_person_uncommitted_file_still_claims_its_lines(tmp_path: Path) -> None:
+    """Residual limit (spec section 9): a person's UNCOMMITTED lines present at turn start are not in head_before, so
+    baseline subtraction cannot drop them and a whole-file Write credits them to the agent."""
+    s = Scene(tmp_path, "uncommitted")
+    s.pre("calc.py", BASE)
+    with s.turn():
+        s.write("other.py", lines("agent", 2))
+    s.commit("agent")
+    s.human_write("util.py", lines("human", 4))  # uncommitted when the next turn starts
+    with s.turn():
+        s.write("util.py", lines("human", 3) + lines("agent", 1, start=10))
+    s.commit("person commits the whole file")
     who = [w for _, _, w in s.score().who["util.py"]]
-    assert who == ["agent"] * 4
+    assert who == ["agent"] * 4  # the 3 person lines are the documented false positive
+
+
+def test_rebase_keeps_attribution(tmp_path: Path) -> None:
+    _, sc = run(tmp_path, "rebase")
+    assert {w for _, _, w in sc.who["feat.py"]} == {"agent"}
+    assert {w for _, _, w in sc.who["main_only.py"]} == {"human"}

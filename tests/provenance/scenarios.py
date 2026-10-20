@@ -115,7 +115,15 @@ class Scene:
         self.rp.stop()
 
     def write(self, path: str, text: str) -> None:
+        """A whole-file Write: a line already in the file keeps its owner (the agent retyped it, but it is not new)."""
+        old: dict[str, list[str]] = defaultdict(list)
+        for t, o in self.files.get(path, []):
+            old[normalize(t)].append(o)
         self._set(path, text, "agent")
+        for ln in self.files[path]:
+            if old[normalize(ln[0])]:
+                ln[1] = old[normalize(ln[0])].pop(0)
+        self._render(path)
         content = text.replace("\n", "\r\n") if path in self.crlf else text
         self.rp.fire("post-tool", "post_tool_use_write", tool_input={"file_path": str(self.root / path), "content": content})
 
