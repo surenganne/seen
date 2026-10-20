@@ -19,5 +19,4 @@
 
 ## Audit event catalogue
 
-Plan section 11A, plus `pii.allowlisted` (counts of values or paths a repo allowlist suppressed). Events
-of the removed memory feature (`memory.injected`, `approval.memory_*`) stay in old audit chains as history; nothing writes them now (ADR 0017). `turn.start` carries `prompt_hmac` (keyed), not a plain SHA-256.
+Plan section 11A, plus `pii.allowlisted` (counts of values or paths a repo allowlist suppressed). `turn.start` carries `prompt_hmac` (keyed), not a plain SHA-256.

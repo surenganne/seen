@@ -60,7 +60,7 @@ export function Changes() {
     <div className="page">
       <PageHead
         title="Changes"
-        description="One row per request you made, with what it changed, grouped by session. Background shows turns that plugins ran through the Agent SDK. Open a row for files, tokens, memory, skills and PII."
+        description="One row per request you made, with what it changed, grouped by session. Background shows turns that plugins ran through the Agent SDK. Open a row for files, tokens, skills and PII."
         actions={<span className="mono small muted" data-testid="changes-count">{data ? `${data.total} changes · ${money(data.cost_usd)}` : ""}</span>}
       />
       <div className="toolbar" role="search">

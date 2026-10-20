@@ -20,9 +20,9 @@ A local ledger only holds the local user; a view across users needs the team ser
 4. Plugin, CLI, docs, tests, fixtures: the `using-seen-memory` skill, `seen memory` commands, config keys,
    docs, ADR statuses.
 
-Kept on purpose: the audit event types `memory.injected` and `approval.memory_*` stay in the Audit page filter, and the
-`injected_memory` PII source label stays on Change detail, because old chains and findings still contain them.
-The team server still accepts and ignores `mem_state` (its payload model is strict) until every client has upgraded.
+Also removed: the `memory.injected` and `approval.memory_*` labels and filters, the `injected_memory` PII source label, and
+the team server's `mem_state` field (the owner is the only user, so no older clients). Audit rows already written are never
+rewritten (append-only), so old chains still contain those event types; nothing in Seen reads or shows them specially.
 
 Upgrade note: an installed `seen-hook` older than the migration fails open and records nothing, so reinstall
 the CLI after stage 3 (as in the hook-binary-schema gotcha). Existing `.seen/memory/*.md` files in repos are left
