@@ -5,7 +5,7 @@
 [![ci](https://github.com/surenganne/seen/actions/workflows/ci.yml/badge.svg)](https://github.com/surenganne/seen/actions/workflows/ci.yml)
 
 **Nothing your agents do goes unseen.** A Claude Code plugin and local dashboard that keeps a per-project
-ledger of what AI agents change: files and lines, tokens and API-equivalent cost, memory loaded, skills run
+ledger of what AI agents change: files and lines, tokens and API-equivalent cost, skills run
 (with versions and approvals), required-skill rules, PII exposure, and a tamper-evident audit trail.
 
 Local first: everything works with no server. Prompts and diffs never leave the machine.
@@ -16,7 +16,7 @@ Local first: everything works with no server. Prompts and diffs never leave the 
 |---|---|
 | Changes | Files touched and lines added/removed, reconciled to git |
 | Cost | Input, output, cache read and write tokens (exact, from the transcript) and API-equivalent cost from `pricing/prices.json` |
-| Memory | Which `.seen/memory` items were in context; edits are paused if memory failed to load |
+| Timeline | What changed in the repo by day: who asked, what it changed, and the commit it ended on |
 | Skills | Every skill that ran, its version hash, trigger, and approval status at that moment |
 | Rules | `.seen/policies.yaml`: "changes to `llm/**` must run `phi-redaction-check`" (report or enforce) |
 | PII | Types and counts of personal data and secrets that reached the model, the network or the repo, and from where. Never the values |
@@ -45,7 +45,7 @@ claude plugin marketplace add surenganne/seen
 claude plugin install seen@seen-tools
 
 # 3. Per repo
-cd your-repo && seen init          # .seen/ folder + memory write permissions
+cd your-repo && seen init          # .seen/ folder: policies, PII rules, skills lockfile
 seen doctor                        # checks Python, hooks, plugin, databases, PATH
 ```
 
@@ -76,9 +76,6 @@ contributor accepts the workspace trust dialog:
 ```bash
 seen report --days 7          # what changed, what it cost, which skills ran
 seen serve --open             # the dashboard on your real data (needs a web build once: see Dashboard)
-seen memory add --id refund-idempotency --type decision --file-ref src/payments/refund.py \
-  --text "Refunds carry an idempotency key; retries reuse it."
-seen memory list | verify <id> | archive <id>
 seen skills scan | list
 seen import --dry-run         # past sessions from Claude Code transcripts (before the plugin was installed)
 seen audit verify
@@ -89,9 +86,9 @@ seen audit export --format csv --from 2026-10-01 --to 2026-10-31
 
 ## Dashboard
 
-A local web UI over the same ledger: **Projects** and **Overview** (cost, tokens, skills, PII, memory coverage),
-**Changes** and **Sessions** (every agent turn, with the files, skills and findings behind each number),
-**Memory**, **Skills** (versions and approvals), **Audit** (the hash-chained trail, with verify and export) and
+A local web UI over the same ledger: **Projects** and **Overview** (cost, tokens, skills, PII),
+**Changes**, **Sessions** and **Timeline** (every agent turn, by session and by day, with the files, skills and findings behind each number),
+**Skills** (versions and approvals), **Audit** (the hash-chained trail, with verify and export) and
 **Settings** (PII detection is editable; sync and retention are shown). Summaries link to the rows behind them.
 
 The UI is a built bundle that is not packaged with the CLI, so build it once from a clone:
@@ -185,9 +182,6 @@ Issues and pull requests: <https://github.com/surenganne/seen>.
   encryption, and decide whether you also want database encryption. `seen purge` and the team server's delete routes
   erase data (bytes, not just rows); the audit trail keeps a record of each erasure, counts only.
 - **Cost** is an API-equivalent estimate from a price table marked unverified until the owner confirms it.
-- **Memory** is text the model treats as guidance, and repo memory is injected automatically (there is no per-repo
-  opt-in yet): treat a repository you did not write as untrusted. Review `.seen/memory/` like code (a CODEOWNERS
-  rule helps) and never store secrets or client data there.
 - **The dashboard** has no login (see Dashboard). The Docker copy is a snapshot: it is as old as the last
   `seen docker-sync`, and settings or approvals changed there are lost on refresh. It targets WCAG 2.2 AA: axe
   checks every page in both themes on desktop and phone sizes in CI, and Playwright covers the skip link, keyboard

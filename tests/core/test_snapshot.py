@@ -22,8 +22,6 @@ def fill(home: Path, rows: int = 3) -> None:
     (home / "audit-heads.log").write_text("head\n")
     (home / "config.toml").write_text("[x]\n")
     (home / "secret.key").write_bytes(b"k" * 32)
-    (home / "memory" / "p").mkdir(parents=True)
-    (home / "memory" / "p" / "n.md").write_text("note")
 
 
 def test_snapshot_is_consistent_self_contained_and_leaves_secrets_behind(tmp_path: Path) -> None:
@@ -34,7 +32,6 @@ def test_snapshot_is_consistent_self_contained_and_leaves_secrets_behind(tmp_pat
     assert sqlite3.connect(snap / "ledger.db").execute("SELECT count(*) FROM t").fetchone() == (3,)
     assert sqlite3.connect(snap / "audit.db").execute("PRAGMA journal_mode").fetchone() == ("delete",)
     assert not list(snap.glob("*-wal")) and not list(snap.glob("*-shm"))
-    assert (snap / "memory" / "p" / "n.md").read_text() == "note"
     assert (snap / "audit-heads.log").exists() and (snap / "config.toml").exists()
     assert not (snap / "secret.key").exists()
 

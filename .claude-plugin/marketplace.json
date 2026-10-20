@@ -1,5 +1,5 @@
 {
   "name": "seen-tools",
   "owner": {"name": "Seen"},
-  "plugins": [{"name": "seen", "source": "./plugin", "description": "Change ledger, project memory and skill audit for Claude Code."}]
+  "plugins": [{"name": "seen", "source": "./plugin", "description": "Change ledger and skill audit for Claude Code."}]
 }

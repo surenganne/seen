@@ -55,7 +55,6 @@ def test_paths_follow_seen_home(seen_home: Path) -> None:
     assert paths.ledger_db() == seen_home / "ledger.db"
     assert paths.audit_db() == seen_home / "audit.db"
     assert paths.spool_file("s1") == seen_home / "spool" / "s1.jsonl"
-    assert paths.personal_memory_dir("abc") == seen_home / "memory" / "abc"
 
 
 def test_redact_home(monkeypatch: pytest.MonkeyPatch) -> None:

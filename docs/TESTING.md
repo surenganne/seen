@@ -82,7 +82,7 @@ seen dev-seed --home "$SEEN_HOME"
 seen audit verify
 seen report --project demo-payments --days 7 | head -20
 seen audit export --project demo-payments --format csv --out "$SEEN_TEST/export"
-cd "$SEEN_HOME/demo-repos/payments-api" && seen memory list && seen skills scan && seen skills list && cd -
+cd "$SEEN_HOME/demo-repos/payments-api" && seen skills scan && seen skills list && cd -
 seen doctor
 ```
 
@@ -91,7 +91,6 @@ Expected:
 - [ ] `audit verify` prints `Chain verified: 2033 events, head … Not anchored off this machine.`
 - [ ] `report` lists changes with tokens, cost (`cost≈$…` with the price-table version), git status, files and skills.
 - [ ] `export` writes `export.csv` plus a manifest with the event count, head hash and verification result.
-- [ ] `memory list` shows four memories with status, type and the file each one describes.
 - [ ] `doctor` prints `ok` for Python, ledger, audit chain and config. A `!!` for the plugin is expected until Part 9.
 
 ---
@@ -120,7 +119,7 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 - [ ] Click payments-api: you land on its Overview, and the rail's Project select now shows payments-api. The rail eyes stop wandering and stare with lowered brows (alert), because this project has open findings.
 
 **Overview**
-- [ ] Six summary tiles: Changes, Cost, Tokens, Memory loaded, Policy missed, Changes with PII exposure. Tiles that need attention are tinted with an icon. Each tile's label is a link (the whole tile is the click target) to the changes behind the number: Cost and Tokens open the list sorted by that column, Memory loaded opens the turns where memory was not loaded, Policy missed and PII exposure open their filtered lists. The date range stays selected.
+- [ ] Five summary tiles: Changes, Cost, Tokens, Policy missed, Changes with PII exposure. Tiles that need attention are tinted with an icon. Each tile's label is a link (the whole tile is the click target) to the changes behind the number: Cost and Tokens open the list sorted by that column, Policy missed and PII exposure open their filtered lists. The date range stays selected.
 - [ ] Switch the date range 7d → 14d → 28d: every figure and the chart update, and the URL keeps `range=`.
 - [ ] Cost per day: hover a bar to see the tooltip. Click "Table view" to see the same numbers as a table.
 - [ ] Needs attention: each item has a Review button that opens Changes with the matching filter applied.
@@ -134,7 +133,7 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 **Changes**
 - [ ] The header shows `N changes · $X.XX`.
 - [ ] Type in "Search changes": rows filter as you type.
-- [ ] Try the Git status and Skill selects, then the chips Memory not loaded, Skill policy missed and PII exposed. Each one narrows the list and appears in the URL.
+- [ ] Try the Git status and Skill selects, then the chips Skill policy missed and PII exposed. Each one narrows the list and appears in the URL.
 - [ ] Click a column header (When, Lines, Cost) to sort, and click again to reverse it.
 - [ ] Focus a row with Tab and press Enter: it opens.
 
@@ -143,7 +142,7 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 - [ ] Files lists each path with `+added −removed` and HEAD before/after.
 - [ ] Tokens and cost: input, output, cache read and cache write, each with its share of the cost.
 - [ ] Prompt: by default it reads "Not stored (prompt storage is redacted)".
-- [ ] Memory read, Skills used (with version hash, trigger and approval) and Required-skill checks (met or missed).
+- [ ] Skills used (with version hash, trigger and approval) and Required-skill checks (met or missed).
 - [ ] Open a change flagged PII (filter with the PII exposed chip). A red banner says high-confidence data reached the model, and the PII table shows type, count, confidence, source and destination, never the values.
 - [ ] Click "Mark as test data" on one finding: its status changes. Check it in Audit (Part 8) as an `approval.*` event.
 
@@ -154,7 +153,6 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 - [ ] Opens on **Yours**; **Background** lists plugin turns, each tagged `background`; Yours + Background = All.
 - [ ] A slash command reads as the command (`/login`); a `<task-notification>` turn reads as *Automatic follow-up: a background task finished (…)*.
 - [ ] A turn that has tokens shows a cost: Claude Code's zero-token `<synthetic>` messages never leave a turn unpriced (`seen import` reprices old ones).
-- [ ] A change that wrote `.seen/memory/*.md` lists those notes under *Memory saved*, and each note's *Source change* on the Memory page links back to it. A note written in the same turn that edited its `file_ref` is not stale.
 
 **Skills**
 - [ ] Most recently used first; never-used skills last, by name.
@@ -165,13 +163,11 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 - [ ] While a `claude` session is running in the repo, its row shows **active** and updates within 10 seconds.
 - [ ] Click a row: the drawer shows that session's activity in order (session.start, turns, tool calls, file changes, session.end).
 
-## Part 7. Dashboard: Memory and Skills
+**Timeline**
+- [ ] Changes grouped by day (IST), newest first, each with time, request, user id, file count, lines and commit. Paging continues a day on the next page.
+- [ ] The User select narrows the list; the date range (7d, 14d, 28d) applies.
 
-**Memory**
-- [ ] Count badges at the top right (for example `1 unverified`, `3 stale`).
-- [ ] Stale memories are tinted and open by default, with "Why stale" naming the change that edited the file.
-- [ ] Click "Re-verify" on a stale memory: it turns verified. Click "Archive": it leaves the list.
-- [ ] The Freshness select and the type chips (decision, convention, gotcha, context) filter the list.
+## Part 7. Dashboard: Skills
 
 **Skills → Installed skills**
 - [ ] The table shows each skill's kind, short version hash, status (approved, changed, unreviewed, blocked), runs and last used.
@@ -205,7 +201,7 @@ sqlite3 "$SEEN_TEST/home/audit.db" "UPDATE audit_events SET detail_json='{}' WHE
 - [ ] Optional deeper check: copy `audit.db`, drop the triggers in the copy, edit one row, and point `seen audit verify` at a `SEEN_HOME` holding the copy. It reports the first broken seq.
 
 **Settings** (`/settings`)
-- [ ] Connected tools, PII detection, team sync (off), memory, skill auditing, audit retention, price table (marked unverified) and local data paths.
+- [ ] Connected tools, PII detection, team sync (off), skill auditing, audit retention, price table (marked unverified) and local data paths.
 - [ ] Change PII Mode to `warn` and click Save: "Saved." appears. Reload: the setting is kept, and Audit has a `config.changed` event.
 - [ ] Set it back to `report`.
 
@@ -223,7 +219,7 @@ costs a few cents.
 export SEEN_HOME=$SEEN_TEST/live-home
 mkdir -p "$SEEN_TEST/demo" && cd "$SEEN_TEST/demo" && git init -q -b main
 printf 'def add(a, b):\n    return a + b\n' > calc.py && git add -A && git commit -qm init
-seen init                                       # .seen/ folder, policies.yaml, pii.yaml, memory permission
+seen init                                       # .seen/ folder, policies.yaml, pii.yaml
 claude plugin marketplace add surenganne/seen   # or: --plugin-dir /path/to/seen/plugin on each claude call
 claude plugin install seen@seen-tools
 seen doctor
@@ -232,7 +228,7 @@ seen status && seen report --days 1
 ```
 
 Expected:
-- [ ] `seen init` creates `.seen/` with `memory/`, `policies.yaml`, `pii.yaml` and `.gitignore`.
+- [ ] `seen init` creates `.seen/` with `policies.yaml`, `pii.yaml` and `.gitignore`.
 - [ ] `doctor` is all `ok`, including the plugin and `seen-hook on PATH`.
 - [ ] After the session, `status` shows `Changes recorded: 1`, and `report` shows `calc.py +N −0`, real token counts and a cost estimate.
 - [ ] Inside an interactive `claude` session, `/seen:status` summarises the same thing.
@@ -255,20 +251,18 @@ seen import                # again: imports nothing new
       cost match the transcript, git status is empty.
 - [ ] Sessions recorded live (Part 9) are listed as already recorded and are not changed.
 
-## Part 10. Memory with a real session
+## Part 10. Timeline with a real session
 
 ```bash
 cd "$SEEN_TEST/demo"
-seen memory add --id calc-ints --type convention --file-ref calc.py --text "calc.py functions take and return ints only."
-seen memory verify calc-ints
-claude -p "What type rules apply to calc.py? Answer in one line." 
-seen report --days 1
+claude -p "Add a divide function to calc.py." --permission-mode acceptEdits
+git add -A && git commit -qm "add divide"
+seen serve --open
 ```
 
-- [ ] The answer mentions ints, because the memory was injected at session start.
-- [ ] The newest change shows the memory as loaded (Change detail → Memory read lists `calc-ints`).
-- [ ] Ask Claude to change `calc.py` (for example `claude -p "Add a divide function to calc.py." --permission-mode acceptEdits`).
-  In the dashboard, `calc-ints` turns **stale**, and Why stale names that change. Re-verify clears it.
+- [ ] Open **Timeline**: today is the first day group, and the newest entry is your request with its time (IST), a pseudonymous user id (`u_…`, never your login or email), `+N −0`, the file count and the short commit it ended on.
+- [ ] Pick your id in the **User** select: the URL gets `actor=` and the list narrows. Clear it to see everyone recorded on this machine.
+- [ ] Click the entry: Change detail opens.
 
 ---
 
@@ -401,7 +395,7 @@ By hand, once per release:
 - [ ] Keyboard only: Tab from the address bar. The first stop is "Skip to content" (it appears on focus) and Enter moves you to the page. Every control has a visible focus ring; no keyboard trap; the change, session, audit and skill rows open from the button or link in their first cell (Enter, and Space for the buttons).
 - [ ] Zoom the browser to 200% (and 400% on a laptop): nothing is cut off or overlaps, and only data tables scroll sideways inside their own box.
 - [ ] A screen reader (VoiceOver: Cmd+F5) announces each page's title, the single main region, table captions or names, and "alert" when a page cannot load (stop the dashboard's API to see it).
-- [ ] Status is never colour alone: PII, memory, policy and audit-chain states each show an icon and a word.
+- [ ] Status is never colour alone: PII, policy and audit-chain states each show an icon and a word.
 - [ ] Turn on Reduce motion in the OS: the eyes stop moving and stop following the pointer, and the drawer appears without sliding.
 
 ---
