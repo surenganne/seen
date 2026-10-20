@@ -29,7 +29,7 @@ class EnrichedBlock:
 
 def enrich_blocks(db: Any, blocks: list[Block]) -> list[EnrichedBlock]:
     """Three queries per chunk of 900 ids (changes, files, skills). Local scale: the id list stays short
-    (one id per agent block); """
+    (one id per agent block), so the `IN` lists are bounded by CHUNK and nothing is paged beyond that."""
     ids = sorted({b.change_id for b in blocks if b.change_id})
     changes: dict[str, Change] = {}
     files: dict[str, list[str]] = {i: [] for i in ids}

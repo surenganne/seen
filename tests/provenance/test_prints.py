@@ -81,3 +81,10 @@ def test_symlink_pointing_outside_repo_is_skipped(tmp_path: Path) -> None:
     (root / "link").symlink_to(outside)
     ti = {"file_path": f"{root}/link/x.py", "content": "line number one"}
     assert capture("Write", ti, str(root), KEY) is None
+
+
+def test_added_lines_split_on_newline_only() -> None:
+    assert added_lines("Write", {"content": "a\x0cb\r\nc\n"}) == ["a\x0cb\r", "c"]
+    assert added_lines("Write", {"content": "\n"}) == [""]
+    assert added_lines("Write", {"content": ""}) == []
+    assert len(capture("Write", {"file_path": "/r/f.py", "content": "line one\x0cline two here\n"}, "/r", b"k")["fps"]) == 1

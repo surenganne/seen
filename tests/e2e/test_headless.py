@@ -118,6 +118,7 @@ def test_pv10_blame_shows_agent_written_file(scratch: tuple[Path, Path]) -> None
     import re
 
     repo, home = scratch
+    # the prompt forbids Bash on purpose: a Bash-written file has no prints and would fail the `agent` assertion below
     r = claude(repo, home, "Create greeting.py with the Write tool (not Bash). It must contain a function greet(name) that returns "
                            "a formatted greeting, a function farewell(name), and a __main__ block that prints both for 'world'. "
                            "At least 8 lines. Then reply 'done.' only.")

@@ -49,7 +49,7 @@ class Report:
     pii_state: str
     pii_checked: str
     cost_usd: float | None
-    neutral: int = 0  # blank or punctuation-only added lines, left out of the percentages
+    neutral: int = 0  # blank or short (fewer than 10 letters and digits) added lines, left out of the percentages
     files: int = 0
     missed_rules: list[str] = field(default_factory=list)
     rules_checked: int = 0
@@ -71,6 +71,9 @@ def parse_diff_added(diff_text: str) -> dict[str, list[str]]:
                     out[path].append(blame.SURROGATE.sub("�", ln[1:].removesuffix("\r")))
             elif ln.startswith("-"):
                 old_left -= 1
+            elif ln.startswith(" "):  # context (diff.interHunkContext fuses hunks): one old and one new line
+                old_left -= 1
+                new_left -= 1
             # "\ No newline at end of file" and anything else costs nothing
             continue
         if ln.startswith("diff --git "):
@@ -204,7 +207,7 @@ def render_md(r: Report) -> str:
     total = sum(a.values())
     n = len(r.requests)
     head = (f"AI provenance for {_c(r.head)} ({_n(r.commits, 'commit')} since {_c(r.base)})\n\n"
-            f"Added lines: {total + r.neutral} in {_n(r.files, 'file')}, of which {r.neutral} blank or punctuation-only and left "
+            f"Added lines: {total + r.neutral} in {_n(r.files, 'file')}, of which {r.neutral} blank or short (fewer than 10 letters and digits) and left "
             f"out of the shares below  ·  agent {a['agent']} ({_pct(a['agent'], total)})  ·  human {a['human']} "
             f"({_pct(a['human'], total)}, an upper bound: it includes code Seen did not see)  ·  not observed "
             f"{a['not_observed']} ({_pct(a['not_observed'], total)})")

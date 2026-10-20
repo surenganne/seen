@@ -102,14 +102,14 @@ def blame_cmd(path: str = typer.Argument(..., help="File, relative to the repo r
         typer.echo(f"No lines attributed: {clean(fp.reason)}.")
         return
     typer.echo(f"{fp.path} at {rev}: agent {c['agent']} / human {c['human']} / not observed {c['not_observed']} lines"
-               f" ({c['neutral']} blank or punctuation-only). {_LIMIT}")
+               f" ({c['neutral']} blank lines). {_LIMIT}")
 
 
 _FAIL_HELP = f"Exit 1 when it holds: {', '.join(FAIL_ON)} (repeatable)"
 
 
 def _stdin_is_tty() -> bool:
-    return sys.stdin.isatty()
+    return sys.stdin is not None and sys.stdin.isatty()  # fd 0 closed: sys.stdin is None
 
 
 def _post(root: Path, pid: str, rep: Report, body: str, yes: bool, fail: Callable[[str], typer.Exit]) -> None:
@@ -131,8 +131,11 @@ def _post(root: Path, pid: str, rep: Report, body: str, yes: bool, fail: Callabl
         first = (r.stderr or "").strip().splitlines()[:1]
         raise fail(f"gh failed (exit {r.returncode}): {clean(first[0]) if first else 'no message'}")
     # counts only: no headlines, branch or repo names, URLs or comment text
-    audit.append([{"type": "provenance.reported", "actor_kind": "user", "actor_id": user_id(), "project_id": pid,
-                   "detail": {"added": sum(rep.added.values()) + rep.neutral, "requests": len(rep.requests)}}])
+    try:
+        audit.append([{"type": "provenance.reported", "actor_kind": "user", "actor_id": user_id(), "project_id": pid,
+                       "detail": {"added": sum(rep.added.values()) + rep.neutral, "requests": len(rep.requests)}}])
+    except Exception as e:  # the comment is already up: say so, type name only
+        raise fail(f"Posted the report to the PR, but the audit event could not be written ({type(e).__name__})") from e
     typer.echo("Posted the report to the PR.")
 
 
