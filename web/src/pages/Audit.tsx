@@ -8,7 +8,7 @@ import { Badge, Empty, ErrorBox, Loading, Note, PageHead, RowButton, Seal } from
 import { short, when } from "../lib/format";
 import { usePid } from "../lib/nav";
 
-const TYPES = ["session.start", "session.end", "session.incomplete", "capture.gap", "turn.start", "turn.end", "memory.injected", "gate.decision",
+const TYPES = ["session.start", "session.end", "session.incomplete", "capture.gap", "turn.start", "turn.end", "gate.decision",
   "file.changed", "tool.call", "skill.invoked", "policy.result", "pii.finding", "pii.allowlisted", "approval.*", "config.changed", "lockfile.changed",
   "policies.changed", "export.created", "sync.batch"];
 

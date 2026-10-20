@@ -14,9 +14,8 @@ BODIES = {
 
 def concrete(path: str, client: TestClient) -> str:
     finding = client.get(f"/api/projects/{PID}/pii").json()["items"][0]["id"] if "{finding_id}" in path else ""
-    memory = client.get(f"/api/projects/{PID}/memory").json()["items"][0]["id"] if "{mid}" in path else ""
     return (path.replace("{pid}", PID).replace("{sid}", "release-notes").replace("{finding_id}", finding)
-            .replace("{mid}", memory).replace("{cid}", "x"))
+            .replace("{cid}", "x"))
 
 
 def test_every_state_changing_route_writes_audit(client: TestClient) -> None:

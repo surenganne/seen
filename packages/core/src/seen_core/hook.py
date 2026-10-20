@@ -1,7 +1,7 @@
 """seen-hook: the Claude Code hook entry point.
 
 Hot path is stdlib only and appends spool lines. Hooks fail open: any exception
-exits 0 and logs. Only the memory gate, the blocked-skill check, PII block mode and
+exits 0 and logs. Only the blocked-skill check, PII block mode and
 policy enforcement return 2, and always explicitly, never through an exception.
 """
 
@@ -16,7 +16,7 @@ import traceback
 from dataclasses import dataclass
 from typing import Any
 
-from . import paths, spool
+from . import paths, sessionstate, spool
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 
@@ -110,12 +110,8 @@ def _on_session_start(p: dict[str, Any]) -> Result:
         "remote": proj.remote if proj else None, "root": root, "project_root": proj.root if proj else None,
     })
     _scan_inventory(root, proj.id if proj else None)
-    from .memory import session as msess
-
-    text, line = msess.inject(p["session_id"], root, proj.id if proj else None, "", [])
-    if line:
-        spool.append(p["session_id"], {**line, **_base(p)})
-    return _context("SessionStart", text)
+    sessionstate.write(p["session_id"], {"root": root, "project_id": proj.id if proj else None})
+    return Result()
 
 
 def _context(event: str, text: str, system_message: str | None = None) -> Result:
@@ -161,10 +157,8 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
     line: dict[str, Any] = {"ev": "turn_start", **_base(p), "transcript_offset": offset, "cwd": cwd, "head": before["head"],
                             "prompt_hmac": secret.keyed(prompt, 64), "prompt_len": len(prompt),
                             "slash": m.group(1) if m else None}
-    from .memory import session as msess
-
     cfg = config.load()["pii"]
-    st = msess.read(p["session_id"])
+    st = sessionstate.read(p["session_id"])
     from .pii.projectcfg import load_project
 
     pcfg = load_project(st.get("root"))
@@ -200,44 +194,12 @@ def _on_prompt_submit(p: dict[str, Any]) -> Result:
                                      "and send it again (PII mode is 'block'; values were not stored).")
     if shown and cfg["mode"] == "warn":
         warn = f"Seen: this prompt contains {what}. It will go to the model provider. (Values were not stored.)"
-    changed = list(before["numstat"]) + list(before["untracked"])
-    text, mline = msess.inject(p["session_id"], st.get("root"), st.get("project_id"), prompt, changed)
-    if mline:
-        spool.append(p["session_id"], {**mline, **_base(p)})
-    return _context("UserPromptSubmit", text, warn)
+    return _context("UserPromptSubmit", "", warn)
 
 
 def _at_least(level: str) -> set[str]:
     order = ["low", "medium", "high"]
     return set(order[order.index(level):]) if level in order else {"medium", "high"}
-
-
-GATE_MSG = ("Seen: project memory did not load for this session, so edits are paused. Read the files in "
-            "{folder} first (they hold this project's decisions, conventions and gotchas), then retry the edit.")
-
-
-def _on_pre_edit(p: dict[str, Any]) -> Result:
-    from . import config
-    from .memory import session as msess
-
-    ti = p.get("tool_input") or {}
-    target = str(ti.get("file_path") or ti.get("notebook_path") or "")
-    st = msess.read(p["session_id"])
-    root = st.get("root")
-    mem_dir = os.path.join(root, ".seen", "memory") if root else None
-    decision, reason = "allow", "loaded"
-    if mem_dir and os.path.realpath(target).startswith(os.path.realpath(mem_dir) + os.sep):
-        reason = "memory_folder"  # saving memory is always allowed
-    elif not config.load()["memory"]["gate"]:
-        reason = "gate_off"
-    elif st.get("state") == "missed":
-        decision, reason = "block", "memory_not_loaded"
-    elif st.get("state") in (None, "none"):
-        reason = "no_memory"
-    spool.append(p["session_id"], {"ev": "gate", **_base(p), "hook": "pre-edit", "decision": decision, "reason": reason})
-    if decision == "block":
-        return Result(code=2, stderr=GATE_MSG.format(folder=paths.redact_home(str(mem_dir))))
-    return Result()
 
 
 PRE_READ_CAP = 256 * 1024
@@ -246,16 +208,14 @@ PRE_READ_CHUNK = 16 * 1024
 
 def _on_pre_read(p: dict[str, Any]) -> Result:
     from . import config
-    from .memory import session as msess
 
     target = str((p.get("tool_input") or {}).get("file_path") or "")
     if not target:
         return Result()
-    msess.mark_read(p["session_id"], target)
     cfg = config.load()["pii"]
     if cfg["mode"] != "block":
         return Result()  # report/warn: the Stop-time scan records what the read exposed
-    return _pre_read_scan(p, target, cfg, msess.read(p["session_id"]).get("root"))
+    return _pre_read_scan(p, target, cfg, sessionstate.read(p["session_id"]).get("root"))
 
 
 def _pre_read_scan(p: dict[str, Any], target: str, cfg: dict[str, Any], root: str | None) -> Result:
@@ -312,12 +272,11 @@ def _defer(p: dict[str, Any], rel: str, reason: str) -> Result:
 
 
 def _on_pre_skill(p: dict[str, Any]) -> Result:
-    from .memory import session as msess
     from .skills import lock
 
     ti = p.get("tool_input") or {}
     skill = str(ti.get("skill") or "")
-    root = msess.read(p["session_id"]).get("root")
+    root = sessionstate.read(p["session_id"]).get("root")
     if root and lock.is_blocked(lock.load(root), skill):  # check first: a blocked attempt is not a skill run
         spool.append(p["session_id"], {"ev": "gate", **_base(p), "hook": "pre-skill", "decision": "block", "reason": "skill_blocked"})
         return Result(code=2, stderr=f"Seen: the skill {skill.strip()[:80]} is blocked for this project (.seen/skills.lock.json). "

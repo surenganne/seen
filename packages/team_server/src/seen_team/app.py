@@ -94,7 +94,6 @@ class ChangeIn(Strict):
     user_id: str | None = Field(default=None, max_length=80)
     model: str | None = Field(default=None, max_length=80)
     git_status: str | None = Field(default=None, max_length=20)
-    mem_state: str | None = Field(default=None, max_length=20)
     file_count: int = Field(default=0, ge=0)
     lines_added: int = Field(default=0, ge=0)
     lines_removed: int = Field(default=0, ge=0)
@@ -360,8 +359,7 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
                                            "lines_removed": sum(r.get("lines_removed", 0) for r in rs),
                                            "cost_usd": round(sum(r.get("cost_usd") or 0 for r in rs), 4),
                                            "policy_missed": sum(any(not p["met"] for p in r.get("policies") or []) for r in rs),
-                                           "pii_changes": sum(1 for r in rs if (r.get("pii") or {}).get("counts")),
-                                           "mem_loaded_pct": round(sum(r.get("mem_state") == "loaded" for r in rs) / len(rs), 4) if rs else None},
+                                           "pii_changes": sum(1 for r in rs if (r.get("pii") or {}).get("counts"))},
                 "cost_by_day": [{"date": d, "by_tool": {"claude-code": round(v, 6)}} for d, v in sorted(by_day.items())],
                 "top_skills": [{"skill_id": n, "runs": c} for n, c in skills.most_common(10)],
                 "by_model": sorted(models.values(), key=lambda m: -m["cost_usd"]),

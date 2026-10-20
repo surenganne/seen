@@ -9,7 +9,6 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
@@ -19,7 +18,6 @@ from seen_core import pricing
 from seen_core.db.models import (
     Change,
     ChangeFile,
-    ChangeMemory,
     PiiFinding,
     Policy,
     PolicyResult,
@@ -29,7 +27,6 @@ from seen_core.db.models import (
     SkillInvocation,
     SkillVersion,
 )
-from seen_core.frontmatter import parse
 from seen_core.skills import lock
 
 from . import schemas as S
@@ -56,7 +53,7 @@ class Row:
             background=self.background, model=c.model,
             tool=self.tool, files=[f.path for f in self.files], added=sum(f.added for f in self.files),
             removed=sum(f.removed for f in self.files), tokens=c.tok_in + c.tok_out + c.tok_cache_read + c.tok_cache_write,
-            cost_usd=c.cost_usd or 0.0, git_status=c.git_status, mem_state=c.mem_state,
+            cost_usd=c.cost_usd or 0.0, git_status=c.git_status,
             skills=[s.skill_id or "" for s in self.skills], policy_missed=any(not p.met for p in self.policies),
             pii_state=c.pii_state, pii_count=sum(p.count for p in self.pii if p.status == "open") if self.pii else c.pii_count,
             pii_high=any(p.confidence == "high" and p.status == "open" for p in self.pii),
@@ -79,7 +76,7 @@ def request_line(prompt: str | None) -> str | None:
 
 
 PII_CHECKED = ("Structured identifiers (email, phone, Aadhaar, PAN, card, IBAN, SSN, UPI, DOB, GSTIN, passport, secrets) in the "
-               "prompt, file reads, tool and MCP output, network tool inputs, injected memory and added diff lines. "
+               "prompt, file reads, tool and MCP output, network tool inputs and added diff lines. "
                "Names, addresses and free-text health details are not detected.")
 
 
@@ -206,11 +203,9 @@ def overview(db: DB, pid: str, days: int, audit_ok: bool) -> S.Overview:
         s[0].add(p.change_id)
         s[1] += p.count
         s[2].add(p.type)
-    mem_rows = [o for o in outs if o.mem_state in ("loaded", "missed")]
     tiles = S.Tiles(changes=len(rows), files_changed=len(files), lines_added=sum(o.added for o in outs),
                     lines_removed=sum(o.removed for o in outs), tokens=sum(o.tokens for o in outs),
                     cost_usd=round(sum(o.cost_usd for o in outs), 4),
-                    mem_loaded_pct=round(sum(o.mem_state == "loaded" for o in mem_rows) / len(mem_rows), 4) if mem_rows else None,
                     policy_missed=sum(o.policy_missed for o in outs), pii_changes=sum(o.pii_count > 0 for o in every_out),
                     pii_high=sum(o.pii_high for o in every_out), background_changes=len(bg),
                     background_cost_usd=round(sum(r.c.cost_usd or 0 for r in bg), 4))
@@ -232,7 +227,7 @@ SORTS = {"time": lambda o: o.started_at or "", "cost": lambda o: o.cost_usd, "to
 
 
 def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | None, file: str | None, skill: str | None,
-            policy_missed: bool | None, mem: str | None, pii: bool | None, days: int | None, sort: str, dir: str,
+            policy_missed: bool | None, pii: bool | None, days: int | None, sort: str, dir: str,
             session: str | None = None, kind: str = "all", page: int = 1, page_size: int = 50) -> S.ChangePage:
     outs = [r.out() for r in load_rows(db, pid, days)]
     bg = sum(o.background for o in outs)
@@ -255,8 +250,6 @@ def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | 
         outs = [o for o in outs if skill in o.skills]
     if policy_missed:
         outs = [o for o in outs if o.policy_missed]
-    if mem:
-        outs = [o for o in outs if o.mem_state == mem]
     if pii:
         outs = [o for o in outs if o.pii_count > 0]
     outs.sort(key=SORTS.get(sort, SORTS["time"]), reverse=dir != "asc")
@@ -264,18 +257,37 @@ def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | 
                         items=outs[(page - 1) * page_size: page * page_size])
 
 
-def _memory_files(root: str | None) -> list[tuple[Path, dict[str, Any]]]:
-    if not root:
-        return []
-    d = Path(root) / ".seen" / "memory"
-    out = []
-    for f in sorted(d.glob("*.md")) if d.is_dir() else []:
+def _actors(pid: str) -> dict[str, str]:
+    """change id -> actor id, from the audit trail (the ledger rows carry no user)."""
+    import sqlite3
+
+    from seen_core import paths
+
+    try:
+        con = sqlite3.connect(f"file:{paths.audit_db()}?mode=ro", uri=True)
         try:
-            fm, _ = parse(f.read_text(errors="replace")[:65536])
-        except OSError:
-            continue
-        out.append((f, fm))
-    return out
+            return {cid: a for cid, a in con.execute(
+                "SELECT change_id, MIN(actor_id) FROM audit_events WHERE project_id = ? AND change_id IS NOT NULL "
+                "AND actor_id IS NOT NULL GROUP BY change_id", (pid,))}
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return {}
+
+
+def timeline(db: DB, pid: str, *, actor: str | None, days: int | None, page: int, page_size: int) -> S.TimelinePage:
+    """Changes newest first, grouped by IST day. Paged by entry, so a day can continue on the next page."""
+    who = _actors(pid)
+    rows = [(r, who.get(r.c.id)) for r in load_rows(db, pid, days)]
+    actors = sorted({a for _, a in rows if a})
+    rows = [x for x in rows if not actor or x[1] == actor]
+    rows.sort(key=lambda x: x[0].c.started_at or "", reverse=True)
+    groups: dict[str, list[S.TimelineEntry]] = {}
+    for r, a in rows[(page - 1) * page_size: page * page_size]:
+        e = S.TimelineEntry(**r.out().model_dump(), actor=a, commit=(r.c.git_head_after or "")[:7] or None)
+        groups.setdefault(_day(r.c.started_at) if r.c.started_at else "unknown", []).append(e)
+    return S.TimelinePage(total=len(rows), actors=actors, page=page, page_size=page_size,
+                          days=[S.TimelineDay(day=d, entries=es) for d, es in groups.items()])
 
 
 def change_detail(db: DB, cid: str, prompt_storage: str) -> S.ChangeDetail | None:
@@ -284,7 +296,6 @@ def change_detail(db: DB, cid: str, prompt_storage: str) -> S.ChangeDetail | Non
         return None
     rows = {r.c.id: r for r in load_rows(db, c.project_id or "")} if c.project_id else {}
     r = rows.get(cid) or Row(c)
-    proj = db.get(Project, c.project_id) if c.project_id else None
     model_prices = pricing.table()["models"].get(c.model or "", None)
     parts: list[S.CostPart] = []
     if model_prices:
@@ -292,7 +303,6 @@ def change_detail(db: DB, cid: str, prompt_storage: str) -> S.ChangeDetail | Non
                ("cache_read", c.tok_cache_read, model_prices["cache_read"]), ("cache_write", c.tok_cache_write, model_prices["cache_write_5m"])]
         total = sum(n * p for _, n, p in raw) or 1
         parts = [S.CostPart(kind=k, tokens=n, cost_usd=round(n * p / 1e6, 6), share=round(n * p / total, 4)) for k, n, p in raw]  # type: ignore[arg-type]
-    mems = {fm.get("id") or f.stem: fm for f, fm in _memory_files(proj.root_path if proj else None)}
     pols = {p.id: p for p in db.scalars(select(Policy).where(Policy.project_id == c.project_id))}
     kinds = dict(db.execute(select(Skill.id, Skill.kind)).all())
     sess = db.get(Session, c.session_id) if c.session_id else None
@@ -303,21 +313,14 @@ def change_detail(db: DB, cid: str, prompt_storage: str) -> S.ChangeDetail | Non
         tool=r.tool, tokens=S.Tokens(input=c.tok_in, out=c.tok_out, cache_read=c.tok_cache_read, cache_write=c.tok_cache_write),
         cost_usd=c.cost_usd, price_version=c.price_version, prices_verified=bool(pricing.table().get("verified")),
         cost_breakdown=parts, git_head_before=c.git_head_before, git_head_after=c.git_head_after, git_status=c.git_status,
-        mem_state=c.mem_state, mem_injected_tokens=c.mem_injected_tokens or 0,
         files=[S.FileLine(path=f.path, added=f.added, removed=f.removed) for f in r.files],
-        memories=[S.MemoryRef(memory_id=m.memory_id, content_hash=m.content_hash, type=(mems.get(m.memory_id) or {}).get("type"))
-                  for m in db.scalars(select(ChangeMemory).where(ChangeMemory.change_id == cid))],
         skills=[S.SkillRun(ordinal=s.ordinal, skill_id=s.skill_id or "", kind=kinds.get(s.skill_id), hash_short=(s.hash or "")[:7] or None,
                            trigger=s.trigger, status=s.status) for s in r.skills],
         policies=[S.PolicyCheck(policy_id=p.policy_id, title=pols[p.policy_id].title if p.policy_id in pols else None,
                                 require_skill=pols[p.policy_id].require_skill if p.policy_id in pols else None, met=bool(p.met),
                                 mode=pols[p.policy_id].mode if p.policy_id in pols else None) for p in r.policies],
         pii=[pii_out(p) for p in r.pii],
-        pii_checked=PII_CHECKED,
-        # notes this change wrote or edited: by its own files (the front matter's source_change is rarely set)
-        memory_saved=sorted({str(fm.get("id") or f.stem) for f, fm in _memory_files(proj.root_path if proj else None)
-                             if str(fm.get("source_change") or "") == cid
-                             or any(x.path == f".seen/memory/{f.name}" for x in r.files)}))
+        pii_checked=PII_CHECKED)
 
 
 def _lockfile(db: DB, pid: str | None) -> lock.Lockfile:

@@ -126,19 +126,6 @@ def test_removed_lines_and_scan_diff_off(repo: Path, tmp_path: Path, seen_home: 
     assert not [x for x in findings() if x["source_kind"] == "diff_added"]
 
 
-def test_injected_memory_scanned(repo: Path, tmp_path: Path) -> None:
-    from seen_core.memory import files as mf
-
-    mf.new_memory(repo / ".seen/memory", id="contact", type="context", body="Escalations go to esc.person@corp.test.in.", file_ref=None)
-    rp = Replay(repo, tmp_path)
-    rp.start()
-    rp.prompt()
-    rp.model_works()
-    rp.stop()
-    f = [x for x in findings() if x["source_kind"] == "injected_memory"]
-    assert f and f[0]["type"] == "email" and f[0]["source_ref"] == "Memory contact" and f[0]["destination"] == "model"
-
-
 @pytest.mark.parametrize("pattern", ["**", "*", "**/*", "*.csv", "../outside/**", "/abs/**"])
 def test_overbroad_allow_paths_ignored(repo: Path, tmp_path: Path, pattern: str) -> None:
     (repo / ".seen").mkdir()

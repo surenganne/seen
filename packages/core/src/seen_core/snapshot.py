@@ -24,7 +24,7 @@ def _backup(src: Path, dst: Path) -> None:
 
 
 def snapshot(src: Path, dest: Path, keep: int = 2, name: str | None = None) -> Path:
-    """Copy ledger, audit, config and personal memory into dest/<utc stamp>/ and point dest/current at it.
+    """Copy ledger, audit and config into dest/<utc stamp>/ and point dest/current at it.
     secret.key is never copied: the container only reads."""
     if not (src / DBS[0]).exists():
         raise SystemExit(f"No ledger at {src / DBS[0]}: nothing to snapshot.")
@@ -41,8 +41,6 @@ def snapshot(src: Path, dest: Path, keep: int = 2, name: str | None = None) -> P
         for db in DBS:
             if (src / db).exists():
                 _backup(src / db, tmp / db)
-        if (src / "memory").is_dir():
-            shutil.copytree(src / "memory", tmp / "memory", symlinks=False)
         shutil.rmtree(final, ignore_errors=True)
         os.rename(tmp, final)
     except BaseException:

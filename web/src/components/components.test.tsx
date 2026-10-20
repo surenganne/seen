@@ -11,7 +11,7 @@ import { day, money, when } from "../lib/format";
 const row = (over: Partial<S["ChangeRow"]> = {}): S["ChangeRow"] => ({
   id: "ch_1", seq: 1, session_id: "s", started_at: "2026-10-18T10:00:00Z", request: null, summary: "Did a thing", background: false, model: "claude-sonnet-5-5",
   tool: "claude-code", files: ["a.py"], added: 3, removed: 1, tokens: 1000, cost_usd: 0.12, git_status: "committed",
-  mem_state: "loaded", skills: ["tdd"], policy_missed: false, pii_state: "none", pii_count: 0, pii_high: false, unapproved_skill: false,
+  skills: ["tdd"], policy_missed: false, pii_state: "none", pii_count: 0, pii_high: false, unapproved_skill: false,
   ...over,
 });
 
@@ -74,12 +74,11 @@ describe("ChangesTable", () => {
     render(
       <MemoryRouter initialEntries={["/p/x/changes?range=7"]}>
         <Routes>
-          <Route path="/p/:pid/changes" element={<ChangesTable pid="x" rows={[row({ mem_state: "missed", policy_missed: true, pii_count: 2, pii_high: true })]} />} />
+          <Route path="/p/:pid/changes" element={<ChangesTable pid="x" rows={[row({ policy_missed: true, pii_count: 2, pii_high: true })]} />} />
           <Route path="/p/:pid/changes/:cid" element={<div>detail page</div>} />
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByText("no memory")).toBeInTheDocument();
     expect(screen.getByText("policy missed")).toBeInTheDocument();
     screen.getByRole("link", { name: "Did a thing" }).focus();
     await userEvent.keyboard("{Enter}");

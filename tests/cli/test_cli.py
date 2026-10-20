@@ -37,15 +37,13 @@ def recorded(repo: Path, tmp_path: Path) -> None:
 def test_init_scaffolds_repo_and_is_idempotent(repo: Path) -> None:
     invoke("init", cwd=repo)
     s = repo / ".seen"
-    assert (s / "memory").is_dir() and (s / "policies.yaml").exists() and (s / "pii.yaml").exists()
+    assert (s / "policies.yaml").exists() and (s / "pii.yaml").exists()
     assert json.loads((s / "skills.lock.json").read_text()) == {"approved": {}, "blocked": []}
     assert ".cache/" in (s / ".gitignore").read_text()
-    settings = json.loads((repo / ".claude/settings.json").read_text())
-    assert {"Write(.seen/memory/**)", "Edit(.seen/memory/**)"} <= set(settings["permissions"]["allow"])
-    (repo / ".claude/settings.json").write_text(json.dumps({**settings, "model": "keep-me"}))
+    assert not (s / "memory").exists() and not (repo / ".claude/settings.json").exists()  # init writes nothing outside .seen/
+    (s / "pii.yaml").write_text("# edited\n")
     invoke("init", cwd=repo)
-    again = json.loads((repo / ".claude/settings.json").read_text())
-    assert again["model"] == "keep-me" and again["permissions"]["allow"].count("Write(.seen/memory/**)") == 1
+    assert (s / "pii.yaml").read_text() == "# edited\n"
     assert audit.query(type_="config.changed")
 
 
@@ -96,7 +94,7 @@ def test_ingest_command_replays_session(repo: Path, tmp_path: Path) -> None:
 def test_dev_seed_into_explicit_home(tmp_path: Path) -> None:
     home = tmp_path / "dev"
     out = invoke("dev-seed", "--home", str(home))
-    assert "changes" in out and (home / "ledger.db").exists() and (home / "demo-repos/payments-api/.seen/memory").is_dir()
+    assert "changes" in out and (home / "ledger.db").exists() and (home / "demo-repos/payments-api/.seen/policies.yaml").is_file()
 
 
 def test_dev_seed_refuses_real_home(monkeypatch: pytest.MonkeyPatch) -> None:

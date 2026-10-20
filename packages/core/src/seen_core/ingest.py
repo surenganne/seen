@@ -15,7 +15,6 @@ from .db import ledger_session
 from .db.models import (
     Change,
     ChangeFile,
-    ChangeMemory,
     PiiFinding,
     Policy,
     PolicyResult,
@@ -118,7 +117,6 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.git_head_before = before["head"] if before else None
         row.git_head_after = head_after
         row.git_status = ("committed" if head_after != row.git_head_before else "uncommitted") if files else None
-        _write_memories(db, cid, session_id, lines, turn_lines)
         pii_rows, pii_allowed = _stop_scan(t, start, lines, turn_lines, files, before)
         _write_prompt_pii(db, cid, turn_lines)
         _write_stop_pii(db, cid, pii_rows)
@@ -198,12 +196,12 @@ def cleanup_spools(keep: str, max_age_days: int = SPOOL_KEEP_DAYS) -> None:
         if not any(ln.get("ev") == "session_end" for ln in spool.read(sid)):
             continue  # sweep_incomplete owns these
         snap = paths.snap_file(sid)
-        for p in (f, snap, snap.with_suffix(".mem.json"), snap.with_suffix(".audit-pos")):
+        for p in (f, snap, snap.with_suffix(".state.json"), snap.with_suffix(".audit-pos")):
             p.unlink(missing_ok=True)
     s = paths.home() / "snap"
     for m in s.glob("*.untracked") if s.is_dir() else []:  # sessions outside a repo: only local state to drop
         if m.stem != keep and time.time() - m.stat().st_mtime >= max_age_days * 86400:
-            for p in (m, m.with_suffix(".json"), m.with_suffix(".mem.json"), m.with_suffix(".audit-pos")):
+            for p in (m, m.with_suffix(".json"), m.with_suffix(".state.json"), m.with_suffix(".audit-pos")):
                 p.unlink(missing_ok=True)
 
 
@@ -343,9 +341,6 @@ def _events_for(session_id: str, i: int, ln: dict[str, Any], pid: str | None) ->
     if kind == "gate":
         return [{**ev, "type": "gate.decision", "actor_kind": "hook", "outcome": "blocked" if ln.get("decision") == "block" else "ok",
                  "subject": ln.get("hook"), "detail": {"hook": ln.get("hook"), "decision": ln.get("decision"), "reason": ln.get("reason")}}]
-    if kind == "memory_injected":
-        return [{**ev, "type": "memory.injected", "actor_kind": "hook",
-                 "detail": {"ids": ln.get("ids"), "hashes": ln.get("hashes"), "tokens": ln.get("tokens")}}]
     if kind == "capture_gap":
         return [{**ev, "type": "capture.gap", "actor_kind": "hook", "outcome": "failed", "subject": ln.get("hook"),
                  "detail": {"hook": ln.get("hook"), "error": ln.get("error")}}]
@@ -403,27 +398,6 @@ def sweep_incomplete(max_age_s: float = 6 * 3600) -> None:
                               "detail": {"last_seq": last[0]["seq"] if last else None}}]))
 
 
-def _write_memories(db: Any, cid: str, session_id: str, lines: list[dict[str, Any]], turn_lines: list[dict[str, Any]]) -> None:
-    """Everything injected so far this session is in the model's context for this turn."""
-    from .memory import session as msess
-
-    upto = lines[: lines.index(turn_lines[-1]) + 1] if turn_lines and turn_lines[-1] in lines else lines
-    injected: dict[str, str] = {}
-    for ln in upto:
-        if ln.get("ev") == "memory_injected":
-            injected.update(zip(ln.get("ids") or [], ln.get("hashes") or [], strict=False))
-    starts = [i for i, ln in enumerate(lines) if ln.get("ev") == "turn_start"]
-    first_turn = bool(starts) and turn_lines and lines.index(turn_lines[0]) == starts[0]
-    window = upto if first_turn else turn_lines
-    tokens = sum(int(ln.get("tokens") or 0) for ln in window if ln.get("ev") == "memory_injected")
-    db.execute(delete(ChangeMemory).where(ChangeMemory.change_id == cid))
-    for mid, h in sorted(injected.items()):
-        db.add(ChangeMemory(change_id=cid, memory_id=mid, content_hash=h))
-    row = db.get(Change, cid)
-    row.mem_state = msess.read(session_id).get("state") or "none"
-    row.mem_injected_tokens = tokens
-
-
 def _write_policies(db: Any, cid: str, pid: str | None, pols: list[policy.Policy], results: list[tuple[str, bool]]) -> None:
     for p in pols:  # mirror the committed file into the ledger for the dashboard
         key = f"{pid}:{p.id}"
@@ -477,13 +451,9 @@ def _stop_scan(t: Turn, start: dict[str, Any], lines: list[dict[str, Any]], turn
     cfg = config.load()["pii"]
     if cfg["mode"] == "off":
         return [], 0
-    root, pid = start.get("root"), start.get("project_id")
+    root = start.get("root")
     c = stopscan.Collector(cfg, load_project(root))
     stopscan.scan_transcript(c, t, root)
-    upto = lines[: lines.index(turn_lines[-1]) + 1] if turn_lines and turn_lines[-1] in lines else lines
-    window = turn_lines if any(ln.get("ev") == "turn_start" for ln in lines[: lines.index(turn_lines[0])]) else upto
-    ids = [i for ln in window if ln.get("ev") == "memory_injected" for i in ln.get("ids") or []]
-    stopscan.scan_memory(c, root, pid, ids)
     untracked = set((before or {}).get("untracked") or {})
     after_untracked = set()
     if root:

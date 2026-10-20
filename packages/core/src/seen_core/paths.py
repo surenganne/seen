@@ -42,8 +42,6 @@ def hook_log() -> Path:
     return home() / "log" / "hook.log"
 
 
-def personal_memory_dir(project_id: str) -> Path:
-    return home() / "memory" / _safe(project_id)
 
 
 def ensure_dir(p: Path) -> Path:
