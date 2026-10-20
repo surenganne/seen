@@ -469,6 +469,22 @@ class ProvenanceFile(BaseModel):
     reason: str | None
 
 
+class ProvenanceFileRow(BaseModel):
+    path: str
+    requests: int  # distinct changes of yours (not background) that touched the file
+    added: int
+    removed: int
+    last_changed_at: str | None
+    last_change_id: str | None
+
+
+class ProvenanceFiles(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: list[ProvenanceFileRow]
+
+
 class ProvenanceRequest(BaseModel):
     change_id: str
     headline: str

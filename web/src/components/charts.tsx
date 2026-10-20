@@ -141,7 +141,7 @@ export function SpendChart({ days }: { days: S["DayStat"][] }) {
 }
 
 /** Single-hue horizontal magnitude bars with direct value labels (no legend needed for one series). */
-export function MagnitudeBars({ items, unit = "" }: { items: { label: string; value: number; sub?: string; to?: string }[]; unit?: string }) {
+export function MagnitudeBars({ items, unit = "" }: { items: { label: string; value: number; sub?: string; to?: string; more?: { to: string; text: string; name: string } }[]; unit?: string }) {
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
     <ul className="bars">
@@ -150,7 +150,9 @@ export function MagnitudeBars({ items, unit = "" }: { items: { label: string; va
           {i.to ? <Link className="mono bars-link" to={i.to}>{i.label}</Link> : <span className="mono">{i.label}</span>}
           <span className="meter" aria-hidden="true"><span style={{ width: `${(i.value / max) * 100}%` }} /></span>
           <span className="mono" title={i.sub}>{i.value.toLocaleString()}{unit}</span>
-          {i.sub && <span className="tiny muted bars-sub">{i.sub}</span>}
+          {(i.sub || i.more) && (
+            <span className="tiny muted bars-sub">{i.sub}{i.more && <>{i.sub && " · "}<Link to={i.more.to} aria-label={i.more.name}>{i.more.text}</Link></>}</span>
+          )}
         </li>
       ))}
     </ul>

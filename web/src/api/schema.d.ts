@@ -225,6 +225,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{pid}/provenance/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provenance Files
+         * @description Files your requests changed, from the ledger alone: no git and no file contents.
+         */
+        get: operations["provenance_files_api_projects__pid__provenance_files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{pid}/provenance/range": {
         parameters: {
             query?: never;
@@ -922,6 +942,32 @@ export interface components {
             rev: string;
             /** Truncated */
             truncated: boolean;
+        };
+        /** ProvenanceFileRow */
+        ProvenanceFileRow: {
+            /** Added */
+            added: number;
+            /** Last Change Id */
+            last_change_id: string | null;
+            /** Last Changed At */
+            last_changed_at: string | null;
+            /** Path */
+            path: string;
+            /** Removed */
+            removed: number;
+            /** Requests */
+            requests: number;
+        };
+        /** ProvenanceFiles */
+        ProvenanceFiles: {
+            /** Items */
+            items: components["schemas"]["ProvenanceFileRow"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
         };
         /** ProvenanceRange */
         ProvenanceRange: {
@@ -1837,6 +1883,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProvenanceFile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provenance_files_api_projects__pid__provenance_files_get: {
+        parameters: {
+            query?: {
+                days?: number | null;
+                q?: string;
+                sort?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvenanceFiles"];
                 };
             };
             /** @description Validation Error */

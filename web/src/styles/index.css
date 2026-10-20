@@ -144,6 +144,9 @@ p { margin: 0; }
 /* ---------- panels ---------- */
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); }
+details.panel > summary { cursor: pointer; list-style-position: inside; }
+details.panel:not([open]) > summary { border-bottom: 0; }
+details.panel > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .panel-head .hint { font-size: 0.75rem; color: var(--ink-3); }
 .panel-body { padding: 1rem; }
 .panel-body.flush { padding: 0; }
@@ -355,6 +358,9 @@ pre.snippet { margin: 0; padding: 0.75rem; overflow-x: auto; font-family: var(--
   *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; animation-iteration-count: 1 !important; }
 }
 
+a.tag { height: 24px; text-decoration: none; }
+a.tag:hover { background: var(--surface-3, var(--border)); color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+a.tag:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .tag { display: inline-flex; align-items: center; height: 22px; padding: 0 0.45rem; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--ink-2); font-family: var(--font-mono); font-size: 0.75rem; white-space: nowrap; }
 
 .pager { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
@@ -377,6 +383,7 @@ pre.snippet { margin: 0; padding: 0.75rem; overflow-x: auto; font-family: var(--
 .chart-tip { background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 0.5rem 0.65rem; font-size: 0.8125rem; box-shadow: var(--shadow-pop); min-width: 9rem; }
 .bars { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(5rem, auto) minmax(0, 1fr) auto; gap: 0.55rem 0.75rem; align-items: center; }
 .bars li { display: contents; }
+.bars-sub a { text-decoration: underline; text-underline-offset: 2px; }
 .bars-sub { grid-column: 2 / -1; margin-top: -0.4rem; }
 
 /* ---------- responsive ---------- */

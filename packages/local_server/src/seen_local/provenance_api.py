@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy.orm import Session as DB
 
 from seen_core.db.models import Project
@@ -18,12 +18,15 @@ from seen_core.headline import clean
 from seen_core.provenance import blame, enrich
 from seen_core.provenance import report as rp
 
+from . import queries
 from . import schemas as S
 from .app import get_db
 
 BUDGET_S = 5.0  # wall-clock budget per file; over it the answer is truncated
 Db = Annotated[DB, Depends(get_db)]
-MAX_REV, MAX_PATH = 200, 4096
+MAX_REV, MAX_PATH, MAX_Q = 200, 4096, 200
+# files sorted by: recent (newest change first), most requests, most lines (added + removed); ties by path
+FILE_SORTS = {"recent": lambda r: r.last_changed_at or "", "requests": lambda r: r.requests, "lines": lambda r: r.added + r.removed}
 
 
 def _ref(value: str) -> str:
@@ -38,6 +41,34 @@ def register(app: FastAPI, project_or_404: Callable[[DB, str], Project]) -> None
         if not p.root_path or not Path(p.root_path).is_dir():
             raise HTTPException(404, "project has no repository on this machine")
         return p
+
+    @app.get("/api/projects/{pid}/provenance/files", response_model=S.ProvenanceFiles)
+    def provenance_files(pid: str, db: Db, days: int | None = Query(None, ge=1, le=3650), q: str = "", sort: str = "recent",
+                         page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)) -> S.ProvenanceFiles:
+        """Files your requests changed, from the ledger alone: no git and no file contents."""
+        project_or_404(db, pid)
+        if sort not in FILE_SORTS:  # checked here, not by Literal: its 422 echoes the input
+            raise HTTPException(422, "sort must be recent, requests or lines")
+        if len(q) > MAX_Q or "\x00" in q:
+            raise HTTPException(422, "unsafe filter")
+        by_path: dict[str, S.ProvenanceFileRow] = {}
+        for r in queries.load_rows(db, pid, days):
+            if r.background:
+                continue
+            for f in r.files:
+                if q.lower() not in f.path.lower():
+                    continue
+                row = by_path.setdefault(f.path, S.ProvenanceFileRow(path=f.path, requests=0, added=0, removed=0,
+                                                                     last_changed_at=None, last_change_id=None))
+                row.requests += 1
+                row.added += f.added
+                row.removed += f.removed
+                if (r.c.started_at or "") > (row.last_changed_at or ""):
+                    row.last_changed_at, row.last_change_id = r.c.started_at, r.c.id
+        rows = sorted(by_path.values(), key=lambda r: r.path)
+        rows.sort(key=FILE_SORTS[sort], reverse=True)  # stable: equal keys stay in path order
+        return S.ProvenanceFiles(total=len(rows), page=page, page_size=page_size,
+                                 items=rows[(page - 1) * page_size: page * page_size])
 
     @app.get("/api/projects/{pid}/provenance/file", response_model=S.ProvenanceFile)
     def provenance_file(pid: str, db: Db, path: str, rev: str = "HEAD") -> S.ProvenanceFile:
