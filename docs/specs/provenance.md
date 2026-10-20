@@ -111,10 +111,13 @@ Rules:
 - Hot-path budget: at most +5 ms p50 for a 200-line edit on top of today's PostToolUse cost (measured in the `perf` suite).
 
 Ingest (`finish_turn`, not the hot path): turn `prints` lines into `line_prints` rows for that turn's change id, in the same
-transaction as `change_files`. Baseline subtraction (PV-4b): a `Write` over an existing file would fingerprint every line of
+transaction as `change_files`.
+
+Baseline subtraction (PV-4b): a `Write` over an existing file would fingerprint every line of
 `content`, including lines a person already had. At ingest, the fingerprints of the file as committed at the turn's
-`head_before` are subtracted, so only lines NEW relative to that baseline are stored. The residual limit is in section 9. Unknown or malformed `prints` lines are ignored (an older ingest ignores the whole event
-type, so mixed versions are safe).
+`head_before` are subtracted, so only lines NEW relative to that baseline are stored. The residual limit is in section 9.
+
+Unknown or malformed `prints` lines are ignored (an older ingest ignores the whole event type, so mixed versions are safe).
 
 ## 6. Attribution (read side)
 
@@ -147,8 +150,10 @@ For each line with text `t` blamed to commit `c` at path `p` (the path at `c`):
 
 A trivial line is attributed only by adjacency, read conservatively: it is `agent` (change X) when the nearest non-trivial
 line above and the nearest non-trivial line below, overall, are both in the same blamed commit as the trivial line and both
-`agent` for the same change X. If the nearest non-trivial line is in another commit or is not `agent`, the line is `human`. Blank lines are reported as `neutral` and left out of every percentage. This avoids window fingerprints that
-break at the edge of every edit.
+`agent` for the same change X. If the nearest non-trivial line is in another commit or is not `agent`, the line is `human`.
+
+Blank lines are reported as `neutral` and left out of every percentage. This avoids window fingerprints that break at the
+edge of every edit.
 
 ### 6.4 "Not observed"
 
@@ -158,7 +163,7 @@ A line is `not observed` rather than `human` when Seen could not have seen it:
 - its blamed commit time falls inside a gap window, or
 - the file is binary, over 1 MB or over 20,000 lines, or untracked.
 
-A gap window is `[session.started_at, session.ended_at or the last audit event time of that session]` for every session that
+A gap window is `[session.started_at, session.ended_at or the last audit event time of that session, other than the `session.incomplete` marker itself]` for every session that
 has a `capture.gap` or `session.incomplete` event. A gap window turns only a line that would otherwise be `human` into
 `not observed`; it never changes an `agent` line. A blamed commit older than the first recorded change (floored to whole
 seconds) is `not observed` even when a fingerprint matches.
@@ -208,7 +213,8 @@ A path that is unsafe, untracked or fails blame exits 2 with a one-line reason.
    branch's PR. It is the only network action. It writes an audit event `provenance.reported` with counts only (lines,
    requests), never headlines or text. It refuses unless `--head` is the checked-out branch's HEAD, refuses without a TTY
    unless `--yes`, and `--post` with `--format json` is a usage error.
-7. Every model-derived string (headline, model, skill name) is placed in an inline code span in the Markdown, and control
+7. Range mode excludes trivial lines from the percentages (and counts them as neutral), because adjacency (6.3) needs blame times, which range mode does not have.
+8. Every model-derived string (headline, model, skill name) is placed in an inline code span in the Markdown, and control
    characters are stripped from it.
 
 Example (md):
@@ -287,6 +293,7 @@ fingerprints. The Docker snapshot copies the ledger as it does today (same machi
 | Reformatting that changes a line's text (quotes, wrapping) | the line becomes `human`; whitespace-only changes survive |
 | A `Write` over a file that held a person's UNCOMMITTED lines at turn start | those lines are credited to the agent: they are not in `head_before`, so baseline subtraction cannot drop them |
 | An `Edit` that re-adds or moves a line that was in the baseline | not credited to the agent (the line is subtracted as already present) |
+| A file the agent wrote and a person then renamed inside the reviewed range | `human` in `pr-report`: fingerprints are keyed by the path at write time, and range mode uses the final path |
 | A notebook (`.ipynb`) | not line-attributed: a cell is one JSON line, so no line matches |
 | A `Write` or `Edit` whose added lines are all trivial | nothing is recorded; such lines are only ever attributed by adjacency (6.3) |
 
@@ -300,8 +307,8 @@ Measured on a scenario suite built from scratch git repos driven through the rea
 | 1. Precision | 0 `agent` lines on human-only repos; at least 99% of `agent` lines typed by the agent | 70 true positives, 0 false positives: 100%. The human-only repo has 0 `agent` lines |
 | 2. Recall | at least 90% of surviving Edit/Write-authored lines are `agent`, across in-turn commit, later human commit, squash, rebase, rename, a person's edits and a Write over a person's file | 70 of 71: 98.6%. The one miss is a 9-alphanumeric line at the edge of an agent block (threshold scenario) |
 | 3. Honesty | Bash-generated files never `agent`; pre-Seen code `not observed` | 0 Bash-generated lines `agent`; 0 pre-Seen lines wrong, asserted in every scenario |
-| 4. Hot path | at most +5 ms p50 for a 200-line edit | `perf` marker test in `tests/provenance/test_capture_hook.py` (skipped in containers) |
-| 5. Read path | `seen blame` on 2,000 lines under 1 s; `pr-report` on 50 files under 3 s | `pr-report` on 50 files: `perf` marker test (`test_fifty_file_range_under_3s`). The 1 s blame figure has no dedicated timing test; the 5 s API budget bounds it |
+| 4. Hot path | at most +5 ms p50 for a 200-line edit | `perf` marker test in `tests/provenance/test_capture_hook.py` (skipped in containers). No number from the perf suite is recorded beyond that test's 5 ms assertion on `capture()` alone |
+| 5. Read path | `seen blame` on 2,000 lines under 1 s; `pr-report` on 50 files under 3 s | `pr-report` on 50 files: `perf` marker test (`test_fifty_file_range_under_3s`). The 1 s blame figure has no dedicated timing test; the 5 s API budget bounds it. The final reviewer measured the `seen blame` read path on a 2,000-line committed file with a scratch script: median about 46 ms, of which about 13 ms is `git blame` |
 | 6. Gates | every CLAUDE.md gate | pass, including `gen_openapi --check`, axe, 320 px reflow and the CSP listener |
 | 7. Safety | `../x`, symlink, ref starting `-`, 50 MB file, binary file refused or capped | each has a test |
 
@@ -329,9 +336,9 @@ lines at HEAD" computed from a cached per-file result keyed by blob SHA, and `pr
 | PV-1 | Fingerprint, normaliser, trivial-line rule, and the Edit/Write/Notebook extractors (pure functions, unit tests first, incl. multiset difference for Edit) | pytest, ruff, mypy |
 | PV-2 | Hook capture (`prints` spool event), caps, config flag, fail-open, perf test; `test_ner` import list unchanged | + perf marker |
 | PV-3 | Migration `0006`, ingest into `line_prints`, purge child table, `LinePrint` model, migration test with data | + migration test |
+| PV-4 | Porcelain parser and attribution (6.1 to 6.5) against recorded fixtures; scenario suite for acceptance 1 to 3 | pytest |
 | PV-4b | Baseline subtraction at ingest: a Write stores only lines new relative to `head_before` | pytest |
 | PV-4c | Hardening of blame and the diff reader: strict parser, `run_raw`, git config neutralised, count cross-checks | pytest |
-| PV-4 | Porcelain parser and attribution (6.1 to 6.5) against recorded fixtures; scenario suite for acceptance 1 to 3 | pytest |
 | PV-5 | `seen blame` (text and JSON) | CLI tests |
 | PV-6 | `seen pr-report` (diff parser, aggregation, `--fail-on`, md/json); then `--post` with confirmation and the audit event | CLI tests |
 | PV-7 | API routes, schemas, safety tests, OpenAPI regeneration, fixtures | `gen_openapi --check`, pytest |
@@ -349,8 +356,7 @@ Taken with the recommended defaults (2026-10-20):
 1. **Capture method.** Tool inputs only; no tree-diff fallback for Bash (ADR 0018).
 2. **`--post` in v1.** Included, behind confirmation, with counts only in the audit event.
 3. **Retention.** Fingerprints are kept as long as the ledger rows they belong to.
-4. **v2 sharing.** Still undecided; cost and any text (headlines) are proposed as excluded.
-5. **Trivial-line threshold.** Stays at 10 alphanumerics (ADR 0018).
+4. **Trivial-line threshold.** Stays at 10 alphanumerics (ADR 0018).
 
-Open for the owner: ADR 0019 stays `proposed` (blame argument order). The closed-stdin refusal and a few minor findings
+Open for the owner: v2 sharing is still undecided (cost and any text, such as headlines, are proposed as excluded). ADR 0019 stays `proposed` (blame argument order). The closed-stdin refusal and a few minor findings
 are tracked in the review ledger, not here.

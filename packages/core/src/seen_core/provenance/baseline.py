@@ -17,7 +17,7 @@ def _baseline_fps(root: str | None, head: str | None, path: str, key: bytes) -> 
         text = gitutil.run_raw(root, "show", "--end-of-options", f"{head}:{path}")
         if text is None or len(text) > MAX_BYTES:
             return set()
-        return {prints.fingerprint(s, key).hex() for s in text.splitlines() if not prints.is_trivial(s)}
+        return {prints.fingerprint(s, key).hex() for s in prints.split_lines(text) if not prints.is_trivial(s)}
     except Exception:  # ingest must never fail on a git problem
         return set()
 

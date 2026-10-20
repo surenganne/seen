@@ -18,6 +18,7 @@ from tests.provenance.scenarios import Scene
 from tests.provenance.test_scenarios import SCENARIOS
 
 cli = CliRunner()
+_REAL_STDIN_IS_TTY = cli_main._stdin_is_tty
 
 
 @pytest.fixture
@@ -132,6 +133,27 @@ def test_non_interactive_without_yes_refuses(scene: Scene, stub: Path, monkeypat
     assert code == 2
     one_line(err)
     assert calls(stub) == [] and events() == []
+
+
+def test_closed_stdin_refuses_in_one_line(scene: Scene, stub: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli_main, "_stdin_is_tty", _REAL_STDIN_IS_TTY)  # undo the autouse patch
+    monkeypatch.setattr(sys, "stdin", None)
+    assert cli_main._stdin_is_tty() is False
+    code, _, err = run(scene.root, "--post")
+    assert code == 2
+    one_line(err)
+    assert calls(stub) == [] and events() == []
+
+
+def test_audit_failure_after_post_is_one_line(scene: Scene, stub: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(_e: object) -> None:
+        raise RuntimeError("secret detail")
+    monkeypatch.setattr(audit, "append", boom)
+    code, out, err = run(scene.root, "--post", "--yes")
+    assert code == 2 and len(calls(stub)) == 1
+    one_line(err)
+    assert err.strip() == "Posted the report to the PR, but the audit event could not be written (RuntimeError)"
+    assert "secret detail" not in out + err
 
 
 def test_post_with_json_is_a_usage_error(scene: Scene, stub: Path) -> None:

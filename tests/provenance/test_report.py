@@ -52,6 +52,29 @@ def test_parse_diff_added() -> None:
     assert rp.parse_diff_added(DIFF) == {"new.py": ["x = 1", "+++ b/forged.py", "kept = 2"], "a b.py": ["y = 3"]}
 
 
+FUSED = """\
+diff --git a/one.py b/one.py
+--- a/one.py
++++ b/one.py
+@@ -1,4 +1,4 @@
+-old a
++new a
+ ctx one
+ ctx two
+-old b
++new b
+diff --git a/two.py b/two.py
+--- a/two.py
++++ b/two.py
+@@ -1,0 +2 @@
++added two
+"""
+
+
+def test_parse_diff_added_tolerates_context_lines() -> None:
+    assert rp.parse_diff_added(FUSED) == {"one.py": ["new a", "new b"], "two.py": ["added two"]}
+
+
 def test_parse_diff_added_empty() -> None:
     assert rp.parse_diff_added("") == {}
 
@@ -181,7 +204,8 @@ def _counts(s: Scene) -> tuple[int, int]:
 
 def test_local_git_config_cannot_change_the_diff(tmp_path: Path) -> None:
     s = _squash(tmp_path)
-    for k, v in (("color.ui", "always"), ("color.diff", "always"), ("diff.noprefix", "true"), ("diff.mnemonicPrefix", "true")):
+    for k, v in (("color.ui", "always"), ("color.diff", "always"), ("diff.noprefix", "true"), ("diff.mnemonicPrefix", "true"),
+                 ("diff.interHunkContext", "5")):
         s.git("config", k, v)
     assert _counts(s) == (10, 3)
 

@@ -28,6 +28,14 @@ def fingerprint(line: str, key: bytes) -> bytes:
     return hmac.new(key, _TAG + normalize(line).encode(errors=_ENC), hashlib.sha256).digest()[:8]
 
 
+def split_lines(text: str) -> list[str]:
+    """Split on \\n only, as blame and diff do (splitlines() also splits on FF, VT, NEL, U+2028); `normalize` drops a CR."""
+    out = text.split("\n")
+    if out[-1] == "":
+        out.pop()
+    return out
+
+
 def added_lines(tool_name: str, tool_input: dict[str, Any]) -> list[str] | None:
     """Raw lines the tool added, or None when it is not a text-writing tool we fingerprint."""
     if not isinstance(tool_input, dict):
@@ -39,9 +47,9 @@ def added_lines(tool_name: str, tool_input: dict[str, Any]) -> list[str] | None:
         if not isinstance(new, str) or not isinstance(old, str):
             return None
         # multiset difference on normalised lines: a line kept from old_string is not an addition
-        left = Counter(normalize(s) for s in old.splitlines())
+        left = Counter(normalize(s) for s in split_lines(old))
         out = []
-        for s in new.splitlines():
+        for s in split_lines(new):
             n = normalize(s)
             if left[n] > 0:
                 left[n] -= 1
@@ -52,7 +60,7 @@ def added_lines(tool_name: str, tool_input: dict[str, Any]) -> list[str] | None:
         text = "" if tool_input.get("edit_mode") == "delete" else tool_input.get("new_source")
     else:
         return None
-    return text.splitlines() if isinstance(text, str) else None
+    return split_lines(text) if isinstance(text, str) else None
 
 
 def _rel(path: str, root: str) -> str | None:
