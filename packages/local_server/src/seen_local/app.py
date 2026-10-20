@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session as DB
 from seen_core import audit, brand, config, paths, pricing
 from seen_core.db import ledger_session
 from seen_core.db.models import Project, Session
+from seen_core.pii.checked import PII_CHECKED
 
 from . import queries
 from . import schemas as S
@@ -190,7 +191,7 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
         items = [S.PiiRow(**queries.pii_out(f).model_dump(), change_id=r.c.id, started_at=r.c.started_at, summary=r.c.summary)
                  for r in rows for f in r.pii
                  if (not type or f.type == type) and (not source or f.source_kind == source) and (not status or f.status == status)]
-        return S.PiiPage(items=items, checked=queries.PII_CHECKED)
+        return S.PiiPage(items=items, checked=PII_CHECKED)
 
     @app.get("/api/changes/{cid}/pii", response_model=list[S.PiiFindingOut])
     def change_pii(cid: str, db: Db) -> list[S.PiiFindingOut]:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import shutil
@@ -17,6 +18,8 @@ from seen_core.db import ledger_session
 from seen_core.db.models import Change, ChangeFile, Project, Session, SkillInvocation
 from seen_core.identity import user_id
 from seen_core.project import resolve_project
+from seen_core.provenance.blame import blame_file
+from seen_core.provenance.enrich import enrich_blocks
 
 app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
 skills_app = typer.Typer(help="Skill inventory and approvals", no_args_is_help=True)
@@ -45,6 +48,57 @@ def _project_or_exit(cwd: Path | None = None) -> tuple[str, Path]:
         typer.echo("Not inside a git repository.", err=True)
         raise typer.Exit(1)
     return p.id, Path(p.root)
+
+
+_FAILED = ("not tracked", "git blame failed", "unparseable")  # reasons that mean there is nothing to show: exit 2
+_LIMIT = ("agent / human / not observed are shown separately. Not observed means Seen could not have seen who wrote the line "
+          "(before Seen, or a gap in capture); it is not a claim that a person wrote it. Checked: git blame, fingerprints of "
+          "recorded edits.")
+
+
+def _ist(ts: str | None) -> str:
+    try:
+        return (datetime.fromisoformat((ts or "").replace("Z", "+00:00")) + timedelta(minutes=330)).strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return "-"
+
+
+@app.command("blame")
+def blame_cmd(path: str = typer.Argument(..., help="File, relative to the repo root"),
+              rev: str = typer.Option("HEAD", "--rev", help="Commit to blame"),
+              as_json: bool = typer.Option(False, "--json", help="Machine-readable output (no line text)")) -> None:
+    """Who wrote each line: the agent, a person, or not observed."""
+    pid, _ = _project_or_exit()
+
+    def fail(msg: str) -> typer.Exit:
+        typer.echo(msg, err=True)
+        return typer.Exit(2)
+
+    with ledger_session() as db:
+        proj = db.get(Project, pid)
+        if proj is None:
+            raise fail("This repository has no recorded changes yet.")
+        try:
+            fp = blame_file(db, proj, path, rev)
+        except ValueError as e:
+            raise fail(f"Cannot blame {path!r}: {e}.") from e
+        if fp.reason and fp.reason.startswith(_FAILED):
+            raise fail(f"Cannot blame {path!r} at {rev}: {fp.reason}.")
+        blocks = enrich_blocks(db, fp.blocks)
+    if as_json:
+        typer.echo(json.dumps({**dataclasses.asdict(fp), "blocks": [dataclasses.asdict(b) for b in blocks]}, indent=2))
+        return
+    if path.endswith(".ipynb"):
+        typer.echo("Notebook files are not line-attributed (a cell is one JSON line); showing blame counts only.")
+    if fp.reason:
+        typer.echo(f"{fp.path} at {rev}: not line-attributed ({fp.reason}).")
+    if fp.truncated:
+        typer.echo("Stopped at the time budget; the result is incomplete.")
+    for b in blocks:
+        typer.echo(f"{b.start}-{b.end}  {b.who}  {b.headline or '-'}  {_ist(b.started_at)} IST  {b.model or '-'}")
+    c = fp.counts
+    typer.echo(f"{fp.path} at {rev}: agent {c['agent']} / human {c['human']} / not observed {c['not_observed']} lines"
+               f" ({c['neutral']} blank or punctuation-only). {_LIMIT}")
 
 
 @app.command()
