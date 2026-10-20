@@ -258,7 +258,7 @@ with `--end-of-options`, except `blame` (section 6.1).
   an agent wrote."); with one, the list stays in a closed `<details>` "Choose another file". The list has a "Filter files"
   search (`?q=`, submit on Enter), a sort of Most recent / Most requests / Most lines (`?sort=`), a pager, and rows (File,
   Requests, Lines, Last changed in IST) that open on click or Enter and set `?path=`; the chosen row has `aria-current`.
-  It follows the page's 7/14/28 day range. An empty list says what was checked and offers to clear the filter. Each block is marked with who (an icon and a word, never colour alone: agent / human / not observed),
+  It follows the page's 7/14/28 day range and states it ("Files changed by your requests in the last N days. Change the range in the top bar."); the closed summary reads "Choose another file (N files, last N days)", and a selected file missing from the list gets a calm "has no requests in the last N days" note. An empty list says what was checked and offers to clear the filter. Each block is marked with who (an icon and a word, never colour alone: agent / human / not observed),
   the headline, time and a link to the Change. A summary line gives the counts for the file.
 - States: nothing chosen (empty state), loading, an error box, a 404 reason shown as a note, `reason` shown as "No lines
   attributed: <reason>", `truncated` shown as a "result is partial" warning, and a notebook note ("Notebook files are not
@@ -269,7 +269,7 @@ with `--end-of-options`, except `blame` (section 6.1).
   with `path`, `requests` (distinct changes of yours, not background, that touched the file), `added`, `removed`,
   `last_changed_at`, `last_change_id`. Read from the ledger (`change_files` and `changes`) only: no git, no file contents,
   so it works where there is no repo. `sort` is `recent` (default), `requests` or `lines`; `q` is a case-insensitive path
-  substring of at most 200 characters; a bad `sort` or `q` is a 422 with a fixed message that never echoes the input.
+  substring of at most 200 characters; `days`, `page` and `page_size` are validated in the handler (whole numbers; days 1..3650, page >= 1, page_size 1..200); a bad value of any is a 422 with a fixed message that never echoes the input.
 - Tokens only from `tokens.css`; IBM Plex; no side stripes; WCAG 2.2 AA in both themes; stable test ids. The block list is
   one scroll region, a focusable labelled region. A text-only table view of the blocks exists (as for charts).
 - Copy states what was checked and the limits, next to the numbers: "Not observed means Seen could not have seen who wrote

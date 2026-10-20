@@ -385,9 +385,16 @@ test.describe("PV-8 provenance", () => {
       const blocks = page.getByTestId("prov-block");
       await expect(blocks.first()).toContainText(/agent/i);
       await expect(page.getByText("Not observed means Seen could not have seen it; it is not a claim that a person wrote it.")).toBeVisible();
-      await expect(page.locator("details summary")).toHaveText("Choose another file");
+      await expect(page.locator("details summary")).toHaveText(/^Choose another file \((\d+ files?, )?last 7 days\)$/);
       await page.locator("details summary").click();
       await expect(page.locator("tr[aria-current='true']")).toContainText("src/payments/charge.py");
+      await expect(page.getByTestId("prov-range-note")).toHaveText("Files changed by your requests in the last 7 days. Change the range in the top bar.");
+    });
+
+    test("the range is stated with a file open, and follows the range control", async ({ page }) => {
+      await page.goto(`${list}?path=src/payments/charge.py&range=28`);
+      await expect(page.locator("details summary")).toHaveText(/^Choose another file \(\d+ files?, last 28 days\)$/);
+      await expect(page.getByTestId("prov-block").first()).toBeVisible();
     });
 
     test("a row opens on Enter from the keyboard", async ({ page }) => {

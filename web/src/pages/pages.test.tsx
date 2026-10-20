@@ -118,7 +118,7 @@ describe("page details", () => {
       expect(document.querySelector("details")).toBeNull(); // the list is the page, not tucked away
       expect(state.calls.some((c) => c.endsWith("/provenance/file"))).toBe(false);
     });
-    it("a row opens on click and on Enter, and the chosen row is aria-current", async () => {
+    it("clicking a row opens that file's provenance", async () => {
       const u = userEvent.setup();
       mount(at(""));
       const rows = await screen.findAllByTestId("prov-file-row");
@@ -136,13 +136,13 @@ describe("page details", () => {
       expect(await screen.findByTestId("prov-count")).toBeInTheDocument();
       const details = document.querySelector("details")!;
       expect(details).not.toHaveAttribute("open");
-      expect(details.querySelector("summary")).toHaveTextContent("Choose another file");
+      expect(details.querySelector("summary")).toHaveTextContent(/^Choose another file/);
     });
     it("the selected file's row carries aria-current when the list is open", async () => {
       const u = userEvent.setup();
       mount(at("?path=src/auth/tokens.py"));
       await screen.findByTestId("prov-count");
-      await u.click(screen.getByText("Choose another file"));
+      await u.click(screen.getByText(/^Choose another file/));
       const rows = await screen.findAllByTestId("prov-file-row");
       const cur = rows.filter((r) => r.getAttribute("aria-current") === "true");
       expect(cur).toHaveLength(1);
@@ -156,6 +156,20 @@ describe("page details", () => {
       expect(screen.getByRole("button", { name: "Most requests" })).toHaveAttribute("aria-pressed", "true");
       await u.type(screen.getByLabelText("Filter files"), "charge{Enter}");
       await waitFor(() => expect(state.calls.filter((c) => c.endsWith("/provenance/files")).length).toBeGreaterThan(2));
+    });
+    it("the list states the day range, and the closed summary states the range and total", async () => {
+      mount(at(""));
+      expect(await screen.findByTestId("prov-range-note")).toHaveTextContent("Files changed by your requests in the last 7 days. Change the range in the top bar.");
+      await screen.findAllByTestId("prov-file-row");
+      mount(at("?path=src/auth/tokens.py&range=28"));
+      expect(await screen.findByText(/Choose another file \(\d+ files, last 28 days\)/)).toBeInTheDocument();
+      expect(screen.queryByTestId("prov-not-in-range")).not.toBeInTheDocument(); // tokens.py is in the list
+    });
+    it("a file that is not in the current list says so calmly and still shows its provenance", async () => {
+      mount(at("?path=src/payments/charge.py"));
+      expect(await screen.findByTestId("prov-not-in-range")).toHaveTextContent("src/payments/charge.py has no requests in the last 7 days");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(await screen.findByTestId("prov-count")).toBeInTheDocument();
     });
     it("an empty list says what was checked and offers to clear the filter", async () => {
       state.replies["/provenance/files"] = { status: 200, body: { total: 0, page: 1, page_size: 50, items: [] } };

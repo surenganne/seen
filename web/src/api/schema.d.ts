@@ -1899,11 +1899,11 @@ export interface operations {
     provenance_files_api_projects__pid__provenance_files_get: {
         parameters: {
             query?: {
-                days?: number | null;
+                days?: string | null;
                 q?: string;
                 sort?: string;
-                page?: number;
-                page_size?: number;
+                page?: string | null;
+                page_size?: string | null;
             };
             header?: never;
             path: {

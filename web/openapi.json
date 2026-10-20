@@ -4381,9 +4381,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "maximum": 3650,
-                  "minimum": 1,
-                  "type": "integer"
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -4417,10 +4415,15 @@
             "name": "page",
             "required": false,
             "schema": {
-              "default": 1,
-              "minimum": 1,
-              "title": "Page",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page"
             }
           },
           {
@@ -4428,11 +4431,15 @@
             "name": "page_size",
             "required": false,
             "schema": {
-              "default": 50,
-              "maximum": 200,
-              "minimum": 1,
-              "title": "Page Size",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page Size"
             }
           }
         ],
