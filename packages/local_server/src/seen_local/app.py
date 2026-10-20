@@ -220,15 +220,16 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
         t = pricing.table()
         versions = sorted({v for (v,) in db.execute(select(Session.tool_version).where(Session.tool_version.is_not(None)))})
         return S.SettingsOut(user=cfg["user"], skills=cfg["skills"], audit=cfg["audit"], pii=cfg["pii"],
-                             sync=cfg["sync"], prices={"version": t["version"], "verified": t.get("verified", False),
+                             sync=cfg["sync"], provenance=cfg["provenance"], prices={"version": t["version"], "verified": t.get("verified", False),
                                                        "source": t.get("source"), "models": t["models"]},
                              tools=[{"id": "claude-code", "name": "Claude Code", "versions": versions, "connected": bool(versions)}],
                              local_data={"home": paths.redact_home(str(paths.home())), "ledger": paths.redact_home(str(paths.ledger_db())),
                                          "audit": paths.redact_home(str(paths.audit_db())), "spool": paths.redact_home(str(paths.home() / "spool"))})
 
-    from . import writes
+    from . import provenance_api, writes
 
     writes.register(app, state)
+    provenance_api.register(app, project_or_404)
 
     if web_dist and web_dist.is_dir():
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="assets")

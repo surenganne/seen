@@ -208,6 +208,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{pid}/provenance/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provenance File */
+        get: operations["provenance_file_api_projects__pid__provenance_file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{pid}/provenance/range": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provenance Range */
+        get: operations["provenance_range_api_projects__pid__provenance_range_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{pid}/sessions": {
         parameters: {
             query?: never;
@@ -848,6 +882,102 @@ export interface components {
             /** Root Path */
             root_path: string | null;
         };
+        /** ProvenanceBlock */
+        ProvenanceBlock: {
+            /** Change Id */
+            change_id: string | null;
+            /** End */
+            end: number;
+            /** Headline */
+            headline: string | null;
+            /** Model */
+            model: string | null;
+            /** Pii State */
+            pii_state: string | null;
+            /** Skills */
+            skills: string[];
+            /** Start */
+            start: number;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * Who
+             * @enum {string}
+             */
+            who: "agent" | "human" | "not_observed" | "neutral";
+        };
+        /** ProvenanceFile */
+        ProvenanceFile: {
+            /** Blocks */
+            blocks: components["schemas"]["ProvenanceBlock"][];
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Path */
+            path: string;
+            /** Reason */
+            reason: string | null;
+            /** Rev */
+            rev: string;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** ProvenanceRange */
+        ProvenanceRange: {
+            /** Added */
+            added: {
+                [key: string]: number;
+            };
+            /** Base */
+            base: string;
+            /** Commits */
+            commits: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Files */
+            files: number;
+            /** Head */
+            head: string;
+            /** Missed Rules */
+            missed_rules: string[];
+            /** Models */
+            models: string[];
+            /** Neutral */
+            neutral: number;
+            /** Pii Checked */
+            pii_checked: string;
+            /** Pii High */
+            pii_high: number;
+            /** Pii State */
+            pii_state: string;
+            /** Pii Unchecked */
+            pii_unchecked: number;
+            /** Requests */
+            requests: components["schemas"]["ProvenanceRequest"][];
+            /** Rules Checked */
+            rules_checked: number;
+            /** Rules Missed */
+            rules_missed: number;
+            /** Sessions */
+            sessions: number;
+            /** Skills */
+            skills: [
+                string,
+                string
+            ][];
+        };
+        /** ProvenanceRequest */
+        ProvenanceRequest: {
+            /** Change Id */
+            change_id: string;
+            /** Headline */
+            headline: string;
+            /** Model */
+            model: string | null;
+            /** Started At */
+            started_at: string | null;
+        };
         /** RhythmCell */
         RhythmCell: {
             /** Changes */
@@ -964,6 +1094,10 @@ export interface components {
             };
             /** Prices */
             prices: {
+                [key: string]: unknown;
+            };
+            /** Provenance */
+            provenance: {
                 [key: string]: unknown;
             };
             /** Skills */
@@ -1669,6 +1803,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PolicyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provenance_file_api_projects__pid__provenance_file_get: {
+        parameters: {
+            query: {
+                path: string;
+                rev?: string;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvenanceFile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provenance_range_api_projects__pid__provenance_range_get: {
+        parameters: {
+            query: {
+                base: string;
+                head?: string;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvenanceRange"];
                 };
             };
             /** @description Validation Error */
