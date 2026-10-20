@@ -16,7 +16,7 @@ def test_overview_ranges(client: TestClient) -> None:
     assert o28["tiles"]["changes"] >= o7["tiles"]["changes"] > 0
     assert len(o7["cost_by_day"]) == 7 and set(o7["cost_by_day"][0]["by_tool"]) == {"claude-code"}
     assert o7["recent_changes"] and o7["top_files"] and o7["by_model"]
-    assert {"mem_loaded_pct", "cost_usd", "tokens", "policy_missed", "pii_changes", "files_changed"} <= set(o7["tiles"])
+    assert {"cost_usd", "tokens", "policy_missed", "pii_changes", "files_changed"} <= set(o7["tiles"])
     assert client.get(f"/api/projects/{PID}/overview?range=9").status_code == 422
 
 
@@ -28,8 +28,6 @@ def test_changes_filters_and_sort(client: TestClient) -> None:
     assert by_file and all(f in c["files"] for c in by_file)
     missed = client.get(f"/api/projects/{PID}/changes", params={"policy_missed": True}).json()["items"]
     assert all(c["policy_missed"] for c in missed)
-    mem = client.get(f"/api/projects/{PID}/changes", params={"mem": "missed"}).json()["items"]
-    assert all(c["mem_state"] == "missed" for c in mem)
     sk = client.get(f"/api/projects/{PID}/changes", params={"skill": "security-review"}).json()["items"]
     assert sk and all("security-review" in c["skills"] for c in sk)
     pii = client.get(f"/api/projects/{PID}/changes", params={"pii": True}).json()["items"]
@@ -49,7 +47,7 @@ def test_change_detail(client: TestClient) -> None:
     shares = [p["share"] for p in d["cost_breakdown"]]
     assert abs(sum(shares) - 1) < 0.01
     assert any(s["skill_id"] == "security-review" and s["hash_short"] for s in d["skills"])
-    assert "policies" in d and "memories" in d and "pii" in d and "memory_saved" in d
+    assert "policies" in d and "pii" in d and "memories" not in d
     assert client.get("/api/changes/nope").status_code == 404
 
 

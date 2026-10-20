@@ -14,7 +14,7 @@ from . import schemas as S
 
 ENUMS = {("pii", "mode"): {"off", "report", "warn", "block"}, ("pii", "store_prompt_text"): {"full", "redacted", "off"},
          ("pii", "engine"): {"regex", "presidio"}, ("pii", "min_confidence"): {"low", "medium", "high"}}
-EDITABLE = {"memory": {"inject": bool, "gate": bool, "budget_tokens": int}, "skills": {"audit": bool},
+EDITABLE = {"skills": {"audit": bool},
             "audit": {"retention_days": int},
             "pii": {"mode": str, "min_confidence": str, "types": list, "scan_tool_results": bool, "scan_diff": bool,
                     "store_prompt_text": str, "engine": str},
@@ -87,40 +87,6 @@ def register(app: FastAPI, state: dict[str, Any]) -> None:
         audit.append(events or [{"type": "config.changed", "actor_kind": "user", "actor_id": user_id(),
                                  "subject": "settings", "detail": {"key": "settings", "changed": 0}}])
         return S.Ok(detail={"changed": [f"{s}.{k}" for s, k, _, _ in changes]})
-
-    def _memory_root(project: str) -> tuple[str | None, str]:
-        from seen_core.db import ledger_session
-        from seen_core.db.models import Project
-
-        with ledger_session() as db:
-            p = db.get(Project, project)
-        if p is None:
-            raise HTTPException(404, "project not found")
-        return p.root_path, project
-
-    @app.post("/api/memory/{mid}/verify", response_model=S.MemoryOut)
-    def memory_verify(mid: str, project: str) -> S.MemoryOut:
-        from seen_core.memory import service
-
-        root, pid = _memory_root(project)
-        try:
-            m = service.do_verify(root, pid, mid, user_id())
-        except KeyError:
-            raise HTTPException(404, "memory not found") from None
-        return S.MemoryOut(id=m.id, type=m.type, scope=m.scope, status=service.status(m), file_ref=m.file_ref,  # type: ignore[arg-type]
-                           verified_at=m.verified_at, source_change=m.source_change, stale_reason=m.stale_reason, error=None,
-                           body=m.body, path=paths.redact_home(m.path), content_hash=m.content_hash, used_in=0)
-
-    @app.post("/api/memory/{mid}/archive", response_model=S.Ok)
-    def memory_archive(mid: str, project: str) -> S.Ok:
-        from seen_core.memory import service
-
-        root, pid = _memory_root(project)
-        try:
-            dest = service.do_archive(root, pid, mid, user_id())
-        except KeyError:
-            raise HTTPException(404, "memory not found") from None
-        return S.Ok(detail={"archived_to": paths.redact_home(str(dest))})
 
     def _skill_ctx(sid: str, project: str) -> tuple[str, str, str]:
         """(repo root, current full hash, current status) or 404."""

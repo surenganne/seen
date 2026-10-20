@@ -7,7 +7,6 @@ import { Layout } from "./components/Layout";
 const Audit = lazy(() => import("./pages/Audit").then((m) => ({ default: m.Audit })));
 const ChangeDetail = lazy(() => import("./pages/ChangeDetail").then((m) => ({ default: m.ChangeDetail })));
 const Changes = lazy(() => import("./pages/Changes").then((m) => ({ default: m.Changes })));
-const Memory = lazy(() => import("./pages/Memory").then((m) => ({ default: m.Memory })));
 const Overview = lazy(() => import("./pages/Overview").then((m) => ({ default: m.Overview })));
 const Projects = lazy(() => import("./pages/Projects").then((m) => ({ default: m.Projects })));
 const Timeline = lazy(() => import("./pages/Timeline").then((m) => ({ default: m.Timeline })));
@@ -27,7 +26,6 @@ export const routes = [
       { path: "/p/:pid/changes/:cid", element: <ChangeDetail /> },
       { path: "/p/:pid/sessions", element: <Sessions /> },
       { path: "/p/:pid/timeline", element: <Timeline /> },
-      { path: "/p/:pid/memory", element: <Memory /> },
       { path: "/p/:pid/skills", element: <Skills /> },
       { path: "/p/:pid/audit", element: <Audit /> },
       { path: "*", element: <Navigate to="/projects" replace /> },
