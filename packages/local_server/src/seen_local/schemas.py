@@ -59,7 +59,6 @@ class Tiles(BaseModel):
     lines_removed: int
     tokens: int
     cost_usd: float
-    mem_loaded_pct: float | None
     policy_missed: int
     pii_changes: int
     pii_high: int
@@ -88,7 +87,6 @@ class ChangeRow(BaseModel):
     tokens: int
     cost_usd: float
     git_status: str | None
-    mem_state: str | None
     skills: list[str]
     policy_missed: bool
     pii_state: str | None
@@ -199,13 +197,6 @@ class CostPart(BaseModel):
     share: float
 
 
-class MemoryRef(BaseModel):
-    memory_id: str
-    content_hash: str | None
-    type: str | None = None
-    status: str | None = None
-
-
 class SkillRun(BaseModel):
     ordinal: int
     skill_id: str
@@ -258,15 +249,11 @@ class ChangeDetail(BaseModel):
     git_head_before: str | None
     git_head_after: str | None
     git_status: str | None
-    mem_state: str | None
-    mem_injected_tokens: int
     files: list[FileLine]
-    memories: list[MemoryRef]
     skills: list[SkillRun]
     policies: list[PolicyCheck]
     pii: list[PiiFindingOut]
     pii_checked: str
-    memory_saved: list[str]
 
 
 class SkillOut(BaseModel):
@@ -364,7 +351,6 @@ class ExportOut(BaseModel):
 
 class SettingsOut(BaseModel):
     user: dict[str, Any]
-    memory: dict[str, Any]
     skills: dict[str, Any]
     audit: dict[str, Any]
     pii: dict[str, Any]
@@ -375,7 +361,6 @@ class SettingsOut(BaseModel):
 
 
 class SettingsIn(BaseModel):
-    memory: dict[str, Any] | None = None
     skills: dict[str, Any] | None = None
     audit: dict[str, Any] | None = None
     pii: dict[str, Any] | None = None
@@ -386,28 +371,6 @@ class SettingsIn(BaseModel):
 class Ok(BaseModel):
     ok: bool = True
     detail: dict[str, Any] = {}
-
-
-class MemoryOut(BaseModel):
-    id: str
-    type: str
-    scope: str
-    status: Literal["verified", "unverified", "stale", "invalid"]
-    file_ref: str | None
-    verified_at: str | None
-    source_change: str | None
-    stale_reason: str | None
-    error: str | None
-    body: str
-    path: str
-    content_hash: str
-    used_in: int
-
-
-class MemoryPage(BaseModel):
-    items: list[MemoryOut]
-    invalid: list[MemoryOut]
-    counts: dict[str, int]
 
 
 class PiiRow(PiiFindingOut):

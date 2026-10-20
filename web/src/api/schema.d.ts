@@ -72,40 +72,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/memory/{mid}/archive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Memory Archive */
-        post: operations["memory_archive_api_memory__mid__archive_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/memory/{mid}/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Memory Verify */
-        post: operations["memory_verify_api_memory__mid__verify_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/pii/{finding_id}/mark-test-data": {
         parameters: {
             query?: never;
@@ -166,23 +132,6 @@ export interface paths {
         };
         /** Changes */
         get: operations["changes_api_projects__pid__changes_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/projects/{pid}/memory": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Memory */
-        get: operations["memory_api_projects__pid__memory_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -454,14 +403,6 @@ export interface components {
             git_status: string | null;
             /** Id */
             id: string;
-            /** Mem Injected Tokens */
-            mem_injected_tokens: number;
-            /** Mem State */
-            mem_state: string | null;
-            /** Memories */
-            memories: components["schemas"]["MemoryRef"][];
-            /** Memory Saved */
-            memory_saved: string[];
             /** Model */
             model: string | null;
             /** Pii */
@@ -547,8 +488,6 @@ export interface components {
             git_status: string | null;
             /** Id */
             id: string;
-            /** Mem State */
-            mem_state: string | null;
             /** Model */
             model: string | null;
             /** Pii Count */
@@ -660,60 +599,6 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
-        };
-        /** MemoryOut */
-        MemoryOut: {
-            /** Body */
-            body: string;
-            /** Content Hash */
-            content_hash: string;
-            /** Error */
-            error: string | null;
-            /** File Ref */
-            file_ref: string | null;
-            /** Id */
-            id: string;
-            /** Path */
-            path: string;
-            /** Scope */
-            scope: string;
-            /** Source Change */
-            source_change: string | null;
-            /** Stale Reason */
-            stale_reason: string | null;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "verified" | "unverified" | "stale" | "invalid";
-            /** Type */
-            type: string;
-            /** Used In */
-            used_in: number;
-            /** Verified At */
-            verified_at: string | null;
-        };
-        /** MemoryPage */
-        MemoryPage: {
-            /** Counts */
-            counts: {
-                [key: string]: number;
-            };
-            /** Invalid */
-            invalid: components["schemas"]["MemoryOut"][];
-            /** Items */
-            items: components["schemas"]["MemoryOut"][];
-        };
-        /** MemoryRef */
-        MemoryRef: {
-            /** Content Hash */
-            content_hash: string | null;
-            /** Memory Id */
-            memory_id: string;
-            /** Status */
-            status?: string | null;
-            /** Type */
-            type?: string | null;
         };
         /** ModelStat */
         ModelStat: {
@@ -978,10 +863,6 @@ export interface components {
             audit?: {
                 [key: string]: unknown;
             } | null;
-            /** Memory */
-            memory?: {
-                [key: string]: unknown;
-            } | null;
             /** Pii */
             pii?: {
                 [key: string]: unknown;
@@ -1008,10 +889,6 @@ export interface components {
             /** Local Data */
             local_data: {
                 [key: string]: string;
-            };
-            /** Memory */
-            memory: {
-                [key: string]: unknown;
             };
             /** Pii */
             pii: {
@@ -1159,8 +1036,6 @@ export interface components {
             lines_added: number;
             /** Lines Removed */
             lines_removed: number;
-            /** Mem Loaded Pct */
-            mem_loaded_pct: number | null;
             /** Pii Changes */
             pii_changes: number;
             /** Pii High */
@@ -1198,8 +1073,6 @@ export interface components {
             git_status: string | null;
             /** Id */
             id: string;
-            /** Mem State */
-            mem_state: string | null;
             /** Model */
             model: string | null;
             /** Pii Count */
@@ -1417,72 +1290,6 @@ export interface operations {
             };
         };
     };
-    memory_archive_api_memory__mid__archive_post: {
-        parameters: {
-            query: {
-                project: string;
-            };
-            header?: never;
-            path: {
-                mid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Ok"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    memory_verify_api_memory__mid__verify_post: {
-        parameters: {
-            query: {
-                project: string;
-            };
-            header?: never;
-            path: {
-                mid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemoryOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     pii_mark_test_data_api_pii__finding_id__mark_test_data_post: {
         parameters: {
             query?: never;
@@ -1582,7 +1389,6 @@ export interface operations {
                 file?: string | null;
                 skill?: string | null;
                 policy_missed?: boolean | null;
-                mem?: ("loaded" | "missed" | "none") | null;
                 pii?: boolean | null;
                 days?: number | null;
                 sort?: string;
@@ -1607,41 +1413,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChangePage"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    memory_api_projects__pid__memory_get: {
-        parameters: {
-            query?: {
-                type?: string | null;
-                status?: string | null;
-                q?: string | null;
-            };
-            header?: never;
-            path: {
-                pid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemoryPage"];
                 };
             };
             /** @description Validation Error */

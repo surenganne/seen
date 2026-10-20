@@ -122,14 +122,14 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
     @app.get("/api/projects/{pid}/changes", response_model=S.ChangePage)
     def changes(pid: str, db: Db, tool: str | None = None, status: str | None = None, q: str | None = None,
                 file: str | None = None, skill: str | None = None, policy_missed: bool | None = None,
-                mem: Literal["loaded", "missed", "none"] | None = None, pii: bool | None = None,
+                pii: bool | None = None,
                 days: int | None = Query(None, ge=1, le=3650), sort: str = "time",
                 dir: Literal["asc", "desc"] = "desc", session: str | None = None,
                 kind: Literal["all", "yours", "background"] = "all", page: int = Query(1, ge=1),
                 page_size: int = Query(50, ge=1, le=200)) -> S.ChangePage:
         project_or_404(db, pid)
         return queries.changes(db, pid, tool=tool, status=status, q=q, file=file, skill=skill, policy_missed=policy_missed,
-                               mem=mem, pii=pii, days=days, sort=sort, dir=dir, session=session, kind=kind, page=page,
+                               pii=pii, days=days, sort=sort, dir=dir, session=session, kind=kind, page=page,
                                page_size=page_size)
 
     @app.get("/api/projects/{pid}/sessions", response_model=S.SessionPage)
@@ -182,31 +182,6 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
                             q=q, limit=size, offset=(page - 1) * size)
         return S.AuditPage(page=page, page_size=size, items=[S.AuditEventOut(**e) for e in items])
 
-    @app.get("/api/projects/{pid}/memory", response_model=S.MemoryPage)
-    def memory(pid: str, db: Db, type: str | None = None, status: str | None = None, q: str | None = None) -> S.MemoryPage:
-        from collections import Counter
-
-        from seen_core.db.models import Change, ChangeMemory
-        from seen_core.memory import service
-
-        p = project_or_404(db, pid)
-        used = Counter(m for (m,) in db.execute(select(ChangeMemory.memory_id).join(Change, Change.id == ChangeMemory.change_id)
-                                                .where(Change.project_id == pid)))
-        out = [S.MemoryOut(id=m.id, type=m.type, scope=m.scope, status=service.status(m), file_ref=m.file_ref,  # type: ignore[arg-type]
-                           verified_at=m.verified_at, source_change=m.source_change, stale_reason=m.stale_reason,
-                           error=m.error or None, body=m.body, path=paths.redact_home(m.path),
-                           content_hash=m.content_hash if m.ok else "", used_in=used[m.id])
-               for m in service.all_memories(p.root_path, pid)]
-        counts = dict(Counter(o.status for o in out))
-        valid = [o for o in out if o.status != "invalid"]
-        if type:
-            valid = [o for o in valid if o.type == type]
-        if status:
-            valid = [o for o in valid if o.status == status]
-        if q:
-            valid = [o for o in valid if q.lower() in f"{o.id} {o.body} {o.file_ref or ''}".lower()]
-        return S.MemoryPage(items=valid, invalid=[o for o in out if o.status == "invalid"], counts=counts)
-
     @app.get("/api/projects/{pid}/pii", response_model=S.PiiPage)
     def pii_list(pid: str, db: Db, range_: Annotated[int | None, Query(alias="range")] = None, type: str | None = None,
                  source: str | None = None, status: str | None = None) -> S.PiiPage:
@@ -243,7 +218,7 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
         cfg = config.load()
         t = pricing.table()
         versions = sorted({v for (v,) in db.execute(select(Session.tool_version).where(Session.tool_version.is_not(None)))})
-        return S.SettingsOut(user=cfg["user"], memory=cfg["memory"], skills=cfg["skills"], audit=cfg["audit"], pii=cfg["pii"],
+        return S.SettingsOut(user=cfg["user"], skills=cfg["skills"], audit=cfg["audit"], pii=cfg["pii"],
                              sync=cfg["sync"], prices={"version": t["version"], "verified": t.get("verified", False),
                                                        "source": t.get("source"), "models": t["models"]},
                              tools=[{"id": "claude-code", "name": "Claude Code", "versions": versions, "connected": bool(versions)}],

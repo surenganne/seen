@@ -5,7 +5,6 @@ const TILES: [label: string, param: RegExp][] = [
   ["Changes", /\/changes(\?|$)/],
   ["Cost", /sort=cost/],
   ["Tokens", /sort=tokens/],
-  ["Memory loaded", /mem=missed/],
   ["Policy missed", /policy_missed=true/],
   ["Changes with PII exposure", /pii=true/],
 ];
@@ -22,7 +21,7 @@ test.describe("overview tiles lead to their evidence", () => {
       await expect(page.getByRole("heading", { name: "Changes" })).toBeVisible();
       await expect(page).toHaveURL(/range=|\/changes/); // the date range travels with the click
       // a tile that shows a non-zero number must land on rows (the filtered page may widen to all kinds of sessions)
-      if (/[1-9]/.test(shown) && label !== "Memory loaded") await expect(page.getByTestId("change-row").first()).toBeVisible();
+      if (/[1-9]/.test(shown)) await expect(page.getByTestId("change-row").first()).toBeVisible();
     });
   }
 

@@ -11,7 +11,6 @@ export interface ChangeFilters {
   file?: string;
   skill?: string;
   policy_missed?: boolean;
-  mem?: "loaded" | "missed" | "none";
   pii?: boolean;
   days?: number;
   sort?: string;
@@ -108,10 +107,3 @@ export function useWrite<TArgs, TOut>(fn: (a: TArgs) => Promise<TOut>) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries() });
 }
-
-export const useMemory = (pid: string, f: { type?: string; status?: string; q?: string }) =>
-  useQuery({
-    queryKey: ["memory", pid, f],
-    queryFn: () => unwrap(api.GET("/api/projects/{pid}/memory", { params: { path: { pid }, query: f } })),
-    placeholderData: keepPreviousData,
-  });

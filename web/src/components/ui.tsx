@@ -25,8 +25,6 @@ const GIT_TONE: Record<string, Tone> = { committed: "good", uncommitted: "warnin
 export const GitStatus = ({ status }: { status: string | null | undefined }) =>
   status ? <Badge tone={GIT_TONE[status] ?? "neutral"}>{status}</Badge> : <span className="muted small">no files</span>;
 
-export const MemState = ({ state }: { state: string | null | undefined }) =>
-  state === "missed" ? <Badge tone="critical">memory not loaded</Badge> : state === "loaded" ? <Badge tone="good">memory loaded</Badge> : null;
 
 /** Never a bare "clean": say what was checked. */
 export function PiiChip({ count, high }: { count: number; high?: boolean }) {

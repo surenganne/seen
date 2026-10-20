@@ -22,7 +22,7 @@ def _change(db: Any, c: Change, s: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {"id": c.id, "project_id": c.project_id, "session_id": c.session_id, "seq": c.seq,
                            "started_at": c.started_at, "duration_s": c.duration_s, "tool": sess.tool if sess else "claude-code",
                            "user_id": sess.user_id if sess else None, "model": c.model, "git_status": c.git_status,
-                           "mem_state": c.mem_state, "file_count": len(files),
+                           "file_count": len(files),
                            "lines_added": sum(f.added for f in files), "lines_removed": sum(f.removed for f in files)}
     if s["send_paths"]:
         out["files"] = [{"path": f.path, "added": f.added, "removed": f.removed} for f in files]
@@ -45,17 +45,16 @@ def _change(db: Any, c: Change, s: dict[str, Any]) -> dict[str, Any]:
 
 
 # Per event type, the detail keys that may leave the machine. Anything else (keyed hashes, ids of
-# memory contents, unknown keys) is dropped. Path keys additionally need send_paths.
+# unknown keys) is dropped. Path keys additionally need send_paths.
 AUDIT_DETAIL = {
     "session.start": {"plugin_version", "source"}, "session.end": {"reason"}, "session.incomplete": {"last_seq"},
     "capture.gap": {"hook"}, "turn.start": {"prompt_len", "slash"},
     "turn.end": {"tok_in", "tok_out", "tok_cache_read", "tok_cache_write", "cost_usd", "price_version", "files"},
-    "memory.injected": {"tokens"}, "gate.decision": {"hook", "decision", "reason"}, "file.changed": {"path", "added", "removed"},
+    "gate.decision": {"hook", "decision", "reason"}, "file.changed": {"path", "added", "removed"},
     "tool.call": {"tool", "cmd0", "skill", "path"}, "skill.invoked": {"skill", "hash", "trigger", "status"},
     "policy.result": {"policy", "met"}, "pii.finding": {"type", "count", "confidence", "destination", "source_kind"},
     "pii.allowlisted": {"count", "source_kind"}, "approval.skill": {"skill", "hash", "old", "new"},
-    "approval.memory_verified": {"memory", "old", "new"}, "approval.memory_archived": {"memory", "old", "new"},
-    "approval.memory_added": {"memory", "scope", "type"}, "approval.pii_test_data": {"type", "old", "new"},
+    "approval.pii_test_data": {"type", "old", "new"},
     "config.changed": {"key", "changed"}, "lockfile.changed": set(), "policies.changed": set(),
     "export.created": {"format", "count", "verified"}, "sync.batch": {"kind", "count", "server", "ack"},
     "audit.checkpoint": {"pruned_from_seq", "pruned_to_seq"},

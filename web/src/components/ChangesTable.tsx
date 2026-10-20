@@ -62,7 +62,6 @@ export function ChangesTable({ rows, pid, sort, compact }: { rows: S["ChangeRow"
               {!compact && <td><GitStatus status={c.git_status} /></td>}
               <td>
                 <div className="checks">
-                  {c.mem_state === "missed" && <Badge tone="critical">no memory</Badge>}
                   {c.policy_missed && <Badge tone="warning">policy missed</Badge>}
                   {c.unapproved_skill && <Badge tone="warning">unapproved skill</Badge>}
                   {c.pii_count > 0 && <PiiChip count={c.pii_count} high={c.pii_high} />}
