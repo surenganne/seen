@@ -9,12 +9,14 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from . import audit, gitdelta, gitutil, paths, policy, pricing, spool
 from .db import ledger_session
 from .db.models import (
     Change,
     ChangeFile,
+    LinePrint,
     PiiFinding,
     Policy,
     PolicyResult,
@@ -119,6 +121,7 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.git_status = ("committed" if head_after != row.git_head_before else "uncommitted") if files else None
         pii_rows, pii_allowed = _stop_scan(t, start, lines, turn_lines, files, before)
         _write_prompt_pii(db, cid, turn_lines)
+        _write_prints(db, cid, pid, turn_lines)
         _write_stop_pii(db, cid, pii_rows)
         _sync_inventory(db, pid)
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
@@ -474,3 +477,24 @@ def _write_stop_pii(db: Any, cid: str, rows: list[Any]) -> None:
                           fingerprints_json=json.dumps(r.fingerprints)))
     row = db.get(Change, cid)
     _set_pii_state(db, row, row.pii_state == "blocked")
+
+
+def _write_prints(db: Any, cid: str, project_id: str | None, turn_lines: list[dict[str, Any]]) -> None:
+    """Line fingerprints only, never text. Malformed spool lines are skipped, never raised on."""
+    db.execute(delete(LinePrint).where(LinePrint.change_id == cid))
+    if not project_id:
+        return
+    keys: set[tuple[str, bytes]] = set()
+    for ln in turn_lines:
+        path, fps = ln.get("path"), ln.get("fps")
+        if ln.get("ev") != "prints" or not isinstance(path, str) or not path or not isinstance(fps, list):
+            continue
+        for fp in fps:
+            if isinstance(fp, str) and len(fp) == 16:
+                try:
+                    keys.add((path, bytes.fromhex(fp)))
+                except ValueError:
+                    pass
+    if keys:
+        db.execute(sqlite_insert(LinePrint).prefix_with("OR IGNORE"),
+                   [{"project_id": project_id, "path": p, "fp": f, "change_id": cid} for p, f in sorted(keys)])
