@@ -77,6 +77,7 @@ contributor accepts the workspace trust dialog:
 seen report --days 7          # what changed, what it cost, which skills ran
 seen blame src/app.py       # who wrote each line: agent, human or not observed (--rev, --json)
 seen serve --open             # the dashboard on your real data (needs a web build once: see Dashboard)
+seen pr-report --base main    # who wrote the lines a branch adds, for a PR (--post [--yes] comments via gh)
 seen skills scan | list
 seen import --dry-run         # past sessions from Claude Code transcripts (before the plugin was installed)
 seen audit verify
