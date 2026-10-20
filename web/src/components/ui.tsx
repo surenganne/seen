@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, Circle, Info, type LucideIcon, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, Circle, Info, Minus, type LucideIcon, ShieldAlert, ShieldCheck, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
 
 type Tone = "good" | "warning" | "critical" | "neutral" | "accent" | "info";
@@ -49,12 +49,50 @@ export function Card({ title, aside, children, className = "", flush, id }: {
 }
 
 /** A summary number. With `to`, the label is a link to the rows behind the number and the whole tile is its click target. */
-export function Tile({ label, value, sub, alert, icon: I, to }: { label: string; value: ReactNode; sub?: ReactNode; alert?: boolean; icon?: LucideIcon; to?: string }) {
+/** Change against the period just before: an arrow and a word as well as a number, never colour. Volume is neither good nor bad, so it is not tinted. */
+export function Delta({ now, prev, days }: { now: number; prev: number; days: number }) {
+  if (now === 0 && prev === 0) return null;
+  const vs = `vs the previous ${days} days`;
+  if (prev === 0) return <div className="delta" data-testid="delta"><ArrowUp aria-hidden="true" />new<span className="sr-only"> {vs}</span><span aria-hidden="true" className="muted"> {vs}</span></div>;
+  const pct = Math.round(((now - prev) / prev) * 100);
+  const I = pct > 0 ? ArrowUp : pct < 0 ? ArrowDown : Minus;
+  const word = pct > 0 ? "up" : pct < 0 ? "down" : "no change";
+  return (
+    <div className="delta" data-testid="delta">
+      <I aria-hidden="true" />
+      <span aria-hidden="true">{pct === 0 ? "no change" : `${Math.abs(pct)}%`}</span>
+      <span className="sr-only">{pct === 0 ? "no change" : `${word} ${Math.abs(pct)}%`} {vs}</span>
+      <span aria-hidden="true" className="muted"> {vs}</span>
+    </div>
+  );
+}
+
+/** A trend with no axes: the numbers sit beside it, so it is decoration for the eye and hidden from screen readers. */
+export function Spark({ values }: { values: number[] }) {
+  if (values.length < 2 || Math.max(...values) === 0) return null;
+  const W = 96, H = 28, max = Math.max(...values);
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * (W - 4) + 2, H - 3 - (v / max) * (H - 8)] as const);
+  const last = pts[pts.length - 1]!;
+  return (
+    <svg className="spark" viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden="true" focusable="false">
+      <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke="var(--magnitude)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={last[0]} cy={last[1]} r="3" fill="var(--magnitude)" stroke="var(--surface)" strokeWidth="2" />
+    </svg>
+  );
+}
+
+export function Tile({ label, value, sub, alert, icon: I, to, delta, spark }: {
+  label: string; value: ReactNode; sub?: ReactNode; alert?: boolean; icon?: LucideIcon; to?: string; delta?: ReactNode; spark?: ReactNode;
+}) {
   return (
     <div className="stat" data-testid={`tile-${label}`} data-alert={alert ? "true" : undefined}>
       <div className="label">{I && <I aria-hidden="true" />}{to ? <Link className="stat-link" to={to}>{label}</Link> : label}</div>
-      <div className="value">{value}</div>
+      <div className="stat-main">
+        <div className="value">{value}</div>
+        {spark}
+      </div>
       {sub && <div className="sub">{sub}</div>}
+      {delta}
     </div>
   );
 }

@@ -2,12 +2,19 @@ import { expect, test } from "./fixtures";
 
 /** PRODUCT.md: every summary is one click from the proof. Each Overview tile opens the rows behind its number. */
 const TILES: [label: string, param: RegExp][] = [
-  ["Changes", /\/changes(\?|$)/],
+  ["Requests", /\/changes(\?|$)/],
   ["Cost", /sort=cost/],
-  ["Tokens", /sort=tokens/],
-  ["Policy missed", /policy_missed=true/],
-  ["Changes with PII exposure", /pii=true/],
+  ["Rules met", /policy_missed=true/],
+  ["PII exposure", /pii=true/],
 ];
+
+test("Code changed opens the Timeline", async ({ page }) => {
+  await page.goto("/projects");
+  await page.getByTestId("project-card").filter({ hasText: "payments-api" }).click();
+  await page.getByTestId("tile-Code changed").getByRole("link").click();
+  await expect(page).toHaveURL(/\/timeline/);
+  await expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible();
+});
 
 test.describe("overview tiles lead to their evidence", () => {
   for (const [label, param] of TILES) {

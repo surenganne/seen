@@ -118,12 +118,14 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 - [ ] Three project cards, each with the brand mark, changes, 7-day cost, last change and a red "Needs attention" badge.
 - [ ] Click payments-api: you land on its Overview, and the rail's Project select now shows payments-api. The rail eyes stop wandering and stare with lowered brows (alert), because this project has open findings.
 
-**Overview**
-- [ ] Five summary tiles: Changes, Cost, Tokens, Policy missed, Changes with PII exposure. Tiles that need attention are tinted with an icon. Each tile's label is a link (the whole tile is the click target) to the changes behind the number: Cost and Tokens open the list sorted by that column, Policy missed and PII exposure open their filtered lists. The date range stays selected.
-- [ ] Switch the date range 7d → 14d → 28d: every figure and the chart update, and the URL keeps `range=`.
-- [ ] Cost per day: hover a bar to see the tooltip. Click "Table view" to see the same numbers as a table.
+**Overview** (the dashboard reads top to bottom as: what changed, what it cost, rules and skills, PII)
+- [ ] Five tiles: Requests, Code changed, Cost, Rules met, PII exposure. Each shows its change against the period just before ("up 12%", "new"), most with a small trend line. Tiles that need attention are tinted with an icon. The label is a link (the whole tile is the click target): Requests, Cost, Rules met and PII exposure open the matching changes; Code changed opens the Timeline.
+- [ ] Switch the date range 7d → 14d → 28d: every figure and chart updates, the comparison period changes with it, and the URL keeps `range=`.
 - [ ] Needs attention: each item has a Review button that opens Changes with the matching filter applied.
-- [ ] Most edited files: click a path to open Changes filtered to that file. Top skills: click one to filter by that skill.
+- [ ] Activity: requests per day, orange for those that changed files, gray for talk-only. Hover a bar for counts, lines and commits; "Table view" shows the same numbers.
+- [ ] Spend: cost per day stacked by model, each model named with its total under the chart (never colour alone), plus a line with output tokens and the share of input served from cache.
+- [ ] Where the work happened: folders by requests touched; click one to open Changes searching that folder. What happened to it: committed, not committed and reverted. When the work happens: weekday by hour in IST; point at a cell and the caption names it; "Table view" shows weekday totals.
+- [ ] Required-skill rules: one row per rule with checks met out of checks run, and "all met" or "N missed". Skills: top skills (click to filter) and runs by approval status. PII exposure by type shows the top six types.
 - [ ] Top PII sources: click "Show deny rule" on `data/patients.csv` to see a `permissions.deny` snippet for `.claude/settings.json`.
 
 ---
