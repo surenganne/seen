@@ -12,7 +12,8 @@ from pathlib import Path
 _SAFE = ["-c", "core.fsmonitor=false", "-c", f"core.hooksPath={os.devnull}", "-c", "diff.external=",
          "-c", "core.pager=cat", "-c", "protocol.allow=never", "-c", "core.sshCommand=false",
          "-c", f"core.attributesFile={os.devnull}", "-c", "submodule.recurse=false",
-         "-c", "diff.ignoreSubmodules=all", "-c", "status.submoduleSummary=false", "-c", "core.quotePath=false"]
+         "-c", "diff.ignoreSubmodules=all", "-c", "status.submoduleSummary=false", "-c", "core.quotePath=false",
+         "-c", "blame.ignoreRevsFile="]
 _ENV = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0", "GIT_ATTR_NOSYSTEM": "1"}
 
 
@@ -72,9 +73,9 @@ def _cache_key(gd: Path) -> list[object]:
     exe = shutil.which("git") or "git"
     try:
         est = os.stat(exe)
-        key: list[object] = [exe, est.st_mtime_ns, est.st_size]  # a git upgrade changes this; no `git --version` per hook
+        key: list[object] = [2, exe, est.st_mtime_ns, est.st_size]  # 2: override set version; a git upgrade changes this too
     except OSError:
-        key = [exe]
+        key = [2, exe]
     for f in files:
         try:
             st = f.stat()
@@ -127,7 +128,19 @@ def _compute_overrides(cwd: str) -> tuple[str, ...]:
     for n in sorted(names):
         args += ["-c", f"filter.{n}.clean=cat", "-c", f"filter.{n}.smudge=cat",
                  "-c", f"filter.{n}.process=", "-c", f"filter.{n}.required=false"]
+    out = _raw(cwd, [*_SAFE, "config", "-z", "--name-only", "--get-regexp", r"^diff\."], 5) or ""
+    for n in sorted({k[len("diff."):k.rindex(".")] for k in out.split("\0") if k.startswith("diff.") and k.count(".") >= 2}):
+        args += ["-c", f"diff.{n}.textconv=", "-c", f"diff.{n}.command="]  # .git/info/attributes can still pick a driver
     return tuple(args)
+
+
+def run_raw(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
+    """Like run, without newline translation: a lone CR stays inside its line (blame output, blob text)."""
+    try:
+        r = subprocess.run(_argv(cwd, args), cwd=cwd, capture_output=True, timeout=timeout, env={**os.environ, **_ENV})
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return r.stdout.decode("utf-8", errors="surrogateescape") if r.returncode == 0 else None
 
 
 def _argv(cwd: str | Path, args: tuple[str, ...]) -> list[str]:
