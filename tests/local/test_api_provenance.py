@@ -289,3 +289,14 @@ def test_files_unknown_project_is_404_and_needs_no_repo(client: TestClient) -> N
         db.get(Project, PID).root_path = "/no/such/dir"  # type: ignore[union-attr]
         db.commit()
     assert listing(client)["total"] > 0
+
+
+@pytest.mark.parametrize("name", ["days", "page", "page_size"])
+@pytest.mark.parametrize("raw", ["\x1b[31mEVILEVIL", "<script>alert(1)</script>", "abcdefghij", "0", "-5", "99999", "1.5", "", "٣"])
+def test_files_numeric_params_are_422_and_never_echoed(client: TestClient, name: str, raw: str) -> None:
+    r = client.get(FILES, params={name: raw})
+    if raw == "99999" and name == "page":  # a far page is valid: it is simply empty
+        assert r.status_code == 200 and r.json()["items"] == []
+        return
+    _assert_no_echo(r, raw)
+    assert "input" not in r.text

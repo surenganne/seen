@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.orm import Session as DB
 
 from seen_core.db.models import Project
@@ -35,6 +35,15 @@ def _ref(value: str) -> str:
     return value
 
 
+def _int(value: str | None, name: str, lo: int, hi: int | None, default: int | None) -> int | None:
+    """A numeric query parameter checked here, not by Query(ge/le): its 422 echoes the raw input."""
+    if value is None:
+        return default
+    if not (value.isascii() and value.isdigit()) or len(value) > 9 or int(value) < lo or (hi is not None and int(value) > hi):
+        raise HTTPException(422, f"{name} must be a whole number from {lo}{f' to {hi}' if hi else ' up'}")
+    return int(value)
+
+
 def register(app: FastAPI, project_or_404: Callable[[DB, str], Project]) -> None:
     def repo_project(db: DB, pid: str) -> Project:
         p = project_or_404(db, pid)
@@ -43,16 +52,18 @@ def register(app: FastAPI, project_or_404: Callable[[DB, str], Project]) -> None
         return p
 
     @app.get("/api/projects/{pid}/provenance/files", response_model=S.ProvenanceFiles)
-    def provenance_files(pid: str, db: Db, days: int | None = Query(None, ge=1, le=3650), q: str = "", sort: str = "recent",
-                         page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)) -> S.ProvenanceFiles:
+    def provenance_files(pid: str, db: Db, days: str | None = None, q: str = "", sort: str = "recent",
+                         page: str | None = None, page_size: str | None = None) -> S.ProvenanceFiles:
         """Files your requests changed, from the ledger alone: no git and no file contents."""
         project_or_404(db, pid)
+        n_days, n_page, n_size = _int(days, "days", 1, 3650, None), _int(page, "page", 1, None, 1), _int(page_size, "page_size", 1, 200, 50)
+        assert n_page is not None and n_size is not None
         if sort not in FILE_SORTS:  # checked here, not by Literal: its 422 echoes the input
             raise HTTPException(422, "sort must be recent, requests or lines")
         if len(q) > MAX_Q or "\x00" in q:
             raise HTTPException(422, "unsafe filter")
         by_path: dict[str, S.ProvenanceFileRow] = {}
-        for r in queries.load_rows(db, pid, days):
+        for r in queries.load_rows(db, pid, n_days):
             if r.background:
                 continue
             for f in r.files:
@@ -67,8 +78,8 @@ def register(app: FastAPI, project_or_404: Callable[[DB, str], Project]) -> None
                     row.last_changed_at, row.last_change_id = r.c.started_at, r.c.id
         rows = sorted(by_path.values(), key=lambda r: r.path)
         rows.sort(key=FILE_SORTS[sort], reverse=True)  # stable: equal keys stay in path order
-        return S.ProvenanceFiles(total=len(rows), page=page, page_size=page_size,
-                                 items=rows[(page - 1) * page_size: page * page_size])
+        return S.ProvenanceFiles(total=len(rows), page=n_page, page_size=n_size,
+                                 items=rows[(n_page - 1) * n_size: n_page * n_size])
 
     @app.get("/api/projects/{pid}/provenance/file", response_model=S.ProvenanceFile)
     def provenance_file(pid: str, db: Db, path: str, rev: str = "HEAD") -> S.ProvenanceFile:

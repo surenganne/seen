@@ -103,23 +103,32 @@ function Result({ f, pid, range }: { f: S["ProvenanceFile"]; pid: string; range:
 const SORTS = [["recent", "Most recent"], ["requests", "Most requests"], ["lines", "Most lines"]] as const;
 const PAGE = 50;
 
-/** Files your requests changed, ranked. Built from the ledger, so it works with no repo on this machine. */
-function FileList({ pid, path }: { pid: string; path?: string }) {
+/** The ranked list's URL state and query: lifted so the closed "Choose another file" summary can state the range and total. */
+function useFileList(pid: string) {
   const [range] = useRange();
-  const nav = useNavigate();
-  const [sp, setSp] = useSearchParams();
+  const [sp] = useSearchParams();
   const q = sp.get("q") ?? "";
   const sort = SORTS.some(([k]) => k === sp.get("sort")) ? sp.get("sort")! : "recent";
   const page = Math.max(1, Number(sp.get("page")) || 1);
+  return { range, q, sort, page, files: useProvenanceFiles(pid, { q: q || undefined, sort, page, days: range, page_size: PAGE }) };
+}
+type FileListState = ReturnType<typeof useFileList>;
+
+/** Files your requests changed, ranked. Built from the ledger, so it works with no repo on this machine. */
+function FileList({ list, path }: { list: FileListState; path?: string }) {
+  const { range, q, sort } = list;
+  const { data, error, isLoading } = list.files;
+  const nav = useNavigate();
+  const [sp, setSp] = useSearchParams();
   const [draft, setDraft] = useState(q);
   useEffect(() => setDraft(q), [q]);
-  const { data, error, isLoading } = useProvenanceFiles(pid, { q: q || undefined, sort, page, days: range, page_size: PAGE });
   const set = (k: string, v: string | undefined) =>
     setSp((p) => { if (v) p.set(k, v); else p.delete(k); if (k !== "page") p.delete("page"); return p; }, { replace: true });
   const open = (f: string) => nav({ search: (() => { const p = new URLSearchParams(sp); p.set("path", f); return p.toString(); })() });
   const submit = (e: FormEvent) => { e.preventDefault(); set("q", draft.trim() || undefined); };
   return (
     <>
+      <p className="muted small" data-testid="prov-range-note" style={{ marginBottom: 8 }}>Files changed by your requests in the last {range} days. Change the range in the top bar.</p>
       <div className="toolbar">
         <form className="toolbar" role="search" aria-label="Search files" onSubmit={submit} style={{ flex: "1 1 18rem" }}>
           <input className="input mono" style={{ flex: "1 1 12rem" }} aria-label="Filter files" data-testid="prov-filter" value={draft} onChange={(e) => setDraft(e.target.value)}
@@ -167,6 +176,7 @@ export function Provenance() {
   const [range] = useRange();
   const [sp] = useSearchParams();
   const path = sp.get("path")?.trim() || undefined;
+  const list = useFileList(pid);
   const [listOpen, setListOpen] = useState(false);
   useEffect(() => setListOpen(false), [path]);
   const notebook = !!path && path.toLowerCase().endsWith(".ipynb");
@@ -180,15 +190,18 @@ export function Provenance() {
         description="Who wrote each line of a file: an agent request Seen recorded, a person, or not observed. Blame finds the commit for every line, then matches each line to what an agent wrote in a request."
       />
       {!path ? (
-        <Card title="Files agents changed" aside={<span className="hint">your requests, last {range} days</span>}>
+        <Card title="Files agents changed">
           <p className="small prose" style={{ marginBottom: 12 }}>Pick a file to see which lines an agent wrote.</p>
-          <FileList pid={pid} />
+          <FileList list={list} />
         </Card>
       ) : (
         <details className="panel" open={listOpen} onToggle={(e) => setListOpen(e.currentTarget.open)}>
-          <summary className="panel-head"><h2>Choose another file</h2></summary>
-          <div className="panel-body">{listOpen && <FileList pid={pid} path={path} />}</div>
+          <summary className="panel-head"><h2>Choose another file{` (${list.files.data && !list.q ? `${list.files.data.total} ${list.files.data.total === 1 ? "file" : "files"}, ` : ""}last ${range} days)`}</h2></summary>
+          <div className="panel-body">{listOpen && <FileList list={list} path={path} />}</div>
         </details>
+      )}
+      {path && !list.q && list.files.data && list.files.data.total <= PAGE && !list.files.data.items.some((f) => f.path === path) && (
+        <Note tone="info" testId="prov-not-in-range"><span className="mono">{path}</span> has no requests in the last {range} days, so it is not in the list. Its provenance is shown below.</Note>
       )}
       {notebook && <Note tone="info" testId="prov-note">Notebook files are not line-attributed: a .ipynb file is JSON, so its lines do not map to the cells an agent edited.</Note>}
       {isLoading && <Loading what="Loading provenance" />}
