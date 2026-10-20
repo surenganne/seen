@@ -270,6 +270,29 @@ seen serve --open
 
 ---
 
+## Part 10b. Provenance: blame, PR report and the page
+
+Uses the `seen dev-seed` data from the dashboard parts (`seen dev-seed --home "$SEEN_HOME"`; the demo file is `src/payments/charge.py` in `demo-payments`).
+
+```bash
+seen blame src/payments/charge.py       # run inside the demo-payments repo, or pass --project
+seen blame src/payments/charge.py --json
+seen pr-report --base main              # prints the report; nothing is posted
+seen serve --open
+```
+
+- [ ] `seen blame` prints runs of lines marked agent, human or not observed, with the request headline for agent runs, and says what it could not attribute. No line text appears in any output.
+- [ ] `seen pr-report` states what was and was not checked. `--post` asks for confirmation first; answering no posts nothing.
+- [ ] Open **Provenance** in the left nav: with no file chosen it says to pick one. Type or pick `src/payments/charge.py` (the list offers files from recent changes) and press Enter.
+- [ ] The summary shows agent, human and not observed counts as separate numbers, and the sentence "Not observed means Seen could not have seen it; it is not a claim that a person wrote it."
+- [ ] Each block shows a word and an icon for who (never colour alone), its line range, and for agent blocks the headline, time (IST), model and skills. The headline opens that Change.
+- [ ] Tab reaches the block list (a labelled scroll region). **Table view** shows the same blocks in a table; **Blocks** returns.
+- [ ] A path that is not tracked by git (`no/such/file.py`) shows a calm note with the reason, not a red alert. A `.ipynb` path says notebook files are not line-attributed.
+- [ ] Change detail lists a **Provenance** link on each file; Settings has a read-only **Provenance** card.
+- [ ] Light and dark themes, and a 320px-wide window: no horizontal page scroll.
+
+---
+
 ## Part 11. Required-skill rules
 
 Edit `.seen/policies.yaml` in the demo repo:

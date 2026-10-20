@@ -44,6 +44,14 @@ export const useTimeline = (pid: string, query: { actor?: string; days?: number;
     placeholderData: keepPreviousData,
   });
 
+/** Off until a path is chosen. */
+export const useProvenanceFile = (pid: string, path: string | undefined, rev?: string) =>
+  useQuery({
+    queryKey: ["provenance", pid, path, rev],
+    enabled: !!path,
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/provenance/file", { params: { path: { pid }, query: { path: path ?? "", rev } } })),
+  });
+
 export const useChange = (cid: string) =>
   useQuery({ queryKey: ["change", cid], queryFn: () => unwrap(api.GET("/api/changes/{cid}", { params: { path: { cid } } })) });
 

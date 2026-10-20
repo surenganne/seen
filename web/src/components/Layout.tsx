@@ -1,4 +1,4 @@
-import { Activity, Bot, ChevronRight, FileClock, FolderGit2, History, LayoutDashboard, ListChecks, Monitor, Moon, Settings as Cog, ShieldCheck, ShieldAlert, Sun } from "lucide-react";
+import { Activity, Bot, ChevronRight, FileClock, Fingerprint, FolderGit2, History, LayoutDashboard, ListChecks, Monitor, Moon, Settings as Cog, ShieldCheck, ShieldAlert, Sun } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useProjects, useVerify } from "../api/hooks";
@@ -38,6 +38,7 @@ const SECTIONS = [
   ["timeline", "Timeline", History],
   ["skills", "Skills", Bot],
   ["audit", "Audit", FileClock],
+  ["provenance", "Provenance", Fingerprint],
 ] as const;
 
 function useNarrow(query = "(max-width: 860px)"): boolean {
@@ -52,7 +53,7 @@ function useNarrow(query = "(max-width: 860px)"): boolean {
   return narrow;
 }
 
-const TITLES: Record<string, string> = { "": "Overview", changes: "Changes", sessions: "Sessions", timeline: "Timeline", skills: "Skills", audit: "Audit" };
+const TITLES: Record<string, string> = { "": "Overview", changes: "Changes", sessions: "Sessions", timeline: "Timeline", skills: "Skills", audit: "Audit", provenance: "Provenance" };
 
 export function Layout() {
   const { pid, cid } = useParams();
@@ -95,7 +96,7 @@ export function Layout() {
         className={narrow ? "select" : undefined}
         value={pid ?? ""}
         onChange={(e) => {
-          const keep = ["changes", "skills", "audit"].includes(section) ? section : "";
+          const keep = ["changes", "skills", "audit", "provenance"].includes(section) ? section : "";
           nav(withRange(`/p/${e.target.value}/${keep}`, range));
         }}
       >

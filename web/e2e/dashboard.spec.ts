@@ -310,3 +310,45 @@ test.describe("the mark watches the pointer", () => {
     await expect(page.locator(".eyes:visible").first()).toBeVisible();
   });
 });
+
+test.describe("PV-8 provenance", () => {
+  const url = "/p/demo-payments/provenance?path=src/payments/charge.py";
+
+  test("blocks say who in words, the counts state the limit, a block opens its change, Table view lists the same blocks", async ({ page }) => {
+    await page.goto(url);
+    await expect(page.getByRole("heading", { name: "Provenance", level: 1 })).toBeVisible();
+    const blocks = page.getByTestId("prov-block");
+    await expect(blocks.first()).toBeVisible();
+    const n = await blocks.count();
+    expect(n).toBeGreaterThan(2);
+    await expect(blocks.first()).toContainText(/agent/i);
+    await expect(blocks.filter({ hasText: "not an agent request" }).first()).toContainText(/not an agent request/);
+    const count = page.getByTestId("prov-count");
+    await expect(count).toContainText(/agent/i);
+    await expect(page.getByText("Not observed means Seen could not have seen it; it is not a claim that a person wrote it.")).toBeVisible();
+    await page.getByRole("button", { name: "Table view" }).click();
+    await expect(page.getByRole("table").getByRole("row")).toHaveCount(n + 1);
+    await page.getByRole("button", { name: "Blocks" }).click();
+    await expect(blocks).toHaveCount(n);
+    await blocks.first().getByRole("link").click();
+    await expect(page.getByTestId("change-detail")).toBeVisible();
+  });
+
+  test("Change detail links each file to its provenance", async ({ page }) => {
+    await page.goto("/p/demo-payments/changes?range=28&view=list");
+    await page.getByTestId("change-row").first().click();
+    await page.getByTestId("change-files").getByRole("link", { name: "Provenance" }).first().click();
+    await expect(page).toHaveURL(/\/provenance\?.*path=/);
+  });
+
+  test.describe("an untracked path", () => {
+    test.use({ expectedErrors: [/status of 404/] });
+    test("shows a calm note with the reason, not an alert", async ({ page }) => {
+      await page.goto("/p/demo-payments/provenance?path=no/such/file.py");
+      await expect(page.getByTestId("prov-path")).toBeVisible();
+      await expect(page.getByTestId("prov-note")).toContainText(/\S/);
+      await expect(page.getByRole("alert")).toHaveCount(0);
+      await expect(page.getByTestId("prov-block")).toHaveCount(0);
+    });
+  });
+});

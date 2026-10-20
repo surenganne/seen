@@ -17,6 +17,7 @@ const routes = (i: Ids) => [
   ["projects", "/projects"], ["settings", "/settings"], ["overview", `/p/${i.pid}`], ["changes", `/p/${i.pid}/changes`],
   ["change detail", `/p/${i.pid}/changes/${i.cid}`], ["sessions", `/p/${i.pid}/sessions`], ["timeline", `/p/${i.pid}/timeline`],
   ["skills", `/p/${i.pid}/skills`], ["audit", `/p/${i.pid}/audit`],
+  ["provenance", "/p/demo-payments/provenance?path=src/payments/charge.py"], // the seeded file lives in demo-payments, whichever project ids() picks
 ] as const;
 
 async function settle(page: Page) {
@@ -24,7 +25,7 @@ async function settle(page: Page) {
   await expect(page.getByRole("status")).toHaveCount(0); // skeletons gone
 }
 
-const NAMES = ["projects", "settings", "overview", "changes", "change detail", "sessions", "timeline", "skills", "audit"] as const;
+const NAMES = ["projects", "settings", "overview", "changes", "change detail", "sessions", "timeline", "skills", "audit", "provenance"] as const;
 
 for (const scheme of ["light", "dark"] as const) {
   test.describe(`axe, ${scheme} theme`, () => {
