@@ -1047,10 +1047,20 @@ export interface components {
         };
         /** TimelineDay */
         TimelineDay: {
+            /** Added */
+            added: number;
+            /** Changes */
+            changes: number;
+            /** Commits */
+            commits: number;
             /** Day */
             day: string;
             /** Entries */
             entries: components["schemas"]["TimelineEntry"][];
+            /** Files */
+            files: number;
+            /** Removed */
+            removed: number;
         };
         /** TimelineEntry */
         TimelineEntry: {
@@ -1058,6 +1068,8 @@ export interface components {
             actor?: string | null;
             /** Added */
             added: number;
+            /** Areas */
+            areas: string[];
             /**
              * Background
              * @default false
@@ -1071,6 +1083,8 @@ export interface components {
             files: string[];
             /** Git Status */
             git_status: string | null;
+            /** Headline */
+            headline: string;
             /** Id */
             id: string;
             /** Model */
@@ -1114,6 +1128,8 @@ export interface components {
             page: number;
             /** Page Size */
             page_size: number;
+            /** Quiet Hidden */
+            quiet_hidden: number;
             /** Total */
             total: number;
         };
@@ -1598,6 +1614,7 @@ export interface operations {
             query?: {
                 actor?: string | null;
                 days?: number | null;
+                all_turns?: boolean;
                 page?: number;
                 page_size?: number;
             };

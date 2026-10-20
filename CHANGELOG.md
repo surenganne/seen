@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- **Timeline:** a page and `GET /api/projects/{pid}/timeline` showing what changed in a repo by day, who made it
-  (pseudonymous user id) and the commit it ended on. **Project memory removed** (ADR 0017): hook injection and the edit gate, the Memory page and API, `seen memory`, the
+- **Timeline:** a page and `GET /api/projects/{pid}/timeline`: a spine of file-changing requests by day, each with a
+  one-line headline, the pseudonymous user id, the folders touched, lines and the commit it ended on; day totals and
+  gap markers. Talk-only turns are hidden (`all_turns` brings them back); Changes still lists every request. **Project memory removed** (ADR 0017): hook injection and the edit gate, the Memory page and API, `seen memory`, the
   `using-seen-memory` skill, the `[memory]` settings and migration `0005` (drops `change_memories` and `changes.mem_*`).
   Reinstall the CLI and plugin after upgrading: an older `seen-hook` cannot read the new schema and records nothing.
   Existing `.seen/memory/` files are left in place and ignored. Old audit events about memory stay as history.
