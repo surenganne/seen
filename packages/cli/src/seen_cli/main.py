@@ -6,14 +6,16 @@ import dataclasses
 import json
 import os
 import shutil
+import subprocess
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import typer
 from sqlalchemy import select
 
-from seen_core import audit, brand, config, ingest, paths, safeio
+from seen_core import audit, brand, config, gitutil, ingest, paths, safeio
 from seen_core.db import ledger_session
 from seen_core.db.models import Change, ChangeFile, Project, Session, SkillInvocation
 from seen_core.headline import clean
@@ -21,7 +23,7 @@ from seen_core.identity import user_id
 from seen_core.project import resolve_project
 from seen_core.provenance.blame import blame_file, is_failure
 from seen_core.provenance.enrich import enrich_blocks
-from seen_core.provenance.report import FAIL_ON, build_report, gate, render_md
+from seen_core.provenance.report import FAIL_ON, Report, build_report, gate, render_md
 
 app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
 skills_app = typer.Typer(help="Skill inventory and approvals", no_args_is_help=True)
@@ -106,12 +108,42 @@ def blame_cmd(path: str = typer.Argument(..., help="File, relative to the repo r
 _FAIL_HELP = f"Exit 1 when it holds: {', '.join(FAIL_ON)} (repeatable)"
 
 
+def _stdin_is_tty() -> bool:
+    return sys.stdin.isatty()
+
+
+def _post(root: Path, pid: str, rep: Report, body: str, yes: bool, fail: Callable[[str], typer.Exit]) -> None:
+    if not yes:
+        try:
+            if not typer.confirm("Post this to the PR?", default=False):
+                return
+        except typer.Abort:  # EOF or Ctrl-C: no answer is a no
+            typer.echo("")
+            return
+    try:  # fixed argv, no shell; the body goes on stdin, never into the command line
+        r = subprocess.run(["gh", "pr", "comment", "--body-file", "-"], input=body, text=True, capture_output=True,
+                           timeout=30, cwd=root)
+    except FileNotFoundError as e:
+        raise fail("gh not found; install the GitHub CLI: https://cli.github.com") from e
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise fail(f"gh did not run: {type(e).__name__}.") from e
+    if r.returncode:
+        first = (r.stderr or "").strip().splitlines()[:1]
+        raise fail(f"gh failed (exit {r.returncode}): {clean(first[0]) if first else 'no message'}")
+    # counts only: no headlines, branch or repo names, URLs or comment text
+    audit.append([{"type": "provenance.reported", "actor_kind": "user", "actor_id": user_id(), "project_id": pid,
+                   "detail": {"added": sum(rep.added.values()) + rep.neutral, "requests": len(rep.requests)}}])
+    typer.echo("Posted the report to the PR.")
+
+
 @app.command("pr-report")
 def pr_report_cmd(base: str = typer.Option(..., "--base", help="Base ref (the range is BASE...HEAD, from the merge base)"),
                   head: str = typer.Option("HEAD", "--head", help="Head ref"),
                   fmt: str = typer.Option("md", "--format", help="md or json"),
                   no_cost: bool = typer.Option(False, "--no-cost", help="Leave the API-equivalent cost out"),
-                  fail_on: list[str] = typer.Option([], "--fail-on", help=_FAIL_HELP)
+                  fail_on: list[str] = typer.Option([], "--fail-on", help=_FAIL_HELP),
+                  post: bool = typer.Option(False, "--post", help="Post the Markdown as a comment on this branch's PR (uses gh)"),
+                  yes: bool = typer.Option(False, "--yes", help="With --post: do not ask first")
                   ) -> None:
     """Who wrote the lines a branch adds, for a pull request."""
     def fail(msg: str) -> typer.Exit:
@@ -122,7 +154,16 @@ def pr_report_cmd(base: str = typer.Option(..., "--base", help="Base ref (the ra
         raise fail("--format must be md or json.")
     if bad := [x for x in fail_on if x not in FAIL_ON]:
         raise fail(f"Unknown --fail-on {clean(bad[0])!r}; use one of {', '.join(FAIL_ON)}.")
-    pid, _ = _project_or_exit()
+    if post and fmt != "md":
+        raise fail("--post posts the Markdown report only; drop --format json.")
+    if post and not yes and not _stdin_is_tty():
+        raise fail("--post needs a terminal to ask first; pass --yes to post without asking.")
+    pid, root = _project_or_exit()
+    if post:
+        # gh comments on the PR of the checked-out branch: the report must describe exactly that commit
+        h = gitutil.run(root, "rev-parse", "--verify", "--end-of-options", f"{head}^{{commit}}")
+        if not h or h != gitutil.run(root, "rev-parse", "--verify", "HEAD"):
+            raise fail("--post only works when --head is the checked-out branch's HEAD; check it out first.")
     with ledger_session() as db:
         proj = db.get(Project, pid)
         if proj is None:
@@ -131,7 +172,10 @@ def pr_report_cmd(base: str = typer.Option(..., "--base", help="Base ref (the ra
             rep = build_report(db, proj, base, head, with_cost=not no_cost)
         except ValueError as e:
             raise fail(f"Cannot report {clean(base)!r}...{clean(head)!r}: {clean(str(e))}.") from e
-    typer.echo(json.dumps(dataclasses.asdict(rep), indent=2) if fmt == "json" else render_md(rep), nl=fmt == "json")
+    body = json.dumps(dataclasses.asdict(rep), indent=2) if fmt == "json" else render_md(rep)
+    typer.echo(body, nl=fmt == "json")
+    if post:
+        _post(root, pid, rep, body, yes, fail)
     if reasons := gate(rep, set(fail_on)):
         for x in reasons:
             typer.echo(x, err=True)
