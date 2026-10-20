@@ -244,7 +244,8 @@ Both are reads (no audit event, like other reads) and return no line text. Failu
 | Case | Response |
 |---|---|
 | Unsafe path or revision (absolute, `..`, symlink out of the repo, a ref that does not match the safe pattern) | 422 with a fixed detail (`unsafe path`, `unsafe revision`); the input is never echoed |
-| Not tracked, no HEAD, blame failed, unknown ref, unreadable diff, project has no repo on this machine | 404 with the reason |
+| Not tracked, no HEAD, blame failed, unknown ref, unreadable diff (`/range`: also a project with no repo on this machine) | 404 with the reason |
+| `/file` for a project with no `root_path` or whose directory is gone from this machine (the Docker dashboard) | 200 with `reason: "no repository on this machine"`, zero counts, no blocks (the path and rev are still validated first); the page explains it |
 | Binary file, or over 1 MB or 20,000 lines | 200 with `reason` set and no blocks |
 | Budget timeout (default 5 s) | 200 with `truncated: true` and the blocks found so far |
 

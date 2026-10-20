@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Provenance in the Docker dashboard:** a project with no repository on this machine now answers `/provenance/file` with 200 and a reason (no more red 404 per click), and the page explains that blame needs the host dashboard.
+
 - **Provenance (who wrote which line):** `seen blame <path>` marks each line agent, human or not observed (`--rev`, `--json`);
   `seen pr-report --base main` summarises the lines a branch adds for a PR, and `--post` comments through `gh` only after
   you confirm (or pass `--yes`); `GET /api/projects/{pid}/provenance/file` and `/range`; and a **Provenance** page (a ranked,

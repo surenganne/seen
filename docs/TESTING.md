@@ -384,6 +384,7 @@ seen docker-sync --watch 300 --restart               # optional: refresh every 5
 ```
 
 - [ ] The Docker dashboard shows your real projects and change counts, not generated mock data.
+- [ ] In the Docker dashboard, open **Provenance** and click a file: the list works, and instead of blocks a calm note says the dashboard has no copy of the repository so blame cannot run there (use `seen serve` on the host). The browser console shows no red 404 for the file.
 - [ ] With no snapshot folder, `docker compose up` exits with "Run 'seen docker-sync' on the host" instead of showing mock data.
 - [ ] Settings changed in the container dashboard are lost on the next refresh (change them on the host dashboard).
 

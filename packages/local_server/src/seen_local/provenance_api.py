@@ -6,6 +6,7 @@ No route returns line text, and a failed or missing file is a 404, never a 500."
 from __future__ import annotations
 
 import dataclasses
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
@@ -24,6 +25,7 @@ from .app import get_db
 
 BUDGET_S = 5.0  # wall-clock budget per file; over it the answer is truncated
 Db = Annotated[DB, Depends(get_db)]
+REASON_NO_REPO = "no repository on this machine"  # the page matches this string: keep it stable
 MAX_REV, MAX_PATH, MAX_Q = 200, 4096, 200
 # files sorted by: recent (newest change first), most requests, most lines (added + removed); ties by path
 FILE_SORTS = {"recent": lambda r: r.last_changed_at or "", "requests": lambda r: r.requests, "lines": lambda r: r.added + r.removed}
@@ -45,9 +47,12 @@ def _int(value: str | None, name: str, lo: int, hi: int | None, default: int | N
 
 
 def register(app: FastAPI, project_or_404: Callable[[DB, str], Project]) -> None:
+    def has_repo(p: Project) -> bool:
+        return bool(p.root_path) and Path(p.root_path or "").is_dir()
+
     def repo_project(db: DB, pid: str) -> Project:
         p = project_or_404(db, pid)
-        if not p.root_path or not Path(p.root_path).is_dir():
+        if not has_repo(p):
             raise HTTPException(404, "project has no repository on this machine")
         return p
 
@@ -83,9 +88,18 @@ def register(app: FastAPI, project_or_404: Callable[[DB, str], Project]) -> None
 
     @app.get("/api/projects/{pid}/provenance/file", response_model=S.ProvenanceFile)
     def provenance_file(pid: str, db: Db, path: str, rev: str = "HEAD") -> S.ProvenanceFile:
-        p = repo_project(db, pid)
+        p = project_or_404(db, pid)
         if not path or len(path) > MAX_PATH:
             raise HTTPException(422, "unsafe path")
+        if not has_repo(p):  # not an error of the request (the Docker dashboard has a ledger snapshot only): validate, then say why
+            rev = _ref(rev)
+            try:
+                with tempfile.TemporaryDirectory() as scratch:  # the same path checks as with a repo, against an empty root
+                    path = blame.resolve_path(scratch, path)
+            except ValueError as e:
+                raise HTTPException(422, clean(str(e))) from e
+            return S.ProvenanceFile(path=path, rev=rev, counts={k: 0 for k in ("agent", "human", "not_observed", "neutral")},
+                                    truncated=False, reason=REASON_NO_REPO, blocks=[])
         try:
             fp = blame.blame_file(db, p, path, _ref(rev), BUDGET_S)
         except ValueError as e:  # unsafe path or rev
