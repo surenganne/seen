@@ -6,7 +6,7 @@ test.describe("P2-4 overview, changes, change detail", () => {
     await expect(page.getByTestId("project-card")).toHaveCount(3);
     await page.getByTestId("project-card").filter({ hasText: "payments-api" }).click();
     await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
-    await expect(page.getByTestId("tile-Changes")).toContainText(/\d/);
+    await expect(page.getByTestId("tile-Requests")).toContainText(/\d/);
     await expect(page.getByTestId("background-spend")).toContainText(/plus \$[\d.]+ in \d+ background turns?/);
 
     await page.getByLabel("Project", { exact: true }).selectOption({ label: "patient360-web" });
@@ -35,13 +35,25 @@ test.describe("P2-4 overview, changes, change detail", () => {
     await expect(page.getByRole("button", { name: "PII exposed" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("most edited file click filters Changes", async ({ page }) => {
+  test("a folder on the Overview opens the requests that touched it", async ({ page }) => {
     await page.goto("/p/demo-payments?range=28");
-    const file = page.getByTestId("top-files").getByRole("button").first();
-    const name = (await file.textContent())!;
-    await file.click();
-    await expect(page).toHaveURL(new RegExp(`file=${encodeURIComponent(name).replace(/[.]/g, "\\.")}`));
+    const card = page.locator(".panel", { has: page.getByRole("heading", { name: "Where the work happened" }) });
+    const link = card.getByRole("link").first();
+    const name = (await link.textContent())!;
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`q=${encodeURIComponent(name).replace(/[.]/g, "\\.")}`));
     await expect(page.getByTestId("change-row").first()).toBeVisible();
+  });
+
+  test("the dashboard answers its four questions: changed, cost, rules and skills, PII", async ({ page }) => {
+    await page.goto("/p/demo-payments?range=28");
+    for (const name of ["Activity", "Spend", "Where the work happened", "What happened to it", "When the work happens", "Required-skill rules", "Skills", "PII exposure by type"])
+      await expect(page.getByRole("heading", { name })).toBeVisible();
+    await expect(page.getByTestId("tile-Cost").getByTestId("delta")).toBeVisible(); // against the period before
+    await expect(page.getByTestId("spend-legend")).toContainText("$");
+    await expect(page.getByTestId("rule-list")).toContainText("of");
+    await page.locator(".heat-cell").nth(30).hover();
+    await expect(page.getByTestId("rhythm-caption")).toContainText(/\d{2}:00 · \d+ requests?/);
   });
 
   test("sort by cost toggles direction", async ({ page }) => {
@@ -167,7 +179,7 @@ test.describe("P4B-8 PII in the dashboard", () => {
 
   test("overview shows PII tile and top sources", async ({ page }) => {
     await page.goto("/p/demo-patient?range=28");
-    await expect(page.getByTestId("tile-Changes with PII exposure")).toBeVisible();
+    await expect(page.getByTestId("tile-PII exposure")).toBeVisible();
     await expect(page.getByTestId("pii-sources")).toContainText("Read data/patients.csv");
   });
 
