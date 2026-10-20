@@ -175,3 +175,23 @@ def test_settings_expose_provenance_read_only(client: TestClient) -> None:
     before = config.load()["provenance"]
     client.put("/api/settings", json={"provenance": {"enabled": not before["enabled"]}}, headers={"X-Seen-Request": "1"})
     assert config.load()["provenance"] == before
+
+
+def _assert_no_echo(r: object, raw: str) -> None:
+    assert r.status_code == 422, r.text  # type: ignore[attr-defined]
+    body = r.text  # type: ignore[attr-defined]
+    assert "\x1b" not in body and "\\u001b" not in body
+    assert not any(raw[i:i + 9] in body for i in range(max(len(raw) - 8, 0))), body[:200]
+
+
+def test_validation_errors_never_echo_raw_input(client: TestClient) -> None:
+    ansi = "\x1b[31mred" + "a" * 200
+    _assert_no_echo(get_file(client, DEMO, ansi), ansi)
+    long_path = "\x1b[31mdir/" + "b" * 4100
+    _assert_no_echo(get_file(client, long_path), long_path)
+    _assert_no_echo(get_file(client, ""), "")
+    url = f"/api/projects/{PID}/provenance/range"
+    _assert_no_echo(client.get(url, params={"base": ansi}), ansi)
+    _assert_no_echo(client.get(url, params={"base": "HEAD", "head": ansi}), ansi)
+    _assert_no_echo(client.get(url, params={"base": ""}), "")
+    _assert_no_echo(client.get(url, params={"base": "HEAD", "head": ""}), "")

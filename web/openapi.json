@@ -4237,8 +4237,6 @@
             "name": "path",
             "required": true,
             "schema": {
-              "maxLength": 4096,
-              "minLength": 1,
               "title": "Path",
               "type": "string"
             }
@@ -4249,7 +4247,6 @@
             "required": false,
             "schema": {
               "default": "HEAD",
-              "maxLength": 200,
               "title": "Rev",
               "type": "string"
             }
@@ -4298,7 +4295,6 @@
             "name": "base",
             "required": true,
             "schema": {
-              "maxLength": 200,
               "title": "Base",
               "type": "string"
             }
@@ -4309,7 +4305,6 @@
             "required": false,
             "schema": {
               "default": "HEAD",
-              "maxLength": 200,
               "title": "Head",
               "type": "string"
             }
