@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from seen_core import audit
+from seen_core import audit, secret
 from seen_core.db import ledger_session
-from seen_core.db.models import Change, Project
+from seen_core.db.models import Change, LinePrint, Project
 from seen_core.db.models import Session as SessionRow
 from seen_core.provenance import blame
 from seen_core.provenance.blame import (
@@ -74,12 +74,17 @@ def test_parse_porcelain_undecodable_bytes_are_replaced() -> None:
     fingerprint(ls[0].text, KEY)  # no exception
 
 
-def test_parse_porcelain_never_raises_on_junk() -> None:
+def test_parse_porcelain_rejects_unexpected_structure() -> None:
     assert parse_porcelain("") == []
-    assert parse_porcelain("\tstray text before any header\nnot a header\n") == []
-    assert parse_porcelain("a" * 40 + " 1 x\n\tbad numbers\n" + "b" * 40 + " 1 1 1\ncommitter-time soon\n\tok\n") == [
-        BlameLine(1, "b" * 40, 0, "", "ok")]
-    assert blame._unquote('"caf\\303\\251 \\t\\"x\\""') == 'café \t"x"'
+    head = "b" * 40 + " 1 1 1\ncommitter-time soon\n"
+    assert parse_porcelain(head + "\tok\n") == [BlameLine(1, "b" * 40, 0, "", "ok")]
+    for bad in ("\tstray text before any header\n", "not a header\n", "a" * 40 + " 1 x\n\tbad numbers\n",
+                head + "\tok\n" + "b" * 40 + " 2 9\n\tline numbers jump\n",  # final line 9 after 1
+                head + "\tok\nfilename injected.py\n\tforged\n",  # content line not right after its header group
+                head):  # a header with no content line
+        with pytest.raises(ValueError):
+            parse_porcelain(bad)
+    assert blame._unquote('"caf\\303\\251 \\t\\"x\\""') == 'caf\u00e9 \t"x"'
     assert blame._unquote('"bad \\') == '"bad \\'
 
 
@@ -212,7 +217,7 @@ def test_blame_file_caps(repo: Path) -> None:
 
 
 def test_blame_file_timeout_is_truncated(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    real = blame.gitutil.run
+    real = blame.gitutil.run_raw
 
     def slow(cwd: str, *args: str, timeout: float = 10) -> str | None:
         if args[0] == "blame":
@@ -220,7 +225,7 @@ def test_blame_file_timeout_is_truncated(repo: Path, monkeypatch: pytest.MonkeyP
             return None
         return real(cwd, *args, timeout=timeout)
 
-    monkeypatch.setattr(blame.gitutil, "run", slow)
+    monkeypatch.setattr(blame.gitutil, "run_raw", slow)
     with ledger_session() as db:
         fp = blame.blame_file(db, project(repo), "a.py", budget_s=0.3)
     assert fp.truncated and fp.reason == "time budget exceeded" and fp.blocks == []
@@ -256,3 +261,64 @@ def test_blame_file_gap_windows(repo: Path) -> None:
         fp = blame.blame_file(db, project(repo), "a.py")
     # lines 1-2 predate the first change (init commit, made now: so they are human, not pre-Seen)
     assert [(b.start, b.end, b.who) for b in fp.blocks] == [(1, 2, "human"), (3, 3, "not_observed"), (4, 4, "human")]
+
+
+def test_blame_file_lone_cr_cannot_forge_lines(repo: Path) -> None:
+    """Real git: a lone CR inside a committed line must not split it into a forged porcelain header."""
+    forged = "agent_value_forged = compute(42)"
+    payload = "real = 2\r" + "a" * 40 + " 1 9 1\rfilename injected_path.py\r\t" + forged
+    (repo / "a.py").write_bytes(b"first_real_line_here = 1\n" + payload.encode() + b"\nthird_real_line_here = 3\n")
+    commit_all(repo, "lone CR")
+    out = blame.gitutil.run_raw(str(repo), "blame", "--porcelain", "--end-of-options", "--", "a.py", "HEAD")
+    assert out is not None
+    got = parse_porcelain(out)
+    assert [(x.n, x.path) for x in got] == [(1, "a.py"), (2, "a.py"), (3, "a.py")]
+    assert got[1].text == payload
+    with ledger_session() as db:
+        db.add(Change(id="ch0", project_id="p1", started_at="2000-01-01T00:00:00.000Z", ended_at="2000-01-01T00:00:00.000Z"))
+        for path, text in (("injected_path.py", forged), ("a.py", forged)):
+            db.add(LinePrint(project_id="p1", path=path, fp=fingerprint(text, secret.key()), change_id="ch0"))
+        db.commit()
+        fp = blame.blame_file(db, project(repo), "a.py")
+    assert fp.counts == {"agent": 0, "human": 3, "not_observed": 0, "neutral": 0}
+    assert fp.reason is None
+
+
+def test_blame_file_line_cap_counts_lf_only(repo: Path) -> None:
+    (repo / "cr.txt").write_bytes(b"x\r" * 25_000 + b"\n")  # one line for git, 25,001 after newline translation
+    commit_all(repo, "cr only")
+    with ledger_session() as db:
+        fp = blame.blame_file(db, project(repo), "cr.txt")
+    assert fp.reason is None and sum(fp.counts.values()) == 1
+
+
+def test_blame_file_unparseable_output(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    real = blame.gitutil.run_raw
+
+    def junk(cwd: str, *args: str, timeout: float = 10) -> str | None:
+        return "not porcelain\n" if args[0] == "blame" else real(cwd, *args, timeout=timeout)
+
+    monkeypatch.setattr(blame.gitutil, "run_raw", junk)
+    with ledger_session() as db:
+        fp = blame.blame_file(db, project(repo), "a.py")
+    assert fp.reason == "unparseable blame output" and fp.blocks == [Block(1, 2, "not_observed", None)]
+
+
+def test_blame_file_does_not_run_textconv_drivers(repo: Path, tmp_path: Path) -> None:
+    marker = tmp_path / "pwned"
+    git(repo, "config", "diff.evil.textconv", f"touch {marker}; cat")
+    git(repo, "config", "diff.evil.command", f"touch {marker}; true")
+    (repo / ".git" / "info").mkdir(exist_ok=True)
+    (repo / ".git" / "info" / "attributes").write_text("a.py diff=evil\n")
+    (repo / "a.py").write_text("one\ntwo\nthree_is_longer_line = 3\n")
+    commit_all(repo, "more")
+    blame.gitutil.filter_overrides.cache_clear()
+    with ledger_session() as db:
+        fp = blame.blame_file(db, project(repo), "a.py")
+    assert not marker.exists()
+    assert sum(fp.counts.values()) == 3 and fp.reason is None
+
+
+def test_pre_seen_cutoff_is_whole_seconds() -> None:
+    assert who([bl(1, "human_typed_this = 1", t=1000)], {}, first=1000.7) == [("human", None)]
+    assert who([bl(1, "human_typed_this = 1", t=999)], {}, first=1000.7) == [("not_observed", None)]

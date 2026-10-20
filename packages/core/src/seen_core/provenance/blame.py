@@ -82,26 +82,38 @@ def _unquote(s: str) -> str:
 
 
 def parse_porcelain(out: str) -> list[BlameLine]:
-    """`git blame --porcelain` output to lines. Never raises: malformed lines are skipped. A commit's time and file name
-    are printed only the first time it appears, so they are remembered per commit."""
+    """`git blame --porcelain` output to lines. A commit's time and file name are printed only the first time it
+    appears, so they are remembered per commit. Raises ValueError on structure it does not expect: final line numbers
+    must run 1, 2, 3, ... and each content line must close the header group right before it (a forged line cannot hide
+    in the stream). Unknown header keys are skipped."""
+    body = out.removesuffix("\n")
+    if not body:
+        return []
     meta: dict[str, list[Any]] = {}  # commit -> [committer time, file name]
     res: list[BlameLine] = []
     cur, n = None, 0
-    for ln in out.split("\n"):  # not splitlines(): a CR or form feed inside a line is part of its text
+    for ln in body.split("\n"):  # not splitlines(): a CR or form feed inside a line is part of its text
         if ln.startswith("\t"):
-            if cur is not None:
-                t, p = meta[cur]
-                res.append(BlameLine(n, cur, t, p, _SURROGATE.sub("�", ln[1:].removesuffix("\r"))))
-                cur = None
-        elif m := _HEADER.fullmatch(ln):
+            if cur is None:
+                raise ValueError("content line without a header")
+            t, p = meta[cur]
+            res.append(BlameLine(n, cur, t, p, _SURROGATE.sub("\ufffd", ln[1:].removesuffix("\r"))))
+            cur = None
+        elif cur is None:
+            if (m := _HEADER.fullmatch(ln)) is None:
+                raise ValueError("expected a header line")
             cur, n = m[1], int(m[2])
+            if n != len(res) + 1:
+                raise ValueError("line numbers out of order")
             meta.setdefault(cur, [0, ""])
-        elif cur is not None:
+        else:
             k, _, v = ln.partition(" ")
             if k == "committer-time" and v.isdecimal():
                 meta[cur][0] = int(v)
             elif k == "filename":
                 meta[cur][1] = _unquote(v)
+    if cur is not None:
+        raise ValueError("header without a content line")
     return res
 
 
@@ -115,12 +127,14 @@ def attribute(lines: list[BlameLine], index: Index, key: bytes, *, first_change_
               gaps: list[tuple[float, float]]) -> list[LineAttr]:
     """Spec 6.2 to 6.4. A commit older than the first recorded change is not observed whatever matches (the agent
     Seen recorded cannot have typed it); a gap window turns only `human` into `not_observed`."""
+    # whole seconds: a commit in the same second as the first change is not pre-Seen
+    cutoff = None if first_change_at is None else first_change_at if math.isinf(first_change_at) else math.floor(first_change_at)
     trivial = [is_trivial(x.text) for x in lines]
     out: list[tuple[Who, str | None] | None] = []
     for x, triv in zip(lines, trivial, strict=True):
         if not normalize(x.text):
             out.append(("neutral", None))
-        elif first_change_at is not None and x.commit_time < first_change_at:
+        elif cutoff is not None and x.commit_time < cutoff:
             out.append(("not_observed", None))
         elif triv:
             out.append(None)  # decided by adjacency below
@@ -264,22 +278,27 @@ def blame_file(db: Any, project: Project, path: str, rev: str = "HEAD", budget_s
         return unseen(0, f"not tracked at {rev}")
     if not parts[3].isdecimal() or int(parts[3]) > MAX_BYTES:
         return unseen(0, "over 1 MB")
-    blob = gitutil.run(root, "cat-file", "blob", parts[2], timeout=left())
+    blob = gitutil.run_raw(root, "cat-file", "blob", parts[2], timeout=left())
     if r := failed(blob):
         return r
     if blob is None:
         return unseen(0, f"not tracked at {rev}")
     if "\0" in blob[:8000]:
         return unseen(0, "binary")
-    n = blob.count("\n") + (bool(blob) and not blob.endswith("\n"))
+    n = blob.count("\n") + (bool(blob) and not blob.endswith("\n"))  # '\n' only, as git numbers lines
     if n > MAX_LINES:
         return unseen(n, "over 20,000 lines")
-    out = gitutil.run(root, "blame", "--porcelain", "-w", "-M", "-C", "--end-of-options", "--", rel, rev, timeout=left())
+    # run_raw: newline translation would turn a lone CR in the file into a porcelain line break (forged headers)
+    out = gitutil.run_raw(root, "blame", "--porcelain", "--no-textconv", "-w", "-M", "-C", "--end-of-options", "--", rel, rev,
+                          timeout=left())
     if r := failed(out):
         return r
     if out is None:
         return unseen(0, "git blame failed")
-    lines = parse_porcelain(out)
+    try:
+        lines = parse_porcelain(out)
+    except ValueError:
+        return unseen(n, "unparseable blame output")
     first = _epoch(db.scalar(sa.select(sa.func.min(Change.started_at)).where(Change.project_id == project.id)))
     index = load_index(db, project.id, {x.path for x in lines})
     attrs = attribute(lines, index, secret.key(), first_change_at=math.inf if first is None else first,
