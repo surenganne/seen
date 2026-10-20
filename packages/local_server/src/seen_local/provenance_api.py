@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.orm import Session as DB
 
 from seen_core.db.models import Project
@@ -23,11 +23,11 @@ from .app import get_db
 
 BUDGET_S = 5.0  # wall-clock budget per file; over it the answer is truncated
 Db = Annotated[DB, Depends(get_db)]
-Rev = Annotated[str, Query(max_length=200)]
+MAX_REV, MAX_PATH = 200, 4096
 
 
 def _ref(value: str) -> str:
-    if not blame.REV.fullmatch(value):
+    if len(value) > MAX_REV or not blame.REV.fullmatch(value):  # checked here, not by Query: its 422 echoes the input
         raise HTTPException(422, "unsafe revision")
     return value
 
@@ -40,9 +40,10 @@ def register(app: FastAPI, project_or_404: Callable[[DB, str], Project]) -> None
         return p
 
     @app.get("/api/projects/{pid}/provenance/file", response_model=S.ProvenanceFile)
-    def provenance_file(pid: str, db: Db, path: Annotated[str, Query(min_length=1, max_length=4096)],
-                        rev: Rev = "HEAD") -> S.ProvenanceFile:
+    def provenance_file(pid: str, db: Db, path: str, rev: str = "HEAD") -> S.ProvenanceFile:
         p = repo_project(db, pid)
+        if not path or len(path) > MAX_PATH:
+            raise HTTPException(422, "unsafe path")
         try:
             fp = blame.blame_file(db, p, path, _ref(rev), BUDGET_S)
         except ValueError as e:  # unsafe path or rev
@@ -54,7 +55,7 @@ def register(app: FastAPI, project_or_404: Callable[[DB, str], Project]) -> None
                                 blocks=[S.ProvenanceBlock(**dataclasses.asdict(b)) for b in blocks])
 
     @app.get("/api/projects/{pid}/provenance/range", response_model=S.ProvenanceRange)
-    def provenance_range(pid: str, db: Db, base: Rev, head: Rev = "HEAD") -> S.ProvenanceRange:
+    def provenance_range(pid: str, db: Db, base: str, head: str = "HEAD") -> S.ProvenanceRange:
         p = repo_project(db, pid)
         _ref(base), _ref(head)
         try:
