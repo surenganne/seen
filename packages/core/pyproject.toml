@@ -1,7 +1,7 @@
 [project]
 name = "seen-core"
 version = "0.1.0"
-description = "Seen core: ledger, audit, memory, skills, PII"
+description = "Seen core: ledger, audit, skills, PII"
 requires-python = ">=3.11"
 dependencies = ["sqlalchemy==2.1.5", "alembic==1.20.0", "pathspec==1.1.1", "pyyaml==6.0.3", "tomli-w==1.2.0"]
 

@@ -3,7 +3,10 @@
 ## Unreleased
 
 - **Timeline:** a page and `GET /api/projects/{pid}/timeline` showing what changed in a repo by day, who made it
-  (pseudonymous user id) and the commit it ended on. Project memory is being removed in stages (ADR 0017).
+  (pseudonymous user id) and the commit it ended on. **Project memory removed** (ADR 0017): hook injection and the edit gate, the Memory page and API, `seen memory`, the
+  `using-seen-memory` skill, the `[memory]` settings and migration `0005` (drops `change_memories` and `changes.mem_*`).
+  Reinstall the CLI and plugin after upgrading: an older `seen-hook` cannot read the new schema and records nothing.
+  Existing `.seen/memory/` files are left in place and ignored. Old audit events about memory stay as history.
 - **Docker dashboard serves your real data** through a consistent snapshot (`seen docker-sync`). Mock data
   is for the test stacks only.
 - **Privacy and recall:** a blocked prompt is no longer stored; custom PII rules have a cap and a deadline against

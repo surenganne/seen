@@ -1,5 +1,5 @@
 ---
-description: Seen ledger status for this repo (changes recorded, memory, audit chain)
-allowed-tools: Bash(seen status:*), Bash(seen memory list:*)
+description: Seen ledger status for this repo (changes recorded, audit chain)
+allowed-tools: Bash(seen status:*)
 ---
-Run `seen status` and `seen memory list` and summarise the output in a few lines: changes recorded, memory files and how many are stale or unverified, and whether the audit chain verified. If `seen` is not installed, say: install it with `uv tool install git+https://github.com/surenganne/seen#subdirectory=packages/cli`.
+Run `seen status` and summarise the output in a few lines: changes recorded and whether the audit chain verified. If `seen` is not installed, say: install it with `uv tool install git+https://github.com/surenganne/seen#subdirectory=packages/cli`.

@@ -5,7 +5,7 @@ from seen_core.pii import ner
 
 CORE = Path(__file__).resolve().parents[2] / "packages/core/src/seen_core"
 HOT = ["hook.py", "spool.py", "paths.py", "config.py", "gitdelta.py", "gitutil.py", "project.py", "secret.py", "redact.py", "sessionstate.py",
-       "memory/files.py", "memory/rank.py", "memory/stale.py", "pii/detect.py", "pii/validators.py",
+       "pii/detect.py", "pii/validators.py",
        "pii/projectcfg.py", "skills/lock.py", "skills/scan.py", "skills/hashing.py", "frontmatter.py"]
 
 

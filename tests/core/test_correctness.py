@@ -148,22 +148,6 @@ def test_appending_an_event_id_twice_is_a_noop_not_a_failed_batch(seen_home: Pat
     assert audit.verify().ok and audit.verify().count == 2
 
 
-# memory rewrites must not follow a symlinked .seen/memory out of the repo
-def test_verify_refuses_a_symlinked_memory_folder(repo: Path, tmp_path: Path) -> None:
-    from seen_core.memory import files
-
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    note = outside / "n1.md"
-    note.write_text("---\nid: n1\ntype: decision\nfile_ref: null\nverified_at: null\n---\nbody\n")
-    (repo / ".seen").mkdir()
-    (repo / ".seen" / "memory").symlink_to(outside)
-    before = note.read_text()
-    with pytest.raises(OSError):
-        files.verify(repo / ".seen" / "memory" / "n1.md", "2026-10-19T00:00:00Z")
-    assert note.read_text() == before
-
-
 # a forged checkpoint must not hide a truncated tail
 def test_a_forged_checkpoint_cannot_vouch_for_truncated_events(seen_home: Path) -> None:
     import sqlite3

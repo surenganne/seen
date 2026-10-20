@@ -10,7 +10,6 @@ from . import paths
 
 DEFAULTS: dict[str, Any] = {
     "user": {"id": ""},
-    "memory": {"inject": True, "gate": True, "budget_tokens": 1500},
     "skills": {"audit": True},
     "audit": {"retention_days": 365},
     "pii": {

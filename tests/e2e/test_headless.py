@@ -59,24 +59,6 @@ def test_known_edit_lands_in_ledger(scratch: tuple[Path, Path]) -> None:
     assert types[0] == "session.start" and "turn.end" in types and "file.changed" in types
 
 
-def _memory(repo: Path, mid: str, body: str) -> None:
-    d = repo / ".seen/memory"
-    d.mkdir(parents=True, exist_ok=True)
-    (d / f"{mid}.md").write_text(f"---\nid: {mid}\ntype: context\nverified_at: 2026-10-10T00:00:00Z\n---\n{body}\n")
-
-
-def test_p3_5_agent_saves_memory_as_unverified(scratch: tuple[Path, Path]) -> None:
-    repo, home = scratch
-    _memory(repo, "existing", "Placeholder so the memory folder exists.")
-    r = claude(repo, home, "We decided: all money amounts are stored as integer paise, never floats. "
-                           "Save this as project memory following the using-seen-memory skill, then reply 'saved.'")
-    assert r.returncode == 0, r.stderr[-1500:]
-    from seen_core.memory import files as mf
-
-    new = [m for m in mf.load(repo, None) if m.ok and m.id != "existing"]
-    assert new and new[0].verified_at is None and "paise" in new[0].body.lower(), [m.__dict__ for m in mf.load(repo, None)]
-
-
 def test_p4_6_enforce_runs_required_skill_then_stops(scratch: tuple[Path, Path]) -> None:
     repo, home = scratch
     (repo / ".claude/skills/llm-review").mkdir(parents=True)
