@@ -21,6 +21,7 @@ DEFAULTS: dict[str, Any] = {
         "store_prompt_text": "redacted",  # full | redacted | off
         "engine": "regex",  # regex | presidio
     },
+    "provenance": {"enabled": True},
     "sync": {"enabled": False, "server": "", "api_key_env": "SEEN_TEAM_API_KEY",
              "send_paths": False, "send_tokens": True, "send_cost": True, "send_skills": True,
              "send_pii_counts": False, "send_audit": False},
