@@ -12,6 +12,7 @@ from typing import Any
 MAX_LINES = 5_000  # candidate lines per tool call
 MAX_BYTES = 1_000_000  # added text per tool call
 _MIN_ALNUM = 10  # fewer alphanumerics than this is a trivial line
+_ENC = "surrogatepass"  # a lone surrogate (json.loads accepts one) must not raise
 _TAG = b"seen-line-v1\0"  # lets a later version change the scheme
 
 
@@ -24,11 +25,13 @@ def is_trivial(line: str) -> bool:
 
 
 def fingerprint(line: str, key: bytes) -> bytes:
-    return hmac.new(key, _TAG + normalize(line).encode(), hashlib.sha256).digest()[:8]
+    return hmac.new(key, _TAG + normalize(line).encode(errors=_ENC), hashlib.sha256).digest()[:8]
 
 
 def added_lines(tool_name: str, tool_input: dict[str, Any]) -> list[str] | None:
     """Raw lines the tool added, or None when it is not a text-writing tool we fingerprint."""
+    if not isinstance(tool_input, dict):
+        return None
     if tool_name == "Write":
         text = tool_input.get("content")
     elif tool_name == "Edit":
@@ -53,16 +56,20 @@ def added_lines(tool_name: str, tool_input: dict[str, Any]) -> list[str] | None:
 
 
 def _rel(path: str, root: str) -> str | None:
-    base = os.path.realpath(root)
-    rel = os.path.relpath(os.path.realpath(path), base)
-    return None if rel == ".." or rel.startswith(".." + os.sep) or os.path.isabs(rel) else rel
+    try:
+        rel = os.path.relpath(os.path.realpath(path), os.path.realpath(root))
+    except (ValueError, OSError):  # NUL in the path, unresolvable path
+        return None
+    return None if rel in (".", "..") or rel.startswith(".." + os.sep) or os.path.isabs(rel) else rel
 
 
 def capture(tool_name: str, tool_input: dict[str, Any], root: str | None, key: bytes) -> dict[str, Any] | None:
     """{"path", "fps" (16-char hex), "n" (candidate lines), "capped"} or None when there is nothing to record."""
     lines = added_lines(tool_name, tool_input)
+    if not lines or root is None:
+        return None
     path = tool_input.get("notebook_path" if tool_name == "NotebookEdit" else "file_path")
-    if not lines or root is None or not isinstance(path, str):
+    if not isinstance(path, str):
         return None
     rel = _rel(path, root)
     if rel is None or "\0" in "\n".join(lines)[:8000]:  # outside the repo, or binary
@@ -70,6 +77,6 @@ def capture(tool_name: str, tool_input: dict[str, Any], root: str | None, key: b
     cands = [s for s in lines if not is_trivial(s)]
     if not cands:
         return None
-    capped = len(cands) > MAX_LINES or sum(len(s.encode()) for s in lines) > MAX_BYTES
+    capped = len(cands) > MAX_LINES or sum(len(s.encode(errors=_ENC)) for s in lines) > MAX_BYTES
     fps = [] if capped else [fingerprint(s, key).hex() for s in cands]
     return {"path": rel, "fps": fps, "n": len(cands), "capped": capped}
