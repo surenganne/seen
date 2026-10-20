@@ -54,3 +54,30 @@ def test_minified_line_and_repeats(tmp_path: Path) -> None:  # Review Focus 4
     assert huge is not None and huge["n"] == 1 and not huge["capped"]  # one line, under the 1 MB cap
     rep = capture("Write", {"file_path": f"{root}/r.py", "content": "same repeated line\n" * 10_000}, root, KEY)
     assert rep is not None and rep["capped"] is True and rep["fps"] == []  # 10,000 candidates exceed the 5,000 cap
+
+
+def test_capture_never_raises_on_malformed_input(tmp_path: Path) -> None:
+    root = str(tmp_path)
+    assert capture("Write", None, root, KEY) is None  # type: ignore[arg-type]
+    assert added_lines("Write", None) is None  # type: ignore[arg-type]
+    assert capture("Write", {"file_path": f"{root}/a.py", "content": 123}, root, KEY) is None
+    assert capture("Write", {"file_path": 7, "content": "line number one"}, root, KEY) is None
+    assert capture("Write", {"file_path": f"{root}/a\0.py", "content": "line number one"}, root, KEY) is None
+    assert capture("Write", {"file_path": root, "content": "line number one"}, root, KEY) is None  # the root itself
+    c = capture("Write", {"file_path": f"{root}/s.py", "content": "surrogate \ud800 line here"}, root, KEY)
+    assert c is not None and c["n"] == 1 and len(c["fps"][0]) == 16
+    assert fingerprint("x\ud800yz", KEY) == fingerprint("x\ud800yz", KEY)
+
+
+def test_edit_duplicate_beyond_old_count_is_added() -> None:
+    ti = {"old_string": "repeat this line", "new_string": "repeat this line\nrepeat this line\nrepeat this line"}
+    assert added_lines("Edit", ti) == ["repeat this line", "repeat this line"]
+
+
+def test_symlink_pointing_outside_repo_is_skipped(tmp_path: Path) -> None:
+    root, outside = tmp_path / "repo", tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    (root / "link").symlink_to(outside)
+    ti = {"file_path": f"{root}/link/x.py", "content": "line number one"}
+    assert capture("Write", ti, str(root), KEY) is None
