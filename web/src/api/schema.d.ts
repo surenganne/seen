@@ -276,6 +276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{pid}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Timeline */
+        get: operations["timeline_api_projects__pid__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/settings": {
         parameters: {
             query?: never;
@@ -1153,6 +1170,80 @@ export interface components {
             /** Tokens */
             tokens: number;
         };
+        /** TimelineDay */
+        TimelineDay: {
+            /** Day */
+            day: string;
+            /** Entries */
+            entries: components["schemas"]["TimelineEntry"][];
+        };
+        /** TimelineEntry */
+        TimelineEntry: {
+            /** Actor */
+            actor?: string | null;
+            /** Added */
+            added: number;
+            /**
+             * Background
+             * @default false
+             */
+            background: boolean;
+            /** Commit */
+            commit?: string | null;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Files */
+            files: string[];
+            /** Git Status */
+            git_status: string | null;
+            /** Id */
+            id: string;
+            /** Mem State */
+            mem_state: string | null;
+            /** Model */
+            model: string | null;
+            /** Pii Count */
+            pii_count: number;
+            /** Pii High */
+            pii_high: boolean;
+            /** Pii State */
+            pii_state: string | null;
+            /** Policy Missed */
+            policy_missed: boolean;
+            /** Removed */
+            removed: number;
+            /** Request */
+            request?: string | null;
+            /** Seq */
+            seq: number | null;
+            /** Session Id */
+            session_id: string | null;
+            /** Skills */
+            skills: string[];
+            /** Started At */
+            started_at: string | null;
+            /** Summary */
+            summary: string | null;
+            /** Tokens */
+            tokens: number;
+            /** Tool */
+            tool: string;
+            /** Unapproved Skill */
+            unapproved_skill: boolean;
+        };
+        /** TimelinePage */
+        TimelinePage: {
+            /** Actors */
+            actors: string[];
+            /** Days */
+            days: components["schemas"]["TimelineDay"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** Tokens */
         Tokens: {
             /** Cache Read */
@@ -1718,6 +1809,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    timeline_api_projects__pid__timeline_get: {
+        parameters: {
+            query?: {
+                actor?: string | null;
+                days?: number | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelinePage"];
                 };
             };
             /** @description Validation Error */

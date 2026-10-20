@@ -161,6 +161,24 @@ class ChangePage(BaseModel):
     items: list[ChangeRow]
 
 
+class TimelineEntry(ChangeRow):
+    actor: str | None = None  # pseudonymous user id from the audit trail, never a login or email
+    commit: str | None = None  # short sha of HEAD after the change
+
+
+class TimelineDay(BaseModel):
+    day: str  # IST calendar date
+    entries: list[TimelineEntry]
+
+
+class TimelinePage(BaseModel):
+    total: int
+    actors: list[str]
+    page: int
+    page_size: int
+    days: list[TimelineDay]
+
+
 class FileLine(BaseModel):
     path: str
     added: int

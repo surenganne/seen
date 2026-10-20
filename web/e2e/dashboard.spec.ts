@@ -217,6 +217,20 @@ test.describe("P4B-8 PII in the dashboard", () => {
   });
 });
 
+test.describe("timeline", () => {
+  test("lists changes by day with the user, filters by user and opens a change", async ({ page }) => {
+    await page.goto("/p/demo-payments/timeline");
+    await expect(page.getByTestId("timeline-count")).toContainText("changes");
+    await expect(page.getByTestId("timeline-day").first()).toBeVisible();
+    const entry = page.getByTestId("timeline-entry").first();
+    await expect(entry).toContainText("u_demo");
+    await page.getByLabel("User").selectOption("u_demo");
+    await expect(page).toHaveURL(/actor=u_demo/);
+    await entry.getByRole("link").click();
+    await expect(page.getByTestId("change-detail")).toBeVisible();
+  });
+});
+
 test.describe("sessions", () => {
   test("lists sessions with status and opens a session's activity", async ({ page }) => {
     await page.goto("/p/demo-payments/sessions");

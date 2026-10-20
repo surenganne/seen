@@ -46,7 +46,7 @@ def main() -> None:
         grab("/api/settings")
         grab("/api/audit/verify")
         grab("/api/skills")
-        for tail in ("overview?range=7", "changes", "sessions", "memory", "audit", "policies"):
+        for tail in ("overview?range=7", "changes", "sessions", "timeline", "memory", "audit", "policies"):
             grab(f"/api/projects/{pid}/{tail}")
         cid = got[f"/api/projects/{pid}/changes"]["items"][0]["id"]  # type: ignore[index]
         grab(f"/api/changes/{cid}")

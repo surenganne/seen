@@ -264,6 +264,39 @@ def changes(db: DB, pid: str, *, tool: str | None, status: str | None, q: str | 
                         items=outs[(page - 1) * page_size: page * page_size])
 
 
+def _actors(pid: str) -> dict[str, str]:
+    """change id -> actor id, from the audit trail (the ledger rows carry no user)."""
+    import sqlite3
+
+    from seen_core import paths
+
+    try:
+        con = sqlite3.connect(f"file:{paths.audit_db()}?mode=ro", uri=True)
+        try:
+            return {cid: a for cid, a in con.execute(
+                "SELECT change_id, MIN(actor_id) FROM audit_events WHERE project_id = ? AND change_id IS NOT NULL "
+                "AND actor_id IS NOT NULL GROUP BY change_id", (pid,))}
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return {}
+
+
+def timeline(db: DB, pid: str, *, actor: str | None, days: int | None, page: int, page_size: int) -> S.TimelinePage:
+    """Changes newest first, grouped by IST day. Paged by entry, so a day can continue on the next page."""
+    who = _actors(pid)
+    rows = [(r, who.get(r.c.id)) for r in load_rows(db, pid, days)]
+    actors = sorted({a for _, a in rows if a})
+    rows = [x for x in rows if not actor or x[1] == actor]
+    rows.sort(key=lambda x: x[0].c.started_at or "", reverse=True)
+    groups: dict[str, list[S.TimelineEntry]] = {}
+    for r, a in rows[(page - 1) * page_size: page * page_size]:
+        e = S.TimelineEntry(**r.out().model_dump(), actor=a, commit=(r.c.git_head_after or "")[:7] or None)
+        groups.setdefault(_day(r.c.started_at) if r.c.started_at else "unknown", []).append(e)
+    return S.TimelinePage(total=len(rows), actors=actors, page=page, page_size=page_size,
+                          days=[S.TimelineDay(day=d, entries=es) for d, es in groups.items()])
+
+
 def _memory_files(root: str | None) -> list[tuple[Path, dict[str, Any]]]:
     if not root:
         return []

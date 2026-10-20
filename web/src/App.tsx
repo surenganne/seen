@@ -10,6 +10,7 @@ const Changes = lazy(() => import("./pages/Changes").then((m) => ({ default: m.C
 const Memory = lazy(() => import("./pages/Memory").then((m) => ({ default: m.Memory })));
 const Overview = lazy(() => import("./pages/Overview").then((m) => ({ default: m.Overview })));
 const Projects = lazy(() => import("./pages/Projects").then((m) => ({ default: m.Projects })));
+const Timeline = lazy(() => import("./pages/Timeline").then((m) => ({ default: m.Timeline })));
 const Sessions = lazy(() => import("./pages/Sessions").then((m) => ({ default: m.Sessions })));
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
 const Skills = lazy(() => import("./pages/Skills").then((m) => ({ default: m.Skills })));
@@ -25,6 +26,7 @@ export const routes = [
       { path: "/p/:pid/changes", element: <Changes /> },
       { path: "/p/:pid/changes/:cid", element: <ChangeDetail /> },
       { path: "/p/:pid/sessions", element: <Sessions /> },
+      { path: "/p/:pid/timeline", element: <Timeline /> },
       { path: "/p/:pid/memory", element: <Memory /> },
       { path: "/p/:pid/skills", element: <Skills /> },
       { path: "/p/:pid/audit", element: <Audit /> },
