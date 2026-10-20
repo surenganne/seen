@@ -25,6 +25,9 @@ MAX_BYTES = 1_000_000
 MAX_LINES = 20_000
 Who = Literal["agent", "human", "not_observed", "neutral"]
 WHO: tuple[Who, ...] = ("agent", "human", "not_observed", "neutral")
+REASON_NOT_TRACKED = "not tracked"  # followed by " at <rev>"
+REASON_BLAME_FAILED = "git blame failed"
+REASON_UNPARSEABLE = "unparseable blame output"
 Index = dict[tuple[str, bytes], list[tuple[str, float]]]  # (path, fp) -> [(change_id, ended_at epoch)]
 
 _HEADER = re.compile(r"([0-9a-f]{40}|[0-9a-f]{64}) \d+ (\d+)(?: \d+)?")
@@ -66,6 +69,11 @@ class FileProvenance:
     blocks: list[Block]
     truncated: bool
     reason: str | None
+
+
+def is_failure(reason: str | None) -> bool:
+    """True when there is nothing to show (as opposed to a file that is simply not line-attributed: binary, over a cap)."""
+    return reason is not None and reason.startswith((REASON_NOT_TRACKED, REASON_BLAME_FAILED, REASON_UNPARSEABLE))
 
 
 def _unquote(s: str) -> str:
@@ -277,14 +285,14 @@ def blame_file(db: Any, project: Project, path: str, rev: str = "HEAD", budget_s
         return r
     parts = (ls or "").split("\0")[0].partition("\t")[0].split()
     if len(parts) != 4 or parts[1] != "blob" or not _SHA.fullmatch(parts[2]):
-        return unseen(0, f"not tracked at {rev}")
+        return unseen(0, f"{REASON_NOT_TRACKED} at {rev}")
     if not parts[3].isdecimal() or int(parts[3]) > MAX_BYTES:
         return unseen(0, "over 1 MB")
     blob = gitutil.run_raw(root, "cat-file", "blob", parts[2], timeout=left())
     if r := failed(blob):
         return r
     if blob is None:
-        return unseen(0, f"not tracked at {rev}")
+        return unseen(0, f"{REASON_NOT_TRACKED} at {rev}")
     if "\0" in blob[:8000]:
         return unseen(0, "binary")
     n = blob.count("\n") + (bool(blob) and not blob.endswith("\n"))  # '\n' only, as git numbers lines
@@ -296,13 +304,13 @@ def blame_file(db: Any, project: Project, path: str, rev: str = "HEAD", budget_s
     if r := failed(out):
         return r
     if out is None:
-        return unseen(0, "git blame failed")
+        return unseen(0, REASON_BLAME_FAILED)
     try:
         lines = parse_porcelain(out)
     except ValueError:
-        return unseen(n, "unparseable blame output")
+        return unseen(n, REASON_UNPARSEABLE)
     if len(lines) != n:  # fail closed: the stream does not describe the blob we counted
-        return unseen(n, "unparseable blame output")
+        return unseen(n, REASON_UNPARSEABLE)
     first = _epoch(db.scalar(sa.select(sa.func.min(Change.started_at)).where(Change.project_id == project.id)))
     index = load_index(db, project.id, {x.path for x in lines})
     attrs = attribute(lines, index, secret.key(), first_change_at=math.inf if first is None else first,

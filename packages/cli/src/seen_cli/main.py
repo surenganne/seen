@@ -16,9 +16,10 @@ from sqlalchemy import select
 from seen_core import audit, brand, config, ingest, paths, safeio
 from seen_core.db import ledger_session
 from seen_core.db.models import Change, ChangeFile, Project, Session, SkillInvocation
+from seen_core.headline import clean
 from seen_core.identity import user_id
 from seen_core.project import resolve_project
-from seen_core.provenance.blame import blame_file
+from seen_core.provenance.blame import blame_file, is_failure
 from seen_core.provenance.enrich import enrich_blocks
 
 app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
@@ -50,7 +51,6 @@ def _project_or_exit(cwd: Path | None = None) -> tuple[str, Path]:
     return p.id, Path(p.root)
 
 
-_FAILED = ("not tracked", "git blame failed", "unparseable")  # reasons that mean there is nothing to show: exit 2
 _LIMIT = ("agent / human / not observed are shown separately. Not observed means Seen could not have seen who wrote the line "
           "(before Seen, or a gap in capture); it is not a claim that a person wrote it. Checked: git blame, fingerprints of "
           "recorded edits.")
@@ -81,22 +81,23 @@ def blame_cmd(path: str = typer.Argument(..., help="File, relative to the repo r
         try:
             fp = blame_file(db, proj, path, rev)
         except ValueError as e:
-            raise fail(f"Cannot blame {path!r}: {e}.") from e
-        if fp.reason and fp.reason.startswith(_FAILED):
-            raise fail(f"Cannot blame {path!r} at {rev}: {fp.reason}.")
+            raise fail(f"Cannot blame {clean(path)!r}: {clean(str(e))}.") from e
+        if is_failure(fp.reason):
+            raise fail(f"Cannot blame {clean(path)!r} at {clean(rev)}: {clean(fp.reason)}.")
         blocks = enrich_blocks(db, fp.blocks)
     if as_json:
         typer.echo(json.dumps({**dataclasses.asdict(fp), "blocks": [dataclasses.asdict(b) for b in blocks]}, indent=2))
         return
     if path.endswith(".ipynb"):
         typer.echo("Notebook files are not line-attributed (a cell is one JSON line); showing blame counts only.")
-    if fp.reason:
-        typer.echo(f"{fp.path} at {rev}: not line-attributed ({fp.reason}).")
     if fp.truncated:
         typer.echo("Stopped at the time budget; the result is incomplete.")
     for b in blocks:
-        typer.echo(f"{b.start}-{b.end}  {b.who}  {b.headline or '-'}  {_ist(b.started_at)} IST  {b.model or '-'}")
+        typer.echo(f"{b.start}-{b.end}  {b.who}  {clean(b.headline) or '-'}  {_ist(b.started_at)} IST  {clean(b.model) or '-'}")
     c = fp.counts
+    if fp.reason:
+        typer.echo(f"No lines attributed: {clean(fp.reason)}.")
+        return
     typer.echo(f"{fp.path} at {rev}: agent {c['agent']} / human {c['human']} / not observed {c['not_observed']} lines"
                f" ({c['neutral']} blank or punctuation-only). {_LIMIT}")
 

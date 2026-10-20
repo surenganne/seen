@@ -2,9 +2,11 @@
 
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
+import sqlalchemy as sa
 from typer.testing import CliRunner
 
 from seen_cli.main import app
@@ -76,11 +78,38 @@ def _fails(cwd: Path, *args: str) -> None:
     assert "Traceback" not in out + err and len((out + err).strip().splitlines()) == 1
 
 
-def test_no_commits(tmp_path: Path) -> None:
+def test_no_head(scene: Scene) -> None:
+    git(scene.root, "update-ref", "-d", "refs/heads/main")  # a recorded project whose HEAD no longer resolves
+    _fails(scene.root, "calc.py")
+
+
+def test_unrecorded_repo(tmp_path: Path) -> None:
     r = tmp_path / "empty"
     r.mkdir()
     git(r, "init", "-q", "-b", "main")
     _fails(r, "a.py")
+
+
+def test_reason_prints_no_clean_summary(scene: Scene) -> None:
+    (scene.root / "b.bin").write_bytes(b"\0\1\2\n")
+    scene.commit("bin")
+    out = run(scene.root, "b.bin")[1]
+    assert "No lines attributed: binary" in out and "not observed 0" not in out
+
+
+def test_control_characters_never_reach_the_terminal(scene: Scene) -> None:
+    from seen_core.db import ledger_session
+    from seen_core.db.models import Change
+
+    evil = "\x1b[31mred\x1b]0;x\x07 and a long enough sentence\x85 here."
+    with ledger_session() as db:
+        for c in db.scalars(sa.select(Change)):
+            c.summary, c.model = evil, evil
+        db.commit()
+    code, out, err = run(scene.root, "calc.py")
+    raw = (out + err).encode()
+    assert code == 0 and b"red" in raw and not re.search(rb"[\x00-\x08\x0b-\x1f\x7f]|\xc2[\x80-\x9f]", raw)
+    assert "\x1b" not in json.loads(run(scene.root, "calc.py", "--json")[1])["blocks"][0]["headline"]
 
 
 def test_missing_at_rev(scene: Scene) -> None:
