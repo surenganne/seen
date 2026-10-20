@@ -50,7 +50,7 @@ def test_timeline_day_stats_add_up(client: TestClient) -> None:
 
 
 def test_headline_rules() -> None:
-    from seen_local.queries import areas_of, headline_of
+    from seen_core.headline import areas_of, headline_of
 
     assert headline_of("**Fixed** the `refund` retry. Then more detail.", None, ["a.py"]) == "Fixed the refund retry."
     assert headline_of(None, "add a divide function\nplease", ["calc.py"]) == "add a divide function please"
