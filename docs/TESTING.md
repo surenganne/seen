@@ -286,7 +286,7 @@ seen serve --open
 - [ ] Open **Provenance** in the left nav: with no file chosen it says to pick one. Type or pick `src/payments/charge.py` (the list offers files from recent changes) and press Enter.
 - [ ] The summary shows agent, human and not observed counts as separate numbers, and the sentence "Not observed means Seen could not have seen it; it is not a claim that a person wrote it."
 - [ ] Each block shows a word and an icon for who (never colour alone), its line range, and for agent blocks the headline, time (IST), model and skills. The headline opens that Change.
-- [ ] Tab reaches the block list (a labelled scroll region). **Table view** shows the same blocks in a table; **Blocks** returns.
+- [ ] Tab reaches the block list (a labelled scroll region). **Table view** (a toggle button that stays named "Table view" and is announced pressed while the table shows) swaps in the same blocks as a table; press it again to return. Each table link has its own name ("Open change: headline, lines a–b").
 - [ ] A path that is not tracked by git (`no/such/file.py`) shows a calm note with the reason, not a red alert. A `.ipynb` path says notebook files are not line-attributed.
 - [ ] Change detail lists a **Provenance** link on each file; Settings has a read-only **Provenance** card.
 - [ ] Light and dark themes, and a 320px-wide window: no horizontal page scroll.

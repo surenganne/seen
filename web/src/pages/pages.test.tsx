@@ -114,8 +114,14 @@ describe("page details", () => {
     it("Table view lists the same blocks in a table", async () => {
       mount(byName("Provenance"));
       const n = (await screen.findAllByTestId("prov-block")).length;
-      screen.getByRole("button", { name: "Table view" }).click();
+      const toggle = screen.getByRole("button", { name: "Table view" });
+      expect(toggle).toHaveAttribute("aria-pressed", "false");
+      toggle.click();
       expect(await screen.findAllByRole("row")).toHaveLength(n + 1);
+      expect(screen.getByRole("button", { name: "Table view" })).toHaveAttribute("aria-pressed", "true"); // name is stable; pressed says the table shows
+      const names = screen.getAllByRole("link", { name: /^Open change/ }).map((a) => a.getAttribute("aria-label"));
+      expect(new Set(names).size).toBe(names.length); // every link is distinguishable
+      expect(screen.getAllByRole("region", { name: /line blocks/i })).toHaveLength(1); // one scroll region, not two nested
     });
     it("a 404 is a calm note with the API's reason, not an alert", async () => {
       file(404, { detail: "not tracked by git" });
