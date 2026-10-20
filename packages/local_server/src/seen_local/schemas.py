@@ -162,15 +162,23 @@ class ChangePage(BaseModel):
 class TimelineEntry(ChangeRow):
     actor: str | None = None  # pseudonymous user id from the audit trail, never a login or email
     commit: str | None = None  # short sha of HEAD after the change
+    headline: str  # one line: what the turn did
+    areas: list[str]  # up to three top folders the change touched, most files first
 
 
 class TimelineDay(BaseModel):
     day: str  # IST calendar date
+    changes: int  # totals cover the whole day, even when its entries continue on the next page
+    files: int
+    added: int
+    removed: int
+    commits: int
     entries: list[TimelineEntry]
 
 
 class TimelinePage(BaseModel):
     total: int
+    quiet_hidden: int  # turns with no file changes left out (all_turns brings them back)
     actors: list[str]
     page: int
     page_size: int

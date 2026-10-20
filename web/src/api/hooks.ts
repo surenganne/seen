@@ -37,7 +37,7 @@ export const useChanges = (pid: string, f: ChangeFilters) =>
     placeholderData: keepPreviousData,
   });
 
-export const useTimeline = (pid: string, query: { actor?: string; days?: number; page?: number; page_size?: number }) =>
+export const useTimeline = (pid: string, query: { actor?: string; days?: number; all_turns?: boolean; page?: number; page_size?: number }) =>
   useQuery({
     queryKey: ["timeline", pid, query],
     queryFn: () => unwrap(api.GET("/api/projects/{pid}/timeline", { params: { path: { pid }, query } })),

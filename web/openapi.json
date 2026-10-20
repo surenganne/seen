@@ -2389,6 +2389,18 @@
       },
       "TimelineDay": {
         "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "commits": {
+            "title": "Commits",
+            "type": "integer"
+          },
           "day": {
             "title": "Day",
             "type": "string"
@@ -2399,10 +2411,23 @@
             },
             "title": "Entries",
             "type": "array"
+          },
+          "files": {
+            "title": "Files",
+            "type": "integer"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "integer"
           }
         },
         "required": [
           "day",
+          "changes",
+          "files",
+          "added",
+          "removed",
+          "commits",
           "entries"
         ],
         "title": "TimelineDay",
@@ -2424,6 +2449,13 @@
           "added": {
             "title": "Added",
             "type": "integer"
+          },
+          "areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Areas",
+            "type": "array"
           },
           "background": {
             "default": false,
@@ -2462,6 +2494,10 @@
               }
             ],
             "title": "Git Status"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
           },
           "id": {
             "title": "Id",
@@ -2599,7 +2635,9 @@
           "pii_state",
           "pii_count",
           "pii_high",
-          "unapproved_skill"
+          "unapproved_skill",
+          "headline",
+          "areas"
         ],
         "title": "TimelineEntry",
         "type": "object"
@@ -2628,6 +2666,10 @@
             "title": "Page Size",
             "type": "integer"
           },
+          "quiet_hidden": {
+            "title": "Quiet Hidden",
+            "type": "integer"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -2635,6 +2677,7 @@
         },
         "required": [
           "total",
+          "quiet_hidden",
           "actors",
           "page",
           "page_size",
@@ -3760,6 +3803,16 @@
                 }
               ],
               "title": "Days"
+            }
+          },
+          {
+            "in": "query",
+            "name": "all_turns",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "All Turns",
+              "type": "boolean"
             }
           },
           {

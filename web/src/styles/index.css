@@ -296,6 +296,31 @@ pre.snippet { margin: 0; padding: 0.75rem; overflow-x: auto; font-family: var(--
 .project .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
 .project .facts .value { font-weight: 600; }
 
+/* ---------- timeline: a spine of points, not a table ---------- */
+.tl-day { display: flex; flex-direction: column; gap: 0.5rem; }
+.tl-day-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.25rem 1rem; }
+.tl-day-head h2 { font-size: 1rem; }
+.tl { list-style: none; margin: 0; padding: 0; position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.tl::before { content: ""; position: absolute; top: 1.4rem; bottom: 1.4rem; left: calc(1rem + 5px); width: 2px; background: var(--border-strong); }
+.tl-node, .tl-gap { position: relative; }
+.tl-node { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 0.2rem 0.9rem; align-items: start; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); }
+.tl-node:last-child { border-bottom: 0; }
+.tl-dot { width: 12px; height: 12px; margin-top: 0.3rem; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink-3); position: relative; z-index: 1; }
+.tl-node[data-status="committed"] .tl-dot { background: var(--accent); border-color: var(--accent); }
+.tl-node[data-status="reverted"] .tl-dot { border-style: dashed; }
+.tl-headline { color: var(--ink); font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
+.tl-headline:hover { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+.tl-headline:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.tl-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.75rem; margin-top: 0.25rem; font-size: 0.75rem; color: var(--ink-3); }
+.tl-areas { display: inline-flex; gap: 0.25rem; flex-wrap: wrap; }
+.tl-mag { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; min-width: 6.5rem; }
+.tl-mag .meter { width: 6.5rem; }
+.tl-gap { padding: 0.3rem 1rem 0.3rem calc(1rem + 12px + 0.9rem); border-bottom: 1px solid var(--border); font-style: italic; }
+@media (max-width: 640px) {
+  .tl-node { grid-template-columns: 12px minmax(0, 1fr); }
+  .tl-mag { grid-column: 2; flex-direction: row; align-items: center; justify-content: flex-start; gap: 0.75rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0ms !important; animation-duration: 0ms !important; animation-iteration-count: 1 !important; }
 }
