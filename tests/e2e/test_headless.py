@@ -111,3 +111,29 @@ def test_p4b_3_warn_reaches_user_not_model(scratch: tuple[Path, Path]) -> None:
     result = next(e for e in events if e.get("type") == "result")["result"]
     assert shown, "user-facing systemMessage missing"
     assert result.strip().lower().startswith("no"), result
+
+
+def test_pv10_blame_shows_agent_written_file(scratch: tuple[Path, Path]) -> None:
+    import json
+    import re
+
+    repo, home = scratch
+    r = claude(repo, home, "Create greeting.py with the Write tool (not Bash). It must contain a function greet(name) that returns "
+                           "a formatted greeting, a function farewell(name), and a __main__ block that prints both for 'world'. "
+                           "At least 8 lines. Then reply 'done.' only.")
+    assert r.returncode == 0, r.stderr[-2000:]
+    text = (repo / "greeting.py").read_text()
+    git = ["git", "-c", "user.email=e@example.com", "-c", "user.name=e"]
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run([*git, "commit", "-qm", "greeting"], cwd=repo, check=True)
+    seen = shutil.which("seen") or str(ROOT / ".venv/bin/seen")
+    b = subprocess.run([seen, "blame", "greeting.py", "--json"], cwd=repo, env={**os.environ, "SEEN_HOME": str(home)},
+                       capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    assert b.returncode == 0, b.stderr
+    blocks = json.loads(b.stdout)["blocks"]
+    who: dict[int, str] = {n: blk["who"] for blk in blocks for n in range(blk["start"], blk["end"] + 1)}
+    nontrivial = [i for i, ln in enumerate(text.splitlines(), 1) if len(re.sub(r"[^0-9A-Za-z]", "", ln)) >= 10]
+    assert len(nontrivial) >= 3, text
+    assert [who.get(i) for i in nontrivial] == ["agent"] * len(nontrivial), (who, text)
+    first = next(blk for blk in blocks if blk["who"] == "agent")
+    assert first["change_id"], first
