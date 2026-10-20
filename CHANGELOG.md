@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Timeline:** a page and `GET /api/projects/{pid}/timeline` showing what changed in a repo by day, who made it
+  (pseudonymous user id) and the commit it ended on. Project memory is being removed in stages (ADR 0017).
 - **Docker dashboard serves your real data** through a consistent snapshot (`seen docker-sync`). Mock data
   is for the test stacks only.
 - **Privacy and recall:** a blocked prompt is no longer stored; custom PII rules have a cap and a deadline against

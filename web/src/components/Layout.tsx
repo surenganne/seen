@@ -1,4 +1,4 @@
-import { Activity, Bot, Brain, ChevronRight, FileClock, FolderGit2, LayoutDashboard, ListChecks, Monitor, Moon, Settings as Cog, ShieldCheck, ShieldAlert, Sun } from "lucide-react";
+import { Activity, Bot, Brain, ChevronRight, FileClock, FolderGit2, History, LayoutDashboard, ListChecks, Monitor, Moon, Settings as Cog, ShieldCheck, ShieldAlert, Sun } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useProjects, useVerify } from "../api/hooks";
@@ -35,6 +35,7 @@ const SECTIONS = [
   ["", "Overview", LayoutDashboard],
   ["changes", "Changes", ListChecks],
   ["sessions", "Sessions", Activity],
+  ["timeline", "Timeline", History],
   ["memory", "Memory", Brain],
   ["skills", "Skills", Bot],
   ["audit", "Audit", FileClock],
@@ -52,7 +53,7 @@ function useNarrow(query = "(max-width: 860px)"): boolean {
   return narrow;
 }
 
-const TITLES: Record<string, string> = { "": "Overview", changes: "Changes", sessions: "Sessions", memory: "Memory", skills: "Skills", audit: "Audit" };
+const TITLES: Record<string, string> = { "": "Overview", changes: "Changes", sessions: "Sessions", timeline: "Timeline", memory: "Memory", skills: "Skills", audit: "Audit" };
 
 export function Layout() {
   const { pid, cid } = useParams();

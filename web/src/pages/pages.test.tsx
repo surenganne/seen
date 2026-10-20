@@ -13,6 +13,7 @@ import { Projects } from "./Projects";
 import { Sessions } from "./Sessions";
 import { Settings } from "./Settings";
 import { Skills } from "./Skills";
+import { Timeline } from "./Timeline";
 
 const { pid, cid } = ids;
 type Case = { name: string; route: string; at: string; page: ReactElement; heading: RegExp; rows?: string };
@@ -26,6 +27,7 @@ const CASES: Case[] = [
   { name: "Skills", route: "/p/:pid/skills", at: `/p/${pid}/skills`, page: <Skills />, heading: /skills/i, rows: "skill-row" },
   { name: "Audit", route: "/p/:pid/audit", at: `/p/${pid}/audit`, page: <Audit />, heading: /audit/i, rows: "audit-row" },
   { name: "Settings", route: "/settings", at: "/settings", page: <Settings />, heading: /settings/i },
+  { name: "Timeline", route: "/p/:pid/timeline", at: `/p/${pid}/timeline`, page: <Timeline />, heading: /timeline/i, rows: "timeline-entry" },
 ];
 
 function mount(c: Case) {

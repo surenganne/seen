@@ -38,6 +38,13 @@ export const useChanges = (pid: string, f: ChangeFilters) =>
     placeholderData: keepPreviousData,
   });
 
+export const useTimeline = (pid: string, query: { actor?: string; days?: number; page?: number; page_size?: number }) =>
+  useQuery({
+    queryKey: ["timeline", pid, query],
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/timeline", { params: { path: { pid }, query } })),
+    placeholderData: keepPreviousData,
+  });
+
 export const useChange = (cid: string) =>
   useQuery({ queryKey: ["change", cid], queryFn: () => unwrap(api.GET("/api/changes/{cid}", { params: { path: { cid } } })) });
 
