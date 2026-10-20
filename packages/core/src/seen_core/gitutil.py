@@ -13,7 +13,7 @@ _SAFE = ["-c", "core.fsmonitor=false", "-c", f"core.hooksPath={os.devnull}", "-c
          "-c", "core.pager=cat", "-c", "protocol.allow=never", "-c", "core.sshCommand=false",
          "-c", f"core.attributesFile={os.devnull}", "-c", "submodule.recurse=false",
          "-c", "diff.ignoreSubmodules=all", "-c", "status.submoduleSummary=false", "-c", "core.quotePath=false",
-         "-c", "blame.ignoreRevsFile="]
+         "-c", "blame.ignoreRevsFile=", "-c", "i18n.logOutputEncoding=UTF-8", "-c", "i18n.commitEncoding=UTF-8"]
 _ENV = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0", "GIT_ATTR_NOSYSTEM": "1"}
 
 

@@ -322,3 +322,29 @@ def test_blame_file_does_not_run_textconv_drivers(repo: Path, tmp_path: Path) ->
 def test_pre_seen_cutoff_is_whole_seconds() -> None:
     assert who([bl(1, "human_typed_this = 1", t=1000)], {}, first=1000.7) == [("human", None)]
     assert who([bl(1, "human_typed_this = 1", t=999)], {}, first=1000.7) == [("not_observed", None)]
+
+
+def test_blame_file_pins_output_encoding_against_hostile_config(repo: Path) -> None:
+    git(repo, "config", "i18n.logOutputEncoding", "ISO-8859-1")
+    git(repo, "config", "i18n.commitEncoding", "ISO-8859-1")
+    (repo / "a.py").write_text("one\ntwo\nthree_is_longer_line = 3\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "non-ascii author", env={"GIT_AUTHOR_NAME": "Zoë Ünïcode 日本"})
+    blame.gitutil.filter_overrides.cache_clear()
+    with ledger_session() as db:
+        fp = blame.blame_file(db, project(repo), "a.py")
+    assert fp.reason is None and sum(fp.counts.values()) == 3
+
+
+def test_blame_file_line_count_mismatch_fails_closed(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    real = blame.parse_porcelain
+    monkeypatch.setattr(blame, "parse_porcelain", lambda out: real(out)[:-1])  # one line missing
+    with ledger_session() as db:
+        fp = blame.blame_file(db, project(repo), "a.py")
+    assert fp.reason == "unparseable blame output" and fp.blocks == [Block(1, 2, "not_observed", None)]
+
+
+def test_parse_porcelain_rejects_nul_in_a_header() -> None:
+    sha = "a" * 40
+    with pytest.raises(ValueError):
+        parse_porcelain(f"{sha} 1 1 1\nauthor x\0y\nfilename a.py\n\tcode_line_one\n")

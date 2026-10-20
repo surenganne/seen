@@ -93,6 +93,8 @@ def parse_porcelain(out: str) -> list[BlameLine]:
     res: list[BlameLine] = []
     cur, n = None, 0
     for ln in body.split("\n"):  # not splitlines(): a CR or form feed inside a line is part of its text
+        if not ln.startswith("\t") and "\0" in ln:
+            raise ValueError("NUL in a header line")
         if ln.startswith("\t"):
             if cur is None:
                 raise ValueError("content line without a header")
@@ -298,6 +300,8 @@ def blame_file(db: Any, project: Project, path: str, rev: str = "HEAD", budget_s
     try:
         lines = parse_porcelain(out)
     except ValueError:
+        return unseen(n, "unparseable blame output")
+    if len(lines) != n:  # fail closed: the stream does not describe the blob we counted
         return unseen(n, "unparseable blame output")
     first = _epoch(db.scalar(sa.select(sa.func.min(Change.started_at)).where(Change.project_id == project.id)))
     index = load_index(db, project.id, {x.path for x in lines})
