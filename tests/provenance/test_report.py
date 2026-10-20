@@ -171,3 +171,57 @@ def test_fifty_file_range_under_3s(tmp_path: Path) -> None:
         r = rp.build_report(db, project, "HEAD~1", "HEAD")
         took = time.perf_counter() - t
     assert r.added["agent"] == 1000 and took < 3
+
+
+def _counts(s: Scene) -> tuple[int, int]:
+    with ledger_session() as db:
+        r = rp.build_report(db, s.project(), "HEAD~1", "HEAD")
+    return r.added["agent"], r.added["human"]
+
+
+def test_local_git_config_cannot_change_the_diff(tmp_path: Path) -> None:
+    s = _squash(tmp_path)
+    for k, v in (("color.ui", "always"), ("color.diff", "always"), ("diff.noprefix", "true"), ("diff.mnemonicPrefix", "true")):
+        s.git("config", k, v)
+    assert _counts(s) == (10, 3)
+
+
+def test_global_git_config_cannot_change_the_diff(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    s = _squash(tmp_path)
+    g = tmp_path / "gitconfig"
+    g.write_text("[color]\n\tui = always\n[diff]\n\tnoprefix = true\n")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(g))
+    assert _counts(s) == (10, 3)
+
+
+def test_unparseable_diff_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    s = _squash(tmp_path)
+    monkeypatch.setattr(rp, "parse_diff_added", lambda _t: {})
+    with ledger_session() as db, pytest.raises(ValueError, match="could not parse the diff"):
+        rp.build_report(db, s.project(), "HEAD~1", "HEAD")
+
+
+def test_unchecked_pii_is_never_none(tmp_path: Path) -> None:
+    s = _squash(tmp_path)
+    with ledger_session() as db:
+        for c in db.scalars(sa.select(Change)):
+            c.pii_state = None
+        db.commit()
+        r = rp.build_report(db, s.project(), "HEAD~1", "HEAD")
+    assert r.pii_unchecked == 2 and r.pii_state == "unknown"
+    assert "2 requests not checked" in rp.render_md(r)
+
+
+def test_md_structure_and_wording(tmp_path: Path) -> None:
+    s = _squash(tmp_path)
+    with ledger_session() as db:
+        r = rp.build_report(db, s.project(), "HEAD~1", "HEAD")
+    md = rp.render_md(r)
+    assert "1 commit " in md and "1 commits" not in md and "in 1 session" in md and "upper bound" in md
+    one = dataclasses.replace(r, requests=r.requests[:1], files=1)
+    md1 = rp.render_md(one)
+    assert "Requests: 1 in" in md1 and "in 1 file," in md1
+    blocks = md.split("\n\n")
+    assert blocks[0].startswith("AI provenance for") and blocks[1].startswith("Added lines:")
+    assert [b.split(":")[0] for b in blocks[2:3] + blocks[4:7]] == ["Requests", "Skills", "Rules", "PII"]
+    assert all(ln.startswith("- ") for ln in blocks[3].split("\n"))  # the list is its own block

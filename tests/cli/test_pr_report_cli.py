@@ -82,3 +82,11 @@ def test_unrecorded_repo(tmp_path: Path) -> None:
     r.mkdir()
     git(r, "init", "-q", "-b", "main")
     _fails(r, "--base", "main")
+
+
+def test_unparseable_diff_exits_2(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from seen_core.provenance import report
+    s = squash(tmp_path)
+    monkeypatch.setattr(report, "parse_diff_added", lambda _t: {})
+    _fails(s.root, "--base", "HEAD~1", "--fail-on", "rule-missed")
+    assert "could not parse the diff" in run(s.root, "--base", "HEAD~1")[2]

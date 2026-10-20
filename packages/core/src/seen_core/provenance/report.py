@@ -24,7 +24,6 @@ CHUNK = 900  # SQLite allows 999 variables per statement
 FAIL_ON = ("rule-missed", "pii-high", "unapproved-skill")
 MAX_REQUESTS_SHOWN = 10
 _HUNK = re.compile(r"@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
-_SURROGATE = re.compile("[\ud800-\udfff]")
 _PII_ORDER = {"none": 0, "found": 1, "blocked": 2}
 
 
@@ -55,6 +54,7 @@ class Report:
     missed_rules: list[str] = field(default_factory=list)
     rules_checked: int = 0
     pii_high: int = 0
+    pii_unchecked: int = 0  # attributing changes whose PII state was never recorded
 
 
 def parse_diff_added(diff_text: str) -> dict[str, list[str]]:
@@ -68,7 +68,7 @@ def parse_diff_added(diff_text: str) -> dict[str, list[str]]:
             if ln.startswith("+"):
                 new_left -= 1
                 if path is not None:
-                    out[path].append(_SURROGATE.sub("�", ln[1:].removesuffix("\r")))
+                    out[path].append(blame.SURROGATE.sub("�", ln[1:].removesuffix("\r")))
             elif ln.startswith("-"):
                 old_left -= 1
             # "\ No newline at end of file" and anything else costs nothing
@@ -76,7 +76,7 @@ def parse_diff_added(diff_text: str) -> dict[str, list[str]]:
         if ln.startswith("diff --git "):
             path = None
         elif ln.startswith("+++ "):
-            p = blame._unquote(ln[4:].split("\t")[0])
+            p = blame.unquote(ln[4:].split("\t")[0])
             path = p[2:] if p.startswith("b/") else None  # /dev/null: a deletion
             if path is not None:
                 out.setdefault(path, [])
@@ -90,10 +90,10 @@ def _chunks(items: list[str]) -> list[list[str]]:
     return [items[i:i + CHUNK] for i in range(0, len(items), CHUNK)]
 
 
-def _git(root: str, *args: str) -> str:
+def _git(root: str, *args: str, what: str) -> str:
     out = gitutil.run_raw(root, *args)
     if out is None:
-        raise ValueError("git could not read that range (unknown base or head?)")
+        raise ValueError(what)
     return out
 
 
@@ -103,17 +103,26 @@ def build_report(db: Any, project: Any, base: str, head: str = "HEAD", with_cost
     if not root:
         raise ValueError("project has no repo root")
     for ref in (base, head):
-        if not blame._REV.fullmatch(ref):
+        if not blame.REV.fullmatch(ref):
             raise ValueError("unsafe ref")
-    diff = _git(root, "diff", "--unified=0", "-M", "--end-of-options", f"{base}...{head}", "--")
-    commits = _git(root, "rev-list", "--count", "--end-of-options", f"{base}..{head}", "--").strip()
-    head_time = _git(root, "log", "-1", "--format=%ct", "--end-of-options", head, "--").strip()
+    rng = f"{base}...{head}"
+    for ref in (base, head):  # tell an unknown ref from a timeout or a failed diff
+        if gitutil.run_raw(root, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}") is None:
+            raise ValueError(f"unknown ref {clean(ref)!r}")
+    timed_out = f"timed out reading the diff of {rng}"
+    diff = _git(root, "diff", "--unified=0", "-M", "--end-of-options", rng, "--", what=timed_out)
+    numstat = _git(root, "diff", "--numstat", "-M", "--end-of-options", rng, "--", what=timed_out)
+    commits = _git(root, "rev-list", "--count", "--end-of-options", f"{base}..{head}", "--", what=timed_out).strip()
+    head_time = _git(root, "log", "-1", "--format=%ct", "--end-of-options", head, "--", what=timed_out).strip()
     added = parse_diff_added(diff)
+    expect = sum(int(x.split("\t")[0]) for x in numstat.split("\n") if x.split("\t")[0].isdecimal())
+    if sum(len(v) for v in added.values()) != expect:  # fail closed: never a report with lines missing
+        raise ValueError(f"could not parse the diff of {rng}")
 
     index: blame.Index = {}
     for chunk in _chunks(sorted(added)):
         index.update(blame.load_index(db, project.id, set(chunk)))
-    first = blame._epoch(db.scalar(sa.select(sa.func.min(Change.started_at)).where(Change.project_id == project.id)))
+    first = blame.epoch(db.scalar(sa.select(sa.func.min(Change.started_at)).where(Change.project_id == project.id)))
     # a range whose newest commit is older than the first recorded change cannot have been seen (spec 6.4)
     pre_seen = first is None or (head_time.isdigit() and int(head_time) < math.floor(first))
     key = secret.key()
@@ -167,7 +176,10 @@ def _enrich(db: Any, r: Report, ids: list[str], with_cost: bool) -> None:
     r.missed_rules = sorted(titles.values())
     r.pii_high = pii_high
     states = [c.pii_state for c in changes if c.pii_state in _PII_ORDER]
+    r.pii_unchecked = len(changes) - len(states)
     r.pii_state = max(states, key=_PII_ORDER.__getitem__, default="none")
+    if r.pii_unchecked and r.pii_state == "none":
+        r.pii_state = "unknown"  # never "none" while some request was not checked
     if with_cost:
         costs = [c.cost_usd for c in changes if c.cost_usd is not None]
         r.cost_usd = sum(costs) if costs else None
@@ -182,35 +194,47 @@ def _pct(n: int, total: int) -> str:
     return f"{round(100 * n / total)}%" if total else "0%"
 
 
+def _n(n: int, noun: str) -> str:
+    return f"{n} {noun}" + ("" if n == 1 else "s")
+
+
 def render_md(r: Report) -> str:
+    """Sections are separated by blank lines so GitHub renders them as paragraphs and one proper list."""
     a = r.added
     total = sum(a.values())
     n = len(r.requests)
-    out = [f"AI provenance for {_c(r.head)} ({r.commits} commits since {_c(r.base)})",
-           f"Added lines: {total + r.neutral} in {r.files} files, of which {r.neutral} blank or punctuation-only and left out "
-           f"of the shares below  ·  agent {a['agent']} ({_pct(a['agent'], total)})  ·  human {a['human']} "
-           f"({_pct(a['human'], total)})  ·  not observed {a['not_observed']} ({_pct(a['not_observed'], total)})"]
-    line = f"Requests: {n} in {r.sessions} sessions"
+    head = (f"AI provenance for {_c(r.head)} ({_n(r.commits, 'commit')} since {_c(r.base)})\n\n"
+            f"Added lines: {total + r.neutral} in {_n(r.files, 'file')}, of which {r.neutral} blank or punctuation-only and left "
+            f"out of the shares below  ·  agent {a['agent']} ({_pct(a['agent'], total)})  ·  human {a['human']} "
+            f"({_pct(a['human'], total)}, an upper bound: it includes code Seen did not see)  ·  not observed "
+            f"{a['not_observed']} ({_pct(a['not_observed'], total)})")
+    line = f"Requests: {n} in {_n(r.sessions, 'session')}"
     if r.models:
         line += " · " + ", ".join(_c(m) for m in r.models)
     if r.cost_usd is not None:
         line += f" · ${r.cost_usd:.2f} API-equivalent (whole requests, not only the lines kept)"
-    out.append(line)
-    out += [f"- {_c(q.headline)}" + (f" ({_c(q.model)})" if q.model else "") for q in r.requests[:MAX_REQUESTS_SHOWN]]
+    items = [f"- {_c(q.headline)}" + (f" ({_c(q.model)})" if q.model else "") for q in r.requests[:MAX_REQUESTS_SHOWN]]
     if n > MAX_REQUESTS_SHOWN:
-        out.append(f"- and {n - MAX_REQUESTS_SHOWN} more")
-    out.append("Skills: " + (", ".join(f"{_c(s)} ({_c(st)})" for s, st in r.skills) or "none recorded in these requests"))
+        items.append(f"- and {n - MAX_REQUESTS_SHOWN} more")
+    reqs = "\n".join([line, "", *items]) if items else line
+    skills = "Skills: " + (", ".join(f"{_c(s)} ({_c(st)})" for s, st in r.skills) or "none recorded in these requests")
     if r.missed_rules:
-        out.append(f"Rules: missed {r.rules_missed} of {r.rules_checked} recorded results: " +
-                   ", ".join(_c(t) for t in r.missed_rules))
+        rules = (f"Rules: missed {r.rules_missed} of {r.rules_checked} recorded results: " +
+                 ", ".join(_c(t) for t in r.missed_rules))
     else:
-        out.append(f"Rules: none missed in the {r.rules_checked} recorded rule results of these requests.")
-    out.append(f"PII: {PII_CHECKED} Result for these {n} requests: {_c(r.pii_state)}"
-               f"{f', {r.pii_high} high-confidence open' if r.pii_high else ''}.")
-    out.append("Unattributed lines are human edits or code Seen did not see (Bash-generated, before the plugin, other "
-               "machines). Not observed means Seen could not have seen who wrote the line; it is not a claim that a person "
-               "wrote it. Checked: git diff of the range, keyed fingerprints of recorded edits.")
-    return "\n".join(out) + "\n"
+        rules = f"Rules: none missed in the {r.rules_checked} recorded rule results of these requests."
+    if n == 0:
+        res = "no requests were attributed, so PII was not assessed."
+    else:
+        res = f"Result for these {_n(n, 'request')}: {_c(r.pii_state)}"
+        res += f", {_n(r.pii_unchecked, 'request')} not checked" if r.pii_unchecked else ""
+        res += f", {r.pii_high} high-confidence open" if r.pii_high else ""
+        res += "."
+    pii = f"PII: {PII_CHECKED} {res}"
+    foot = ("Unattributed lines are human edits or code Seen did not see (Bash-generated, before the plugin, other "
+            "machines). Not observed means Seen could not have seen who wrote the line; it is not a claim that a person "
+            "wrote it. Checked: git diff of the range, keyed fingerprints of recorded edits.")
+    return "\n\n".join([head, reqs, skills, rules, pii, foot]) + "\n"
 
 
 def gate(r: Report, fail_on: set[str]) -> list[str]:

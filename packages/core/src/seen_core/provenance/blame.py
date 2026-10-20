@@ -31,9 +31,9 @@ REASON_UNPARSEABLE = "unparseable blame output"
 Index = dict[tuple[str, bytes], list[tuple[str, float]]]  # (path, fp) -> [(change_id, ended_at epoch)]
 
 _HEADER = re.compile(r"([0-9a-f]{40}|[0-9a-f]{64}) \d+ (\d+)(?: \d+)?")
-_REV = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./~^@{}-]*")  # no leading '-', no ':', no spaces
+REV = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./~^@{}-]*")  # no leading '-', no ':', no spaces
 _SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
-_SURROGATE = re.compile("[\ud800-\udfff]")  # gitutil decodes with surrogateescape
+SURROGATE = re.compile("[\ud800-\udfff]")  # gitutil decodes with surrogateescape
 _ESC = {b"a": 7, b"b": 8, b"t": 9, b"n": 10, b"v": 11, b"f": 12, b"r": 13, b'"': 34, b"\\": 92}
 
 
@@ -76,7 +76,7 @@ def is_failure(reason: str | None) -> bool:
     return reason is not None and reason.startswith((REASON_NOT_TRACKED, REASON_BLAME_FAILED, REASON_UNPARSEABLE))
 
 
-def _unquote(s: str) -> str:
+def unquote(s: str) -> str:
     """git's C-style quoting of odd file names ("my \\"odd\\" file.py", octal escapes for bytes)."""
     if len(s) < 2 or s[0] != '"' or s[-1] != '"':
         return s
@@ -107,7 +107,7 @@ def parse_porcelain(out: str) -> list[BlameLine]:
             if cur is None:
                 raise ValueError("content line without a header")
             t, p = meta[cur]
-            res.append(BlameLine(n, cur, t, p, _SURROGATE.sub("\ufffd", ln[1:].removesuffix("\r"))))
+            res.append(BlameLine(n, cur, t, p, SURROGATE.sub("\ufffd", ln[1:].removesuffix("\r"))))
             cur = None
         elif cur is None:
             if (m := _HEADER.fullmatch(ln)) is None:
@@ -121,7 +121,7 @@ def parse_porcelain(out: str) -> list[BlameLine]:
             if k == "committer-time" and v.isdecimal():
                 meta[cur][0] = int(v)
             elif k == "filename":
-                meta[cur][1] = _unquote(v)
+                meta[cur][1] = unquote(v)
     if cur is not None:
         raise ValueError("header without a content line")
     return res
@@ -187,7 +187,7 @@ def blocks(attrs: list[LineAttr]) -> list[Block]:
     return out
 
 
-def _epoch(s: str | None) -> float | None:
+def epoch(s: str | None) -> float | None:
     if not s:
         return None
     try:
@@ -204,7 +204,7 @@ def load_index(db: Any, project_id: str, paths: set[str]) -> Index:
          .join(Change, Change.id == LinePrint.change_id)
          .where(LinePrint.project_id == project_id, LinePrint.path.in_(sorted(paths))))
     for p, fp, cid, end, start in db.execute(q):
-        idx.setdefault((p, bytes(fp)), []).append((cid, _epoch(end) or _epoch(start) or 0.0))
+        idx.setdefault((p, bytes(fp)), []).append((cid, epoch(end) or epoch(start) or 0.0))
     return idx
 
 
@@ -227,8 +227,8 @@ def _gaps(db: Any, project_id: str) -> list[tuple[float, float]]:
     out = []
     for sid, first, last, last_any in rows:
         s = sess.get(sid)
-        start = _epoch(s.started_at if s else None) or _epoch(first)
-        end = _epoch(s.ended_at if s else None) or _epoch(last or last_any)
+        start = epoch(s.started_at if s else None) or epoch(first)
+        end = epoch(s.ended_at if s else None) or epoch(last or last_any)
         if start is not None and end is not None:
             out.append((start, end))
     return out
@@ -258,7 +258,7 @@ def blame_file(db: Any, project: Project, path: str, rev: str = "HEAD", budget_s
     root = project.root_path
     if not root:
         raise ValueError("project has no repo root")
-    if not _REV.fullmatch(rev):
+    if not REV.fullmatch(rev):
         raise ValueError("unsafe rev")
     rel = resolve_path(root, path)
     deadline = time.monotonic() + budget_s
@@ -311,7 +311,7 @@ def blame_file(db: Any, project: Project, path: str, rev: str = "HEAD", budget_s
         return unseen(n, REASON_UNPARSEABLE)
     if len(lines) != n:  # fail closed: the stream does not describe the blob we counted
         return unseen(n, REASON_UNPARSEABLE)
-    first = _epoch(db.scalar(sa.select(sa.func.min(Change.started_at)).where(Change.project_id == project.id)))
+    first = epoch(db.scalar(sa.select(sa.func.min(Change.started_at)).where(Change.project_id == project.id)))
     index = load_index(db, project.id, {x.path for x in lines})
     attrs = attribute(lines, index, secret.key(), first_change_at=math.inf if first is None else first,
                       gaps=_gaps(db, project.id))
