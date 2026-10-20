@@ -72,9 +72,9 @@ describe.each(CASES)("$name page", (c) => {
 describe("page details", () => {
   it("Overview shows the five summary tiles, each a link to its rows", async () => {
     mount(byName("Overview"));
-    for (const t of ["Changes", "Cost", "Tokens", "Policy missed", "Changes with PII exposure"]) {
+    for (const t of ["Requests", "Code changed", "Cost", "Rules met", "PII exposure"]) {
       const tile = await screen.findByTestId(`tile-${t}`);
-      expect(tile.querySelector("a.stat-link")).toHaveAttribute("href", expect.stringContaining(`/p/${pid}/changes`));
+      expect(tile.querySelector("a.stat-link")).toHaveAttribute("href", expect.stringContaining(`/p/${pid}/`));
     }
   });
   it("Change detail shows the change panel", async () => {

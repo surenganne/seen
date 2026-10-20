@@ -14,8 +14,7 @@ def test_overview_ranges(client: TestClient) -> None:
     o7 = client.get(f"/api/projects/{PID}/overview?range=7").json()
     o28 = client.get(f"/api/projects/{PID}/overview?range=28").json()
     assert o28["tiles"]["changes"] >= o7["tiles"]["changes"] > 0
-    assert len(o7["cost_by_day"]) == 7 and set(o7["cost_by_day"][0]["by_tool"]) == {"claude-code"}
-    assert o7["recent_changes"] and o7["top_files"] and o7["by_model"]
+    assert len(o7["by_day"]) == 7 and o7["by_model"] and o7["areas"]
     assert {"cost_usd", "tokens", "policy_missed", "pii_changes", "files_changed"} <= set(o7["tiles"])
     assert client.get(f"/api/projects/{PID}/overview?range=9").status_code == 422
 

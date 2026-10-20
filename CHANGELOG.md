@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Overview is a dashboard:** five tiles with the change against the previous period and a trend line, an Activity chart
+  (requests per day, file-changing vs talk-only), Spend by model with token and cache figures, where the work happened,
+  commit outcomes, a weekday-by-hour rhythm, per-rule compliance, skills by approval status and PII by type. The API
+  returns `by_day`, `prev`, `git`, `policies`, `skill_status`, `areas` and `rhythm`; `cost_by_day`, `recent_changes` and
+  `top_files` are gone (Timeline and Changes cover them).
 - **Timeline:** a page and `GET /api/projects/{pid}/timeline`: a spine of file-changing requests by day, each with a
   one-line headline, the pseudonymous user id, the folders touched, lines and the commit it ended on; day totals and
   gap markers. Talk-only turns are hidden (`all_turns` brings them back); Changes still lists every request. **Project memory removed** (ADR 0017): hook injection and the edit gate, the Memory page and API, `seen memory`, the

@@ -22,6 +22,34 @@
         "title": "Alert",
         "type": "object"
       },
+      "AreaStat": {
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "area": {
+            "title": "Area",
+            "type": "string"
+          },
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "area",
+          "changes",
+          "added",
+          "removed"
+        ],
+        "title": "AreaStat",
+        "type": "object"
+      },
       "AuditEventOut": {
         "properties": {
           "actor_id": {
@@ -701,25 +729,70 @@
         "title": "CostPart",
         "type": "object"
       },
-      "DayCost": {
+      "DayStat": {
         "properties": {
-          "by_tool": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "integer"
+          },
+          "commits": {
+            "title": "Commits",
+            "type": "integer"
+          },
+          "cost_by_model": {
             "additionalProperties": {
               "type": "number"
             },
-            "title": "By Tool",
+            "title": "Cost By Model",
             "type": "object"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
           },
           "date": {
             "title": "Date",
             "type": "string"
+          },
+          "files": {
+            "title": "Files",
+            "type": "integer"
+          },
+          "pii_changes": {
+            "title": "Pii Changes",
+            "type": "integer"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "integer"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "tok_out": {
+            "title": "Tok Out",
+            "type": "integer"
           }
         },
         "required": [
           "date",
-          "by_tool"
+          "requests",
+          "changed",
+          "files",
+          "added",
+          "removed",
+          "commits",
+          "cost_usd",
+          "cost_by_model",
+          "tok_out",
+          "pii_changes"
         ],
-        "title": "DayCost",
+        "title": "DayStat",
         "type": "object"
       },
       "DenySnippet": {
@@ -839,32 +912,25 @@
         "title": "FileLine",
         "type": "object"
       },
-      "FileStat": {
+      "GitOutcomes": {
         "properties": {
-          "added": {
-            "title": "Added",
+          "committed": {
+            "default": 0,
+            "title": "Committed",
             "type": "integer"
           },
-          "changes": {
-            "title": "Changes",
+          "reverted": {
+            "default": 0,
+            "title": "Reverted",
             "type": "integer"
           },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          },
-          "removed": {
-            "title": "Removed",
+          "uncommitted": {
+            "default": 0,
+            "title": "Uncommitted",
             "type": "integer"
           }
         },
-        "required": [
-          "path",
-          "changes",
-          "added",
-          "removed"
-        ],
-        "title": "FileStat",
+        "title": "GitOutcomes",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -945,6 +1011,20 @@
           "alert": {
             "$ref": "#/components/schemas/Alert"
           },
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/AreaStat"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "by_day": {
+            "items": {
+              "$ref": "#/components/schemas/DayStat"
+            },
+            "title": "By Day",
+            "type": "array"
+          },
           "by_model": {
             "items": {
               "$ref": "#/components/schemas/ModelStat"
@@ -952,12 +1032,8 @@
             "title": "By Model",
             "type": "array"
           },
-          "cost_by_day": {
-            "items": {
-              "$ref": "#/components/schemas/DayCost"
-            },
-            "title": "Cost By Day",
-            "type": "array"
+          "git": {
+            "$ref": "#/components/schemas/GitOutcomes"
           },
           "pii_by_type": {
             "items": {
@@ -973,26 +1049,36 @@
             "title": "Pii Top Sources",
             "type": "array"
           },
+          "policies": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyStat"
+            },
+            "title": "Policies",
+            "type": "array"
+          },
+          "prev": {
+            "$ref": "#/components/schemas/Tiles"
+          },
           "range": {
             "title": "Range",
             "type": "integer"
           },
-          "recent_changes": {
+          "rhythm": {
             "items": {
-              "$ref": "#/components/schemas/ChangeRow"
+              "$ref": "#/components/schemas/RhythmCell"
             },
-            "title": "Recent Changes",
+            "title": "Rhythm",
             "type": "array"
+          },
+          "skill_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Skill Status",
+            "type": "object"
           },
           "tiles": {
             "$ref": "#/components/schemas/Tiles"
-          },
-          "top_files": {
-            "items": {
-              "$ref": "#/components/schemas/FileStat"
-            },
-            "title": "Top Files",
-            "type": "array"
           },
           "top_skills": {
             "items": {
@@ -1005,9 +1091,13 @@
         "required": [
           "range",
           "tiles",
-          "cost_by_day",
-          "recent_changes",
-          "top_files",
+          "prev",
+          "by_day",
+          "git",
+          "policies",
+          "skill_status",
+          "areas",
+          "rhythm",
           "top_skills",
           "by_model",
           "pii_by_type",
@@ -1490,6 +1580,65 @@
         "title": "PolicyOut",
         "type": "object"
       },
+      "PolicyStat": {
+        "properties": {
+          "checks": {
+            "title": "Checks",
+            "type": "integer"
+          },
+          "met": {
+            "title": "Met",
+            "type": "integer"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "policy_id": {
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "require_skill": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Skill"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "policy_id",
+          "title",
+          "require_skill",
+          "mode",
+          "checks",
+          "met"
+        ],
+        "title": "PolicyStat",
+        "type": "object"
+      },
       "ProjectOut": {
         "properties": {
           "alert": {
@@ -1564,6 +1713,29 @@
           "alert"
         ],
         "title": "ProjectOut",
+        "type": "object"
+      },
+      "RhythmCell": {
+        "properties": {
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "dow": {
+            "title": "Dow",
+            "type": "integer"
+          },
+          "hour": {
+            "title": "Hour",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dow",
+          "hour",
+          "changes"
+        ],
+        "title": "RhythmCell",
         "type": "object"
       },
       "SessionCounts": {
@@ -2336,8 +2508,18 @@
             "title": "Background Cost Usd",
             "type": "number"
           },
+          "changed": {
+            "default": 0,
+            "title": "Changed",
+            "type": "integer"
+          },
           "changes": {
             "title": "Changes",
+            "type": "integer"
+          },
+          "commits": {
+            "default": 0,
+            "title": "Commits",
             "type": "integer"
           },
           "cost_usd": {
@@ -2364,8 +2546,38 @@
             "title": "Pii High",
             "type": "integer"
           },
+          "policy_checks": {
+            "default": 0,
+            "title": "Policy Checks",
+            "type": "integer"
+          },
+          "policy_met": {
+            "default": 0,
+            "title": "Policy Met",
+            "type": "integer"
+          },
           "policy_missed": {
             "title": "Policy Missed",
+            "type": "integer"
+          },
+          "tok_cache_read": {
+            "default": 0,
+            "title": "Tok Cache Read",
+            "type": "integer"
+          },
+          "tok_cache_write": {
+            "default": 0,
+            "title": "Tok Cache Write",
+            "type": "integer"
+          },
+          "tok_in": {
+            "default": 0,
+            "title": "Tok In",
+            "type": "integer"
+          },
+          "tok_out": {
+            "default": 0,
+            "title": "Tok Out",
             "type": "integer"
           },
           "tokens": {

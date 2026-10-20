@@ -339,6 +339,17 @@ export interface components {
             /** Reasons */
             reasons: string[];
         };
+        /** AreaStat */
+        AreaStat: {
+            /** Added */
+            added: number;
+            /** Area */
+            area: string;
+            /** Changes */
+            changes: number;
+            /** Removed */
+            removed: number;
+        };
         /** AuditEventOut */
         AuditEventOut: {
             /** Actor Id */
@@ -533,14 +544,32 @@ export interface components {
             /** Tokens */
             tokens: number;
         };
-        /** DayCost */
-        DayCost: {
-            /** By Tool */
-            by_tool: {
+        /** DayStat */
+        DayStat: {
+            /** Added */
+            added: number;
+            /** Changed */
+            changed: number;
+            /** Commits */
+            commits: number;
+            /** Cost By Model */
+            cost_by_model: {
                 [key: string]: number;
             };
+            /** Cost Usd */
+            cost_usd: number;
             /** Date */
             date: string;
+            /** Files */
+            files: number;
+            /** Pii Changes */
+            pii_changes: number;
+            /** Removed */
+            removed: number;
+            /** Requests */
+            requests: number;
+            /** Tok Out */
+            tok_out: number;
         };
         /** DenySnippet */
         DenySnippet: {
@@ -584,16 +613,23 @@ export interface components {
             /** Removed */
             removed: number;
         };
-        /** FileStat */
-        FileStat: {
-            /** Added */
-            added: number;
-            /** Changes */
-            changes: number;
-            /** Path */
-            path: string;
-            /** Removed */
-            removed: number;
+        /** GitOutcomes */
+        GitOutcomes: {
+            /**
+             * Committed
+             * @default 0
+             */
+            committed: number;
+            /**
+             * Reverted
+             * @default 0
+             */
+            reverted: number;
+            /**
+             * Uncommitted
+             * @default 0
+             */
+            uncommitted: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -635,21 +671,29 @@ export interface components {
         /** Overview */
         Overview: {
             alert: components["schemas"]["Alert"];
+            /** Areas */
+            areas: components["schemas"]["AreaStat"][];
+            /** By Day */
+            by_day: components["schemas"]["DayStat"][];
             /** By Model */
             by_model: components["schemas"]["ModelStat"][];
-            /** Cost By Day */
-            cost_by_day: components["schemas"]["DayCost"][];
+            git: components["schemas"]["GitOutcomes"];
             /** Pii By Type */
             pii_by_type: components["schemas"]["PiiTypeStat"][];
             /** Pii Top Sources */
             pii_top_sources: components["schemas"]["PiiSource"][];
+            /** Policies */
+            policies: components["schemas"]["PolicyStat"][];
+            prev: components["schemas"]["Tiles"];
             /** Range */
             range: number;
-            /** Recent Changes */
-            recent_changes: components["schemas"]["ChangeRow"][];
+            /** Rhythm */
+            rhythm: components["schemas"]["RhythmCell"][];
+            /** Skill Status */
+            skill_status: {
+                [key: string]: number;
+            };
             tiles: components["schemas"]["Tiles"];
-            /** Top Files */
-            top_files: components["schemas"]["FileStat"][];
             /** Top Skills */
             top_skills: components["schemas"]["SkillStat"][];
         };
@@ -770,6 +814,21 @@ export interface components {
             /** Title */
             title: string | null;
         };
+        /** PolicyStat */
+        PolicyStat: {
+            /** Checks */
+            checks: number;
+            /** Met */
+            met: number;
+            /** Mode */
+            mode: string | null;
+            /** Policy Id */
+            policy_id: string;
+            /** Require Skill */
+            require_skill: string | null;
+            /** Title */
+            title: string | null;
+        };
         /** ProjectOut */
         ProjectOut: {
             /** Alert */
@@ -788,6 +847,15 @@ export interface components {
             remote: string | null;
             /** Root Path */
             root_path: string | null;
+        };
+        /** RhythmCell */
+        RhythmCell: {
+            /** Changes */
+            changes: number;
+            /** Dow */
+            dow: number;
+            /** Hour */
+            hour: number;
         };
         /** SessionCounts */
         SessionCounts: {
@@ -1026,8 +1094,18 @@ export interface components {
              * @default 0
              */
             background_cost_usd: number;
+            /**
+             * Changed
+             * @default 0
+             */
+            changed: number;
             /** Changes */
             changes: number;
+            /**
+             * Commits
+             * @default 0
+             */
+            commits: number;
             /** Cost Usd */
             cost_usd: number;
             /** Files Changed */
@@ -1040,8 +1118,38 @@ export interface components {
             pii_changes: number;
             /** Pii High */
             pii_high: number;
+            /**
+             * Policy Checks
+             * @default 0
+             */
+            policy_checks: number;
+            /**
+             * Policy Met
+             * @default 0
+             */
+            policy_met: number;
             /** Policy Missed */
             policy_missed: number;
+            /**
+             * Tok Cache Read
+             * @default 0
+             */
+            tok_cache_read: number;
+            /**
+             * Tok Cache Write
+             * @default 0
+             */
+            tok_cache_write: number;
+            /**
+             * Tok In
+             * @default 0
+             */
+            tok_in: number;
+            /**
+             * Tok Out
+             * @default 0
+             */
+            tok_out: number;
             /** Tokens */
             tokens: number;
         };
