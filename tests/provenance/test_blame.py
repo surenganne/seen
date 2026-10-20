@@ -84,8 +84,8 @@ def test_parse_porcelain_rejects_unexpected_structure() -> None:
                 head):  # a header with no content line
         with pytest.raises(ValueError):
             parse_porcelain(bad)
-    assert blame._unquote('"caf\\303\\251 \\t\\"x\\""') == 'caf\u00e9 \t"x"'
-    assert blame._unquote('"bad \\') == '"bad \\'
+    assert blame.unquote('"caf\\303\\251 \\t\\"x\\""') == 'caf\u00e9 \t"x"'
+    assert blame.unquote('"bad \\') == '"bad \\'
 
 
 # --- attribute -------------------------------------------------------------------------------------------------------

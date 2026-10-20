@@ -145,7 +145,9 @@ def run_raw(cwd: str | Path, *args: str, timeout: float = 10) -> str | None:
 
 def _argv(cwd: str | Path, args: tuple[str, ...]) -> list[str]:
     if args and args[0] == "diff":
-        args = ("diff", "--no-ext-diff", "--no-textconv", "--ignore-submodules=all", *args[1:])
+        # fixed prefixes and no colour: user or repo config (diff.noprefix, color.ui) must not change the output format
+        args = ("diff", "--no-ext-diff", "--no-textconv", "--ignore-submodules=all", "--no-color",
+                "--src-prefix=a/", "--dst-prefix=b/", *args[1:])
     return ["git", *_SAFE, *filter_overrides(str(cwd)), *args]
 
 
