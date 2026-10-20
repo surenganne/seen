@@ -38,7 +38,7 @@ if ev == "PreToolUse":
     if E("SPIKE_BLOCK_EDIT") and tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
         path = ti.get("file_path") or ti.get("notebook_path") or ""
         if "/allowed/" not in path:
-            print("SEEN-GATE: memory did not load. Write files only under allowed/ for this test.", file=sys.stderr); sys.exit(2)
+            print("SEEN-GATE: edit blocked. Write files only under allowed/ for this test.", file=sys.stderr); sys.exit(2)
     if E("SPIKE_DENY_READ") and tool == "Read" and "secret" in (ti.get("file_path") or ""):
         print("SEEN-PII: read denied, file contains PII", file=sys.stderr); sys.exit(2)
 if ev == "Stop" and E("SPIKE_STOP_BLOCK") and not p.get("stop_hook_active"):

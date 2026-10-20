@@ -6,8 +6,8 @@ import { Badge, Card, Empty, ErrorBox, GitStatus, Loading, Note, SkillStatus } f
 import { int, money, pct, short, tokens, truncateWords, when } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
 
-const SOURCE: Record<string, string> = { prompt: "Prompt", file_read: "File read", tool_output: "Tool output", mcp: "MCP tool", injected_memory: "Injected memory", diff_added: "Added lines" };
-const DEST: Record<string, string> = { model: "Model", network: "Network", repo: "Repo", memory: "Memory" };
+const SOURCE: Record<string, string> = { prompt: "Prompt", file_read: "File read", tool_output: "Tool output", mcp: "MCP tool", diff_added: "Added lines" };
+const DEST: Record<string, string> = { model: "Model", network: "Network", repo: "Repo" };
 const KIND: Record<string, string> = { input: "Input", output: "Output", cache_read: "Cache read", cache_write: "Cache write" };
 
 export function ChangeDetail() {

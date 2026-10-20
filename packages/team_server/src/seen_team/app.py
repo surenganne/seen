@@ -94,7 +94,6 @@ class ChangeIn(Strict):
     user_id: str | None = Field(default=None, max_length=80)
     model: str | None = Field(default=None, max_length=80)
     git_status: str | None = Field(default=None, max_length=20)
-    mem_state: str | None = Field(default=None, max_length=20)  # ponytail: ignored; older clients still send it and this model is strict, drop once they have upgraded
     file_count: int = Field(default=0, ge=0)
     lines_added: int = Field(default=0, ge=0)
     lines_removed: int = Field(default=0, ge=0)
