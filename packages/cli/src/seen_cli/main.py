@@ -21,6 +21,7 @@ from seen_core.identity import user_id
 from seen_core.project import resolve_project
 from seen_core.provenance.blame import blame_file, is_failure
 from seen_core.provenance.enrich import enrich_blocks
+from seen_core.provenance.report import FAIL_ON, build_report, gate, render_md
 
 app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
 skills_app = typer.Typer(help="Skill inventory and approvals", no_args_is_help=True)
@@ -100,6 +101,41 @@ def blame_cmd(path: str = typer.Argument(..., help="File, relative to the repo r
         return
     typer.echo(f"{fp.path} at {rev}: agent {c['agent']} / human {c['human']} / not observed {c['not_observed']} lines"
                f" ({c['neutral']} blank or punctuation-only). {_LIMIT}")
+
+
+_FAIL_HELP = f"Exit 1 when it holds: {', '.join(FAIL_ON)} (repeatable)"
+
+
+@app.command("pr-report")
+def pr_report_cmd(base: str = typer.Option(..., "--base", help="Base ref (the range is BASE...HEAD, from the merge base)"),
+                  head: str = typer.Option("HEAD", "--head", help="Head ref"),
+                  fmt: str = typer.Option("md", "--format", help="md or json"),
+                  no_cost: bool = typer.Option(False, "--no-cost", help="Leave the API-equivalent cost out"),
+                  fail_on: list[str] = typer.Option([], "--fail-on", help=_FAIL_HELP)
+                  ) -> None:
+    """Who wrote the lines a branch adds, for a pull request."""
+    def fail(msg: str) -> typer.Exit:
+        typer.echo(msg, err=True)
+        return typer.Exit(2)
+
+    if fmt not in ("md", "json"):
+        raise fail("--format must be md or json.")
+    if bad := [x for x in fail_on if x not in FAIL_ON]:
+        raise fail(f"Unknown --fail-on {clean(bad[0])!r}; use one of {', '.join(FAIL_ON)}.")
+    pid, _ = _project_or_exit()
+    with ledger_session() as db:
+        proj = db.get(Project, pid)
+        if proj is None:
+            raise fail("This repository has no recorded changes yet.")
+        try:
+            rep = build_report(db, proj, base, head, with_cost=not no_cost)
+        except ValueError as e:
+            raise fail(f"Cannot report {clean(base)!r}...{clean(head)!r}: {clean(str(e))}.") from e
+    typer.echo(json.dumps(dataclasses.asdict(rep), indent=2) if fmt == "json" else render_md(rep), nl=fmt == "json")
+    if reasons := gate(rep, set(fail_on)):
+        for x in reasons:
+            typer.echo(x, err=True)
+        raise typer.Exit(1)
 
 
 @app.command()
