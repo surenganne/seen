@@ -145,9 +145,9 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
 
     @app.get("/api/projects/{pid}/timeline", response_model=S.TimelinePage)
     def timeline(pid: str, db: Db, actor: str | None = None, days: int | None = Query(None, ge=1, le=3650),
-                 page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)) -> S.TimelinePage:
+                 all_turns: bool = False, page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200)) -> S.TimelinePage:
         project_or_404(db, pid)
-        return queries.timeline(db, pid, actor=actor, days=days, page=page, page_size=page_size)
+        return queries.timeline(db, pid, actor=actor, days=days, all_turns=all_turns, page=page, page_size=page_size)
 
     @app.get("/api/changes/{cid}", response_model=S.ChangeDetail)
     def change(cid: str, db: Db) -> S.ChangeDetail:

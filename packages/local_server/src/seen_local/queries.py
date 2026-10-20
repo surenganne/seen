@@ -275,19 +275,55 @@ def _actors(pid: str) -> dict[str, str]:
         return {}
 
 
-def timeline(db: DB, pid: str, *, actor: str | None, days: int | None, page: int, page_size: int) -> S.TimelinePage:
+def areas_of(paths: list[str]) -> list[str]:
+    """Top folders a change touched: two levels deep, a root file as (root). Most files first, ties in first-seen order."""
+    def area(p: str) -> str:
+        parts = p.strip("/").split("/")
+        return "(root)" if len(parts) == 1 else parts[0] if len(parts) == 2 else "/".join(parts[:2])
+    return [a for a, _ in Counter(area(p) for p in paths).most_common(3)]
+
+
+_SENTENCE = re.compile(r"(?<=[.!?])\s")
+
+
+def headline_of(summary: str | None, request: str | None, files: list[str]) -> str:
+    """One line for a change: the first sentence of the reply, else the request, else what was touched."""
+    for src in (summary, request):
+        text = " ".join((src or "").replace("*", "").replace("`", "").split())
+        text = _SENTENCE.split(text, 1)[0] if text else ""
+        if len(text) >= 15:
+            return text if len(text) <= 140 else text[:139].rstrip() + "…"
+    n = len(files)
+    return f"Changed {n} {'file' if n == 1 else 'files'} in {', '.join(areas_of(files))}"
+
+
+def timeline(db: DB, pid: str, *, actor: str | None, days: int | None, all_turns: bool, page: int, page_size: int) -> S.TimelinePage:
     """Changes newest first, grouped by IST day. Paged by entry, so a day can continue on the next page."""
     who = _actors(pid)
     rows = [(r, who.get(r.c.id)) for r in load_rows(db, pid, days)]
     actors = sorted({a for _, a in rows if a})
     rows = [x for x in rows if not actor or x[1] == actor]
+    quiet = sum(1 for r, _ in rows if not r.files)
+    if not all_turns:
+        rows = [x for x in rows if x[0].files]
     rows.sort(key=lambda x: x[0].c.started_at or "", reverse=True)
+    by_day: dict[str, list[Row]] = defaultdict(list)
+    for r, _ in rows:
+        by_day[_day(r.c.started_at) if r.c.started_at else "unknown"].append(r)
     groups: dict[str, list[S.TimelineEntry]] = {}
     for r, a in rows[(page - 1) * page_size: page * page_size]:
-        e = S.TimelineEntry(**r.out().model_dump(), actor=a, commit=(r.c.git_head_after or "")[:7] or None)
+        o = r.out()
+        paths = [f.path for f in r.files]
+        e = S.TimelineEntry(**o.model_dump(), actor=a, commit=(r.c.git_head_after or "")[:7] or None,
+                            headline=headline_of(o.summary, o.request, paths), areas=areas_of(paths))
         groups.setdefault(_day(r.c.started_at) if r.c.started_at else "unknown", []).append(e)
-    return S.TimelinePage(total=len(rows), actors=actors, page=page, page_size=page_size,
-                          days=[S.TimelineDay(day=d, entries=es) for d, es in groups.items()])
+    def stats(d: str, es: list[S.TimelineEntry]) -> S.TimelineDay:
+        rs = by_day[d]
+        return S.TimelineDay(day=d, changes=len(rs), files=len({f.path for r in rs for f in r.files}),
+                             added=sum(f.added for r in rs for f in r.files), removed=sum(f.removed for r in rs for f in r.files),
+                             commits=len({r.c.git_head_after for r in rs if r.c.git_status == "committed" and r.c.git_head_after}), entries=es)
+    return S.TimelinePage(total=len(rows), quiet_hidden=0 if all_turns else quiet, actors=actors, page=page, page_size=page_size,
+                          days=[stats(d, es) for d, es in groups.items()])
 
 
 def change_detail(db: DB, cid: str, prompt_storage: str) -> S.ChangeDetail | None:

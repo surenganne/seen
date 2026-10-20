@@ -164,8 +164,10 @@ Open <http://127.0.0.1:47826>. Do Parts 5–8 in a desktop browser, then repeat 
 - [ ] Click a row: the drawer shows that session's activity in order (session.start, turns, tool calls, file changes, session.end).
 
 **Timeline**
-- [ ] Changes grouped by day (IST), newest first, each with time, request, user id, file count, lines and commit. Paging continues a day on the next page.
-- [ ] The User select narrows the list; the date range (7d, 14d, 28d) applies.
+- [ ] Points on a spine, grouped by day (IST), newest first. Each has a one-line headline, time, user id, the top folders it touched, file count, lines and the commit (or "not committed"). Committed points have an orange dot; others a hollow dot.
+- [ ] Each day shows its totals (changes, files, lines, commits). A quiet stretch of 2 h or more shows a "no file changes for …" marker.
+- [ ] Only requests that changed files appear; the count of hidden talk-only turns is shown, and "Include turns without file changes" brings them back.
+- [ ] The User select narrows the list; the date range (7d, 14d, 28d) applies. It is a timeline, not a second table: no cost or token columns.
 
 ## Part 7. Dashboard: Skills
 
@@ -260,7 +262,7 @@ git add -A && git commit -qm "add divide"
 seen serve --open
 ```
 
-- [ ] Open **Timeline**: today is the first day group, and the newest entry is your request with its time (IST), a pseudonymous user id (`u_…`, never your login or email), `+N −0`, the file count and the short commit it ended on.
+- [ ] Open **Timeline**: today is the first day group, and the newest point has a one-line headline, its time (IST), a pseudonymous user id (`u_…`, never your login or email), the folders touched, `+N −0`, the file count and the short commit it ended on.
 - [ ] Pick your id in the **User** select: the URL gets `actor=` and the list narrows. Clear it to see everyone recorded on this machine.
 - [ ] Click the entry: Change detail opens.
 
