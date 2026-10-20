@@ -159,30 +159,81 @@ def deny_rule(source_kind: str, source_ref: str) -> str | None:
     return None
 
 
-def overview(db: DB, pid: str, days: int, audit_ok: bool) -> S.Overview:
-    every = load_rows(db, pid, days)
-    rows = [r for r in every if not r.background]  # the person's requests; PII and the alert still count every session
-    bg = [r for r in every if r.background]
+def _tiles(rows: list[Row], bg: list[Row]) -> S.Tiles:
+    """The headline figures for a set of requests. PII and policy counts follow the same rules as the page: PII covers
+    every session, everything else only the person's own requests."""
     outs = [r.out() for r in rows]
     every_out = outs + [r.out() for r in bg]
+    changed = [r for r in rows if r.files]
+    results = [p for r in rows for p in r.policies]
+    return S.Tiles(
+        changes=len(rows), changed=len(changed),
+        commits=len({r.c.git_head_after for r in changed if r.c.git_status == "committed" and r.c.git_head_after}),
+        files_changed=len({f.path for r in rows for f in r.files}), lines_added=sum(o.added for o in outs),
+        lines_removed=sum(o.removed for o in outs), tokens=sum(o.tokens for o in outs),
+        tok_in=sum(r.c.tok_in for r in rows), tok_out=sum(r.c.tok_out for r in rows),
+        tok_cache_read=sum(r.c.tok_cache_read for r in rows), tok_cache_write=sum(r.c.tok_cache_write for r in rows),
+        cost_usd=round(sum(o.cost_usd for o in outs), 4), policy_checks=len(results), policy_met=sum(bool(p.met) for p in results),
+        policy_missed=sum(o.policy_missed for o in outs), pii_changes=sum(o.pii_count > 0 for o in every_out),
+        pii_high=sum(o.pii_high for o in every_out), background_changes=len(bg),
+        background_cost_usd=round(sum(r.c.cost_usd or 0 for r in bg), 4))
+
+
+def overview(db: DB, pid: str, days: int, audit_ok: bool) -> S.Overview:
+    both = load_rows(db, pid, days * 2)  # this period and the one before it, for the deltas
+    cut = since(days)
+    every = [r for r in both if (r.c.started_at or "") >= cut]
+    before = [r for r in both if (r.c.started_at or "") < cut]
+    rows = [r for r in every if not r.background]  # the person's requests; PII and the alert still count every session
+    bg = [r for r in every if r.background]
     today = (datetime.now(UTC) + TZ_OFFSET).date()
-    by_day: dict[str, dict[str, float]] = {(today - timedelta(days=i)).isoformat(): {} for i in range(days - 1, -1, -1)}
-    for r in rows:
+    per_day: dict[str, list[Row]] = {(today - timedelta(days=i)).isoformat(): [] for i in range(days - 1, -1, -1)}
+    for r in every:
         d = _day(r.c.started_at or "")
-        if d in by_day:
-            by_day[d][r.tool] = round(by_day[d].get(r.tool, 0) + (r.c.cost_usd or 0), 6)
-    tools = {r.tool for r in rows} or {"claude-code"}
-    for v in by_day.values():
-        for t in tools:
-            v.setdefault(t, 0.0)
-    files: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
+        if d in per_day and not r.background:
+            per_day[d].append(r)
+    pii_day = Counter(_day(r.c.started_at or "") for r in every if r.out().pii_count > 0)
+    by_day = []
+    for d, rs in per_day.items():
+        cbm: dict[str, float] = defaultdict(float)
+        for r in rs:
+            cbm[r.c.model or "unknown"] += r.c.cost_usd or 0
+        changed = [r for r in rs if r.files]
+        by_day.append(S.DayStat(
+            date=d, requests=len(rs), changed=len(changed), files=len({f.path for r in rs for f in r.files}),
+            added=sum(f.added for r in rs for f in r.files), removed=sum(f.removed for r in rs for f in r.files),
+            commits=len({r.c.git_head_after for r in changed if r.c.git_status == "committed" and r.c.git_head_after}),
+            cost_usd=round(sum(cbm.values()), 6), cost_by_model={m: round(v, 6) for m, v in cbm.items() if v},
+            tok_out=sum(r.c.tok_out for r in rs), pii_changes=pii_day[d]))
+    git = S.GitOutcomes(**{k: sum(1 for r in rows if r.files and r.c.git_status == k) for k in ("committed", "uncommitted", "reverted")})
+    area_stats: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
     for r in rows:
+        mine: dict[str, list[int]] = defaultdict(lambda: [0, 0])
         for f in r.files:
-            s = files[f.path]
+            a = areas_of([f.path])[0]
+            mine[a][0] += f.added
+            mine[a][1] += f.removed
+        for a, (add, rem) in mine.items():
+            s = area_stats[a]
             s[0] += 1
-            s[1] += f.added
-            s[2] += f.removed
+            s[1] += add
+            s[2] += rem
     skills = Counter(s.skill_id for r in rows for s in r.skills if s.skill_id)
+    skill_status = dict(Counter(s.status for r in rows for s in r.skills if s.status))
+    pols = {p.id: p for p in db.scalars(select(Policy).where(Policy.project_id == pid))}
+    checks: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for r in rows:
+        for p in r.policies:
+            checks[p.policy_id][0] += 1
+            checks[p.policy_id][1] += bool(p.met)
+    policies = [S.PolicyStat(policy_id=k, title=pols[k].title if k in pols else None,
+                             require_skill=pols[k].require_skill if k in pols else None, mode=pols[k].mode if k in pols else None,
+                             checks=v[0], met=v[1]) for k, v in sorted(checks.items(), key=lambda x: -x[1][0])]
+    rhythm: Counter[tuple[int, int]] = Counter()
+    for r in rows:
+        if r.c.started_at:
+            t = datetime.fromisoformat(r.c.started_at.replace("Z", "+00:00")) + TZ_OFFSET
+            rhythm[(t.weekday(), t.hour)] += 1
     models: dict[str, S.ModelStat] = {}
     for r in rows:
         m = models.setdefault(r.c.model or "unknown", S.ModelStat(model=r.c.model or "unknown", changes=0, tok_in=0, tok_out=0,
@@ -203,16 +254,11 @@ def overview(db: DB, pid: str, days: int, audit_ok: bool) -> S.Overview:
         s[0].add(p.change_id)
         s[1] += p.count
         s[2].add(p.type)
-    tiles = S.Tiles(changes=len(rows), files_changed=len(files), lines_added=sum(o.added for o in outs),
-                    lines_removed=sum(o.removed for o in outs), tokens=sum(o.tokens for o in outs),
-                    cost_usd=round(sum(o.cost_usd for o in outs), 4),
-                    policy_missed=sum(o.policy_missed for o in outs), pii_changes=sum(o.pii_count > 0 for o in every_out),
-                    pii_high=sum(o.pii_high for o in every_out), background_changes=len(bg),
-                    background_cost_usd=round(sum(r.c.cost_usd or 0 for r in bg), 4))
     return S.Overview(
-        range=days, tiles=tiles, cost_by_day=[S.DayCost(date=d, by_tool=v) for d, v in by_day.items()],
-        recent_changes=outs[:8],
-        top_files=[S.FileStat(path=p, changes=v[0], added=v[1], removed=v[2]) for p, v in sorted(files.items(), key=lambda x: -x[1][0])[:10]],
+        range=days, tiles=_tiles(rows, bg), prev=_tiles([r for r in before if not r.background], [r for r in before if r.background]),
+        by_day=by_day, git=git, policies=policies, skill_status=skill_status,
+        areas=[S.AreaStat(area=a, changes=v[0], added=v[1], removed=v[2]) for a, v in sorted(area_stats.items(), key=lambda x: -x[1][0])[:8]],
+        rhythm=[S.RhythmCell(dow=d, hour=h, changes=n) for (d, h), n in sorted(rhythm.items())],
         top_skills=[S.SkillStat(skill_id=s, runs=n) for s, n in skills.most_common(10)],
         by_model=sorted(models.values(), key=lambda m: -m.cost_usd),
         pii_by_type=[S.PiiTypeStat(type=t, count=v[0], changes=len(v[1])) for t, v in sorted(by_type.items(), key=lambda x: -x[1][0])],

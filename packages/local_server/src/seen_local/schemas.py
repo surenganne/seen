@@ -53,22 +53,67 @@ class ProjectOut(BaseModel):
 
 
 class Tiles(BaseModel):
-    changes: int
+    changes: int  # requests
+    changed: int = 0  # requests that changed files
+    commits: int = 0  # distinct commits those changes ended on
     files_changed: int
     lines_added: int
     lines_removed: int
     tokens: int
+    tok_in: int = 0
+    tok_out: int = 0
+    tok_cache_read: int = 0
+    tok_cache_write: int = 0
     cost_usd: float
-    policy_missed: int
+    policy_checks: int = 0  # required-skill checks that ran, and how many were met
+    policy_met: int = 0
+    policy_missed: int  # requests with at least one missed check
     pii_changes: int
     pii_high: int
     background_changes: int = 0  # plugin background turns, left out of every figure above except PII (ADR 0010)
     background_cost_usd: float = 0.0
 
 
-class DayCost(BaseModel):
-    date: str
-    by_tool: dict[str, float]
+class DayStat(BaseModel):
+    date: str  # IST calendar date, every day in the range is present
+    requests: int
+    changed: int
+    files: int  # distinct files touched that day
+    added: int
+    removed: int
+    commits: int
+    cost_usd: float
+    cost_by_model: dict[str, float]
+    tok_out: int
+    pii_changes: int
+
+
+class GitOutcomes(BaseModel):
+    committed: int = 0
+    uncommitted: int = 0
+    reverted: int = 0
+
+
+class PolicyStat(BaseModel):
+    policy_id: str
+    title: str | None
+    require_skill: str | None
+    mode: str | None
+    checks: int
+    met: int
+
+
+class AreaStat(BaseModel):
+    area: str
+    changes: int
+    added: int
+    removed: int
+
+
+class RhythmCell(BaseModel):
+    dow: int  # 0 = Monday, IST
+    hour: int  # 0-23, IST
+    changes: int
 
 
 class ChangeRow(BaseModel):
@@ -140,9 +185,13 @@ class Alert(BaseModel):
 class Overview(BaseModel):
     range: int
     tiles: Tiles
-    cost_by_day: list[DayCost]
-    recent_changes: list[ChangeRow]
-    top_files: list[FileStat]
+    prev: Tiles  # the same figures for the period of equal length just before this one
+    by_day: list[DayStat]
+    git: GitOutcomes
+    policies: list[PolicyStat]
+    skill_status: dict[str, int]
+    areas: list[AreaStat]
+    rhythm: list[RhythmCell]
     top_skills: list[SkillStat]
     by_model: list[ModelStat]
     pii_by_type: list[PiiTypeStat]
