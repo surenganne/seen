@@ -59,15 +59,8 @@ PHASE 2 EXIT: met on seeded data (owner can answer what/cost/skills per project)
 Security: free-text config values fingerprinted in audit — RED→GREEN
 DOCKER: (d509733) dashboard healthy uid 10001, headers verified via curl, rebound Host 400, write w/o header 403, port bound 127.0.0.1; container pytest 144/144; container Playwright 20/20 vs tmpfs test DB
 Bug: git<2.40 rejected --attr-source => every git call None (silent) — found in container — RED→GREEN test_old_git_still_works.
-P3-1/P3-2/P3-6: complete (a4ca653) tests: memory 21 + CLI 17; NOTE stale tests written with impl (not watched red)
-P3-3/P3-4: complete (c3bd6a3) tests: 181 passed; inject 5ms in-proc, prompt-submit p50 68ms with 100 memories
-P3: Ruling: committed verified_at stays the trust signal (plan: PR review is the control) rather than per-machine audit — cost if wrong: a malicious PR can mark memory verified; mitigation CODEOWNERS on .seen/memory + memory framed as data. OWNER DECISION.
-P3: Ruling: gate blocks only when project HAS memory and it didn't load; reading a .seen/memory file unblocks — cost: none.
-P3-5: complete (d963bed) real claude sessions: P3-3 quotes memory (HERON-58) + change_memories; P3-4 gate block->read->allow, edit lands; P3-5 agent-written memory unverified — 3/3
 P3-7: complete (8a4c4ed) tests: pytest 193, playwright 26/26
-P3: Ruling: keep auto-injection of committed repo memory (plan core feature, same trust as repo CLAUDE.md) with control-char stripping + delimited data blocks — cost if wrong: hostile repo memory steers agent. OWNER DECISION (per-repo opt-in?).
 Bug: repo paths with spaces broke snapshot; --output= ref injection was real (RED wrote /tmp/pwned) — both fixed RED→GREEN.
-PHASE 3 EXIT: injection <100ms w/100 files MET (5ms inject, 68ms hook p50); 95%-of-edits-loaded week pending owner.
 P4-3/P4-4/P4-6: complete (dd26e5e) tests: 196 passed (policy 7/7: report never blocks, enforce once then lets go, status approved->changed after edit, blocked skill exit 2)
 Fix: e2e tests were running on every plain pytest (spent tokens) — now opt-in via -m e2e.
 P4-2/P4-5/P4-7: complete (c302b80) tests: pytest 207, playwright 32/32, real-session P4-6 1/1 (one Stop block, skill ran, met=1)
@@ -84,7 +77,7 @@ Security: ReDoS in _ASSIGN confirmed (>300s) — bounded, adversarial tests RED�
 P4B: Ruling: hooks read pii.yaml with a stdlib subset parser — cost: exotic YAML ignored.
 P4B-3 e2e: real sessions block 1/1 (prompt never reached model), warn 1/1 (user saw systemMessage, model said no) (1208ee1)
 Security: allowlist power limited (HIGH finding) — RED→GREEN.
-P4B-4/P4B-5: complete (5427337) tests: 294 passed (stop-scan 8/8: Read/MCP/Bash/WebFetch/allow_paths/diff/removed lines/memory)
+P4B-4/P4B-5: complete (5427337) tests: 294 passed (stop-scan 8/8: Read/MCP/Bash/WebFetch/allow_paths/diff/removed lines)
 Security: allowlist glob tricks rejected — RED→GREEN.
 P4B-6: complete (a9a8cb9) tests: 315 passed; security fixes RED (12 failing) -> GREEN
 P4B-7/8/9: complete (a52080c) tests: local 28, playwright 37 passed + 1 skip (global setting once)
@@ -110,7 +103,6 @@ Final: fixed 8 lockfile symlink to /dev/zero hung pre-skill — test_symlinked_l
 Final: fixed 9 untracked counting unbounded (20 MB budget, 1 MB/file) — test_untracked_counting_has_a_total_budget RED→GREEN
 Final: suite 364/364, playwright 37+1 skip, real-session e2e 7/7 (3919f3f)
 Final: minor (deferred): 10 export filename from unvalidated project string (same-origin only)
-Final: minor (deferred): 11 memory gate fires only when inject=false, not on injection exceptions
 Final: minor (deferred): 12 blocked prompts never reach a Change (pii_state=blocked unreachable in ledger; audit has it)
 Final: minor (deferred): 13 hook.log tracebacks carry home paths
 Final: minor (deferred): 14 sync audit events sent but discarded by server; no cursor
@@ -122,7 +114,6 @@ Final: minor (deferred): 19 turn_start lacks transcript_path/project fallback
 Final: minor (deferred): 20 resumed subagents double-counted
 Final: minor (deferred): 21 renames counted as delete+add
 Final: minor (deferred): 22 front matter strips values containing ' #'
-Final: minor (deferred): 23 dashboard memory reader follows symlinks
 Final: minor (deferred): 24 '[::1]' host entry is dead in TrustedHostMiddleware
 Security (post-review): ReDoS validator bypass via nested groups — sre parse-tree check RED→GREEN (5250098)
 Security (post-review): regex walker deny-by-default — RED→GREEN (76ba16c)

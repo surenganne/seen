@@ -1,4 +1,4 @@
-import { ArrowRight, Brain, CircleDollarSign, Coins, FileStack, ShieldAlert, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, CircleDollarSign, Coins, FileStack, ShieldAlert, ShieldCheck, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { S } from "../api/client";
 import { useOverview } from "../api/hooks";
@@ -6,7 +6,7 @@ import { CostChart, MagnitudeBars } from "../components/charts";
 import { ChangesTable } from "../components/ChangesTable";
 import { DenySnippet } from "../components/DenySnippet";
 import { Card, Empty, ErrorBox, Loading, PageHead, Tile } from "../components/ui";
-import { int, money, pct, tokens } from "../lib/format";
+import { int, money, tokens } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
 
 type Item = { tone: "crit" | "warn"; title: string; detail: string; to: Record<string, string> };
@@ -18,8 +18,6 @@ function attention(o: S["Overview"]): Item[] {
     detail: "Aadhaar, card, IBAN or secrets reached the model or the repo.", to: { pii: "true" } });
   if (t.policy_missed) items.push({ tone: "warn", title: `${t.policy_missed} required-skill ${t.policy_missed === 1 ? "check" : "checks"} missed`,
     detail: "Files under a policy changed without the skill it requires.", to: { policy_missed: "true" } });
-  if (t.mem_loaded_pct !== null && t.mem_loaded_pct !== undefined && t.mem_loaded_pct < 0.95) items.push({ tone: "warn",
-    title: `Memory loaded in ${pct(t.mem_loaded_pct)} of turns`, detail: "Target is 95% or more. Check the changes where it did not load.", to: { mem: "missed" } });
   if (t.pii_changes > t.pii_high) items.push({ tone: "warn", title: `${t.pii_changes - t.pii_high} more ${t.pii_changes - t.pii_high === 1 ? "change" : "changes"} with medium-confidence PII`,
     detail: "Emails, phone numbers or PAN. Review or mark as test data.", to: { pii: "true" } });
   return items;
@@ -49,7 +47,6 @@ export function Overview() {
           ? <span data-testid="background-spend">API-equivalent · plus {money(t.background_cost_usd)} in {int(t.background_changes)} background {t.background_changes === 1 ? "turn" : "turns"}</span>
           : "API-equivalent"} />
         <Tile label="Tokens" icon={Coins} to={rows({ view: "list", sort: "tokens", dir: "desc" })} value={tokens(t.tokens)} sub="in, out and cache" />
-        <Tile label="Memory loaded" icon={Brain} to={rows({ mem: "missed" })} value={pct(t.mem_loaded_pct)} sub={t.mem_loaded_pct == null ? "not observed (imported turns)" : "of turns"} alert={(t.mem_loaded_pct ?? 1) < 0.95} />
         <Tile label="Policy missed" icon={Sparkles} to={rows({ policy_missed: "true" })} value={int(t.policy_missed)} sub="required skill not run" alert={t.policy_missed > 0} />
         <Tile label="Changes with PII exposure" icon={ShieldAlert} to={rows({ pii: "true" })} value={int(t.pii_changes)}
           sub={t.pii_high ? `${t.pii_high} high-confidence` : "structured identifiers"} alert={t.pii_high > 0} />
@@ -81,7 +78,7 @@ export function Overview() {
                 <ShieldCheck aria-hidden="true" />
                 <div>
                   <div style={{ fontWeight: 500 }}>Nothing needs a human right now</div>
-                  <div className="muted small">Checked: policies, memory loading and structured PII. Names and free text are not detected.</div>
+                  <div className="muted small">Checked: policies and structured PII. Names and free text are not detected.</div>
                 </div>
                 <span />
               </li>

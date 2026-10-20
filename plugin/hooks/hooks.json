@@ -1,10 +1,9 @@
 {
-  "description": "Seen capture, audit, PII scan and memory gate",
+  "description": "Seen capture, audit, PII scan",
   "hooks": {
     "SessionStart":     [{"hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" session-start"}]}],
     "UserPromptSubmit": [{"hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" prompt-submit"}]}],
     "PreToolUse": [
-      {"matcher":"Edit|Write|MultiEdit|NotebookEdit","hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" pre-edit"}]},
       {"matcher":"Skill","hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" pre-skill"}]},
       {"matcher":"Read","hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/bin/seen-hook\" pre-read"}]}
     ],

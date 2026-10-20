@@ -1,13 +1,13 @@
-import { ArrowLeft, Brain, Bot, FileCode2, History, Lock, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowLeft, Bot, FileCode2, History, Lock, ShieldAlert, Sparkles } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useChange } from "../api/hooks";
 import { MarkTestData } from "../components/PiiActions";
-import { Badge, Card, Empty, ErrorBox, GitStatus, Loading, MemState, Note, SkillStatus } from "../components/ui";
+import { Badge, Card, Empty, ErrorBox, GitStatus, Loading, Note, SkillStatus } from "../components/ui";
 import { int, money, pct, short, tokens, truncateWords, when } from "../lib/format";
 import { usePid, useRange, withRange } from "../lib/nav";
 
-const SOURCE: Record<string, string> = { prompt: "Prompt", file_read: "File read", tool_output: "Tool output", mcp: "MCP tool", injected_memory: "Injected memory", diff_added: "Added lines" };
-const DEST: Record<string, string> = { model: "Model", network: "Network", repo: "Repo", memory: "Memory" };
+const SOURCE: Record<string, string> = { prompt: "Prompt", file_read: "File read", tool_output: "Tool output", mcp: "MCP tool", diff_added: "Added lines" };
+const DEST: Record<string, string> = { model: "Model", network: "Network", repo: "Repo" };
 const KIND: Record<string, string> = { input: "Input", output: "Output", cache_read: "Cache read", cache_write: "Cache write" };
 
 export function ChangeDetail() {
@@ -32,7 +32,6 @@ export function ChangeDetail() {
         </div>
         <div className="checks">
           <GitStatus status={c.git_status} />
-          <MemState state={c.mem_state} />
           {c.policies.some((p) => !p.met) && <Badge tone="warning">policy missed</Badge>}
           {c.skills.some((s) => s.status && s.status !== "approved") && <Badge tone="warning">unapproved skill</Badge>}
         </div>
@@ -41,7 +40,7 @@ export function ChangeDetail() {
       {c.source === "imported" && (
         <Note tone="info" icon={History} testId="imported-note">
           Imported from the Claude Code transcript with <span className="mono">seen import</span>. Tokens, cost, tools, skills and prompt PII are exact;
-          line counts come from the edit inputs, and git status and memory state were not observed.
+          line counts come from the edit inputs, and git status was not observed.
         </Note>
       )}
 
@@ -106,18 +105,7 @@ export function ChangeDetail() {
         )}
       </Card>
 
-      <div className="grid cols3">
-        <Card title="Memory read" flush aside={<span className="hint">{c.mem_injected_tokens} tokens</span>}>
-          {c.memories.length === 0 ? <Empty icon={Brain} title="No memory injected" /> : (
-            <ul className="rows">{c.memories.map((m) => <li key={m.memory_id}><span className="mono">{m.memory_id}</span><span className="muted tiny">{m.type ?? ""}</span></li>)}</ul>
-          )}
-          {c.memory_saved.length > 0 && (
-            <div style={{ padding: "0.6rem 1rem", borderTop: "1px solid var(--border)" }}>
-              <div className="label" style={{ marginBottom: 4 }}>Memory saved from this change</div>
-              {c.memory_saved.map((m) => <Link key={m} className="mono small" to={withRange(`/p/${pid}/memory`, range)} style={{ marginRight: 8 }}>{m}</Link>)}
-            </div>
-          )}
-        </Card>
+      <div className="grid cols">
         <Card title="Skills used" flush>
           {c.skills.length === 0 ? <Empty icon={Bot} title="No skills ran" /> : (
             <ul className="rows" data-testid="change-skills">

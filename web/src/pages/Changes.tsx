@@ -1,4 +1,4 @@
-import { Activity, Brain, FileCode2, Search, ShieldAlert, Sparkles, X } from "lucide-react";
+import { Activity, FileCode2, Search, ShieldAlert, Sparkles, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { S } from "../api/client";
 import { type ChangeFilters, useChanges, useSkills } from "../api/hooks";
@@ -36,7 +36,6 @@ export function Changes() {
     file: sp.get("file") || undefined,
     skill: sp.get("skill") || undefined,
     session: sp.get("session") || undefined,
-    mem: (sp.get("mem") as ChangeFilters["mem"]) || undefined,
     policy_missed: bool(sp.get("policy_missed")),
     pii: bool(sp.get("pii")),
     days: range,
@@ -61,7 +60,7 @@ export function Changes() {
     <div className="page">
       <PageHead
         title="Changes"
-        description="One row per request you made, with what it changed, grouped by session. Background shows turns that plugins ran through the Agent SDK. Open a row for files, tokens, memory, skills and PII."
+        description="One row per request you made, with what it changed, grouped by session. Background shows turns that plugins ran through the Agent SDK. Open a row for files, tokens, skills and PII."
         actions={<span className="mono small muted" data-testid="changes-count">{data ? `${data.total} changes · ${money(data.cost_usd)}` : ""}</span>}
       />
       <div className="toolbar" role="search">
@@ -96,7 +95,6 @@ export function Changes() {
           </div>
         )}
         <button type="button" className="chip" aria-pressed={f.tool === "claude-code"} onClick={() => toggle("tool", "claude-code")}>claude-code</button>
-        <button type="button" className="chip" aria-pressed={f.mem === "missed"} onClick={() => toggle("mem", "missed")}><Brain aria-hidden="true" />Memory not loaded</button>
         <button type="button" className="chip" aria-pressed={!!f.policy_missed} onClick={() => toggle("policy_missed", "true")}><Sparkles aria-hidden="true" />Skill policy missed</button>
         <button type="button" className="chip" aria-pressed={!!f.pii} onClick={() => toggle("pii", "true")}><ShieldAlert aria-hidden="true" />PII exposed</button>
         {f.file && (

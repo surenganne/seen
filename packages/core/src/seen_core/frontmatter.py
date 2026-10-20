@@ -1,6 +1,6 @@
 """Tiny front matter parser: `key: value`, quoted strings, [a, b] lists. Stdlib only.
 
-Covers SKILL.md and memory files; anything fancier is treated as a plain string.
+Covers SKILL.md; anything fancier is treated as a plain string.
 """
 
 from __future__ import annotations

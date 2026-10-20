@@ -2,8 +2,8 @@
 
 Transcripts live in <claude config>/projects/<cwd with non-alphanumerics as '-'>/<session_id>.jsonl. Each user
 prompt starts a turn; the turn's slice goes through the same parser, pricing, redaction, PII scan, skill and policy
-code as live capture. What a transcript cannot tell us stays empty instead of guessed: no git status or HEADs, no
-memory state; line counts come from the Edit/Write inputs. Sessions already in the ledger are skipped, so re-running
+code as live capture. What a transcript cannot tell us stays empty instead of guessed: no git status or HEADs;
+line counts come from the Edit/Write inputs. Sessions already in the ledger are skipped, so re-running
 is safe and never touches live-recorded sessions. A transcript still being written stays open (no end) and a later
 run adds its new turns.
 """

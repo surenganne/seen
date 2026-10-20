@@ -7,12 +7,12 @@ import { ids, state } from "../test/mock-api";
 import { Audit } from "./Audit";
 import { ChangeDetail } from "./ChangeDetail";
 import { Changes } from "./Changes";
-import { Memory } from "./Memory";
 import { Overview } from "./Overview";
 import { Projects } from "./Projects";
 import { Sessions } from "./Sessions";
 import { Settings } from "./Settings";
 import { Skills } from "./Skills";
+import { Timeline } from "./Timeline";
 
 const { pid, cid } = ids;
 type Case = { name: string; route: string; at: string; page: ReactElement; heading: RegExp; rows?: string };
@@ -22,11 +22,13 @@ const CASES: Case[] = [
   { name: "Changes", route: "/p/:pid/changes", at: `/p/${pid}/changes`, page: <Changes />, heading: /changes/i, rows: "change-row" },
   { name: "Change detail", route: "/p/:pid/changes/:cid", at: `/p/${pid}/changes/${cid}`, page: <ChangeDetail />, heading: /\S/ },
   { name: "Sessions", route: "/p/:pid/sessions", at: `/p/${pid}/sessions`, page: <Sessions />, heading: /sessions/i, rows: "session-row" },
-  { name: "Memory", route: "/p/:pid/memory", at: `/p/${pid}/memory`, page: <Memory />, heading: /memory/i },
   { name: "Skills", route: "/p/:pid/skills", at: `/p/${pid}/skills`, page: <Skills />, heading: /skills/i, rows: "skill-row" },
   { name: "Audit", route: "/p/:pid/audit", at: `/p/${pid}/audit`, page: <Audit />, heading: /audit/i, rows: "audit-row" },
   { name: "Settings", route: "/settings", at: "/settings", page: <Settings />, heading: /settings/i },
+  { name: "Timeline", route: "/p/:pid/timeline", at: `/p/${pid}/timeline`, page: <Timeline />, heading: /timeline/i, rows: "timeline-entry" },
 ];
+
+const byName = (n: string) => CASES.find((c) => c.name === n)!; // not by index: adding or removing a page must not shift the others
 
 function mount(c: Case) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -68,19 +70,19 @@ describe.each(CASES)("$name page", (c) => {
 });
 
 describe("page details", () => {
-  it("Overview shows the six summary tiles, each a link to its rows", async () => {
-    mount(CASES[1]!);
-    for (const t of ["Changes", "Cost", "Tokens", "Memory loaded", "Policy missed", "Changes with PII exposure"]) {
+  it("Overview shows the five summary tiles, each a link to its rows", async () => {
+    mount(byName("Overview"));
+    for (const t of ["Changes", "Cost", "Tokens", "Policy missed", "Changes with PII exposure"]) {
       const tile = await screen.findByTestId(`tile-${t}`);
       expect(tile.querySelector("a.stat-link")).toHaveAttribute("href", expect.stringContaining(`/p/${pid}/changes`));
     }
   });
   it("Change detail shows the change panel", async () => {
-    mount(CASES[3]!);
+    mount(byName("Change detail"));
     expect(await screen.findByTestId("change-detail")).toBeInTheDocument();
   });
   it("Settings shows the price table with its verified state", async () => {
-    mount(CASES[8]!);
+    mount(byName("Settings"));
     expect(await screen.findByTestId("settings")).toBeInTheDocument();
     expect(screen.getByText(/unverified|verified/)).toBeInTheDocument();
   });

@@ -22,8 +22,6 @@ app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, a
 skills_app = typer.Typer(help="Skill inventory and approvals", no_args_is_help=True)
 app.add_typer(skills_app, name="skills")
 
-MEMORY_RULES = ["Write(.seen/memory/**)", "Edit(.seen/memory/**)"]
-
 POLICIES_TEMPLATE = """# Required-skill rules. Each rule: when a change touches `paths`, `require_skill` must run.
 # mode: report (record only) | enforce (block Stop once until the skill runs)
 # - id: pol-example
@@ -51,28 +49,19 @@ def _project_or_exit(cwd: Path | None = None) -> tuple[str, Path]:
 
 @app.command()
 def init() -> None:
-    """Set up .seen/ in this repo and allow memory writes without prompts."""
+    """Set up .seen/ in this repo."""
     pid, root = _project_or_exit()
     s = root / ".seen"
-    safeio.check_no_symlinks(s / "memory", root)
-    (s / "memory").mkdir(parents=True, exist_ok=True)
     created = []
     for name, text in ((".gitignore", ".cache/\n*.lock\n"), ("policies.yaml", POLICIES_TEMPLATE), ("pii.yaml", PII_TEMPLATE),
                        ("skills.lock.json", json.dumps({"approved": {}, "blocked": []}, indent=2) + "\n")):
         if not (s / name).exists():
             safeio.write_text(s / name, text, root)
             created.append(name)
-    sf = root / ".claude" / "settings.json"
-    settings = json.loads(sf.read_text()) if sf.exists() else {}
-    allow = settings.setdefault("permissions", {}).setdefault("allow", [])
-    added = [r for r in MEMORY_RULES if r not in allow]
-    allow.extend(added)
-    if added:
-        safeio.write_text(sf, json.dumps(settings, indent=2) + "\n", root)
     audit.append([{"type": "config.changed", "actor_kind": "user", "actor_id": user_id(), "project_id": pid,
                    "subject": "project.init", "detail": {"key": "project.init", "old": None,
-                                                         "new": {"created": created, "allow_rules_added": len(added)}}}])
-    typer.echo(f"Initialised {s} ({', '.join(created) or 'already present'}); memory allow rules: {len(added)} added.")
+                                                         "new": {"created": created}}}])
+    typer.echo(f"Initialised {s} ({', '.join(created) or 'already present'}).")
 
 
 def _changes(pid: str | None, days: int) -> list[Change]:
@@ -122,7 +111,6 @@ def status() -> None:
     typer.echo(f"Project: {proj.name if proj else root.name} ({pid})")
     typer.echo(f"Changes recorded: {n}")
     typer.echo(f"Last session: {last.started_at if last else 'none'}")
-    typer.echo(f"Memory folder: {'present' if (root / '.seen/memory').is_dir() else 'missing (run seen init)'}")
     typer.echo("Audit: " + (f"chain verified, {v.count} events, head {v.head[:12]}" if v.ok
                             else f"CHAIN BROKEN at seq {v.break_seq} ({v.reason})"))
 
@@ -138,7 +126,7 @@ def import_cmd(dry_run: bool = typer.Option(False, "--dry-run", help="Count what
     typer.echo(f"{verb} {r.sessions} sessions, {r.changes} changes, API-equivalent cost ≈ ${r.cost_usd:.2f}; "
                f"{r.skipped} already recorded.")
     if r.sessions and not dry_run:
-        typer.echo("Imported sessions have no git status or memory state; line counts come from edit inputs.")
+        typer.echo("Imported sessions have no git status; line counts come from edit inputs.")
 
 
 @app.command("ingest")
@@ -407,71 +395,6 @@ def audit_export(project: str = typer.Option(None, help="Project id (default: al
     path = export.export(base, project=project, date_from=date_from, date_to=date_to, fmt=fmt, actor=user_id())
     m = json.loads(path.with_suffix(".manifest.json").read_text())
     typer.echo(f"{m['count']} events -> {path} (verified: {m['verification']['ok']}, head {m['head_hash'][:12]})")
-
-
-memory_app = typer.Typer(help="Project memory (.seen/memory)", no_args_is_help=True)
-app.add_typer(memory_app, name="memory")
-
-
-@memory_app.command("add")
-def memory_add(id: str = typer.Option(..., "--id", help="lowercase-id"),
-               type_: str = typer.Option(..., "--type", help="decision | convention | gotcha | context"),
-               text: str = typer.Option(..., "--text", help="The memory itself, one or two sentences"),
-               file_ref: str = typer.Option(None, "--file-ref", help="Repo-relative file this memory is about"),
-               personal: bool = typer.Option(False, "--personal", help="Store under ~/.seen (never committed)")) -> None:
-    """Add a memory file (unverified until someone runs `seen memory verify`)."""
-    from seen_core.memory import service
-
-    pid, root = _project_or_exit()
-    try:
-        p = service.add(root, pid, mid=id, type_=type_, text=text, file_ref=file_ref, personal=personal, actor=user_id())
-    except (ValueError, FileExistsError) as e:
-        typer.echo(f"Not added: {e}", err=True)
-        raise typer.Exit(2) from None
-    typer.echo(f"Added {id} -> {paths.redact_home(str(p))} (unverified)")
-
-
-@memory_app.command("list")
-def memory_list() -> None:
-    """Memories with status: verified, unverified, stale or invalid."""
-    from seen_core.memory import service
-
-    pid, root = _project_or_exit()
-    ms = service.all_memories(root, pid)
-    if not ms:
-        typer.echo("No memory files. Add one with `seen memory add`.")
-    for m in ms:
-        st = service.status(m)
-        why = m.error if not m.ok else (m.stale_reason or "")
-        typer.echo(f"{m.id:<32} {st:<10} {m.type or '-':<10} {m.scope:<8} {m.file_ref or ''}  {why}".rstrip())
-
-
-@memory_app.command("verify")
-def memory_verify(mid: str) -> None:
-    """Mark a memory as checked by a human now."""
-    from seen_core.memory import service
-
-    pid, root = _project_or_exit()
-    try:
-        m = service.do_verify(root, pid, mid, user_id())
-    except KeyError:
-        typer.echo(f"No valid memory with id {mid}", err=True)
-        raise typer.Exit(2) from None
-    typer.echo(f"Verified {mid} at {m.verified_at}")
-
-
-@memory_app.command("archive")
-def memory_archive(mid: str) -> None:
-    """Move a memory to the archive folder so it is no longer injected."""
-    from seen_core.memory import service
-
-    pid, root = _project_or_exit()
-    try:
-        dest = service.do_archive(root, pid, mid, user_id())
-    except KeyError:
-        typer.echo(f"No valid memory with id {mid}", err=True)
-        raise typer.Exit(2) from None
-    typer.echo(f"Archived {mid} -> {paths.redact_home(str(dest))}")
 
 
 @app.command("sync")

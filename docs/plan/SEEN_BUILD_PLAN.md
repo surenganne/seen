@@ -1,5 +1,8 @@
 # Seen: Build Plan for a Coding Agent
 
+> **Amended 2026-10-20 (ADR 0017):** project memory (the memory service, injection, the edit gate, `seen memory`, the Memory page,
+> the `change_memories` table) was removed, and a Timeline page was added. Memory text below is history, not a task list.
+
 **Naming and packaging (decided)**
 
 | Thing | Value |

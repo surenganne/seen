@@ -41,8 +41,7 @@ export function Settings() {
           </Card>
         </div>
       </div>
-      <div className="grid cols3">
-        <Card title="Memory behaviour"><KV obj={s.memory} /></Card>
+      <div className="grid cols">
         <Card title="Skill auditing"><KV obj={s.skills} /></Card>
         <Card title="Audit retention"><KV obj={s.audit} /></Card>
       </div>

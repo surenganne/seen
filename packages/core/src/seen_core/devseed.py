@@ -1,6 +1,6 @@
 """`seen dev-seed`: deterministic mock data for development and tests.
 
-Writes only into an explicit SEEN_HOME (never ~/.seen): demo git repos with memory files,
+Writes only into an explicit SEEN_HOME (never ~/.seen): demo git repos,
 lockfile and policies, plus 28 days of sessions, changes, skills, PII findings (types and
 counts only, never values) and a valid audit chain.
 """
@@ -20,7 +20,6 @@ from .db import ledger_session
 from .db.models import (
     Change,
     ChangeFile,
-    ChangeMemory,
     PiiFinding,
     Policy,
     PolicyResult,
@@ -61,14 +60,6 @@ SUMMARIES = [
 MODELS = [("claude-sonnet-5-5", 0.6), ("claude-opus-5-5", 0.3), ("claude-haiku-5-5", 0.1)]
 PII_TYPES = [("email", "medium"), ("phone", "medium"), ("aadhaar", "high"), ("pan", "medium"), ("card", "high"),
              ("secret", "high"), ("dob", "medium")]
-MEMORIES = [
-    ("decision", "payments-idempotency", "src/payments/refund.py", "Refunds must carry an idempotency key; retries reuse it."),
-    ("convention", "test-clock", "tests/test_charge.py", "Tests freeze time with the clock fixture, never time.sleep."),
-    ("gotcha", "auth-cookie", "src/auth/session.py", "Session cookie must stay SameSite=Strict; the mobile app relies on it."),
-    ("context", "llm-provider", "llm/summarise.py", "LLM calls go through Bedrock in ap-south-1 for data residency."),
-    ("decision", "phi-redaction", "src/llm/redact.ts", "All clinical notes pass redact() before any model call."),
-    ("gotcha", "kyc-window", "dags/kyc_sync.py", "KYC sync must finish before 06:00 IST or the partner API rate limits."),
-]
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -81,8 +72,7 @@ def _iso(dt: datetime) -> str:
     return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def _make_repo(root: Path, remote: str, files: list[str], rnd: random.Random, mems: list[tuple[str, str, str, str]],
-               verified_at: datetime) -> None:
+def _make_repo(root: Path, remote: str, files: list[str], rnd: random.Random) -> None:
     if (root / ".git").exists():
         return
     root.mkdir(parents=True, exist_ok=True)
@@ -94,11 +84,8 @@ def _make_repo(root: Path, remote: str, files: list[str], rnd: random.Random, me
         p.write_text("".join(f"line {i}\n" for i in range(rnd.randint(10, 80))) if not f.endswith(".csv")
                      else "id,name,email\n1,Test Person,test.person@example.com\n")
     s = root / ".seen"
-    (s / "memory").mkdir(parents=True)
+    s.mkdir(parents=True)
     (s / ".gitignore").write_text(".cache/\n*.lock\n")
-    for i, (typ, mid, ref, text) in enumerate(mems):
-        va = "" if i % 3 == 2 else _iso(verified_at - timedelta(days=rnd.randint(1, 20)))
-        (s / "memory" / f"{mid}.md").write_text(f"---\nid: {mid}\ntype: {typ}\nfile_ref: {ref}\nverified_at: {va}\n---\n{text}\n")
     (s / "policies.yaml").write_text(
         "- id: pol-auth\n  title: Security review on auth code\n  paths: [\"src/auth/**\"]\n  require_skill: security-review\n  mode: report\n"
         "- id: pol-phi\n  title: PHI redaction check on LLM code\n  paths: [\"llm/**\", \"src/llm/**\"]\n  require_skill: phi-redaction-check\n  mode: report\n")
@@ -138,8 +125,7 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
         for pi, (name, remote, files) in enumerate(PROJECTS):
             pid = ["demo-payments", "demo-patient", "demo-pipes"][pi]
             root = h / "demo-repos" / name
-            mems = [m for m in MEMORIES if any(m[2] == f for f in files)] + [MEMORIES[3 if pi else 0]]
-            _make_repo(root, remote, files, rnd, list(dict.fromkeys(mems)), now)
+            _make_repo(root, remote, files, rnd)
             (root / ".seen/skills.lock.json").write_text(json.dumps(lock, indent=2) + "\n")
             db.add(Project(id=pid, name=name, remote=remote, root_path=str(root), created_at=_iso(now - timedelta(days=days))))
             for pol, title, globs, req in (("pol-auth", "Security review on auth code", ["src/auth/**"], "security-review"),
@@ -168,7 +154,6 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
                              "tok_cache_write": rnd.randint(2000, 40_000)}
                         cost, pv = pricing.cost({model: {**u, "cw_5m": u["tok_cache_write"], "cw_1h": 0}})
                         touched = rnd.sample(files, rnd.randint(1, min(4, len(files))))
-                        mem_state = "missed" if rnd.random() < 0.04 else "loaded"
                         skills_run = rnd.sample([s for s, k, _ in SKILLS if k != "sideload"], rnd.randint(0, 2))
                         if rnd.random() < 0.03:
                             skills_run.append("sideloaded-helper")
@@ -179,18 +164,12 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
                                       prompt_text=None if rnd.random() < 0.3 else f"[seed] {rnd.choice(SUMMARIES).lower()}",
                                       summary=rnd.choice(SUMMARIES), model=model, **u, cost_usd=cost, price_version=pv,
                                       git_head_before=f"{rnd.getrandbits(160):040x}", git_head_after=f"{rnd.getrandbits(160):040x}",
-                                      git_status=git_status, mem_state=mem_state, mem_injected_tokens=rnd.randint(200, 1500) if mem_state == "loaded" else 0,
+                                      git_status=git_status,
                                       pii_state="found" if pii else "none", pii_count=0))
                         counts["changes"] += 1
                         events.append({"type": "turn.start", "occurred_at": _iso(t), "actor_kind": "user", "actor_id": "u_demo",
                                        "project_id": pid, "session_id": sess_id, "change_id": cid,
                                        "detail": {"prompt_hmac": secret.keyed(cid, 64), "prompt_len": rnd.randint(20, 400)}})
-                        if mem_state == "loaded":
-                            for m in mems[:3]:
-                                db.add(ChangeMemory(change_id=cid, memory_id=m[1], content_hash=secret.keyed(m[3], 16)))
-                            events.append({"type": "memory.injected", "occurred_at": _iso(t), "actor_kind": "hook", "actor_id": "u_demo",
-                                           "project_id": pid, "session_id": sess_id, "change_id": cid,
-                                           "detail": {"ids": [m[1] for m in mems[:3]], "tokens": rnd.randint(200, 1500)}})
                         for f in touched:
                             a, r = rnd.randint(0, 120), rnd.randint(0, 40)
                             db.add(ChangeFile(change_id=cid, path=f, added=a, removed=r))
