@@ -20,7 +20,6 @@ from .db import ledger_session
 from .db.models import (
     Change,
     ChangeFile,
-    LinePrint,
     PiiFinding,
     Policy,
     PolicyResult,
@@ -30,7 +29,6 @@ from .db.models import (
     SkillInvocation,
     SkillVersion,
 )
-from .provenance.prints import fingerprint
 
 PROJECTS = [
     ("payments-api", "github.com/acme/payments-api",
@@ -74,11 +72,6 @@ def _iso(dt: datetime) -> str:
     return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def demo_line(path: str, i: int) -> str:
-    """A realistic, non-trivial line of code (at least 10 alphanumerics), deterministic per file and index."""
-    return f"    total_{i} = apply_rule(order, limit={i * 7 % 97}, mode=\"{Path(path).stem}\")"
-
-
 def _make_repo(root: Path, remote: str, files: list[str], rnd: random.Random) -> None:
     if (root / ".git").exists():
         return
@@ -88,7 +81,7 @@ def _make_repo(root: Path, remote: str, files: list[str], rnd: random.Random) ->
     for f in files:
         p = root / f
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text("".join(demo_line(f, i) + "\n" for i in range(rnd.randint(10, 80))) if not f.endswith(".csv")
+        p.write_text("".join(f"line {i}\n" for i in range(rnd.randint(10, 80))) if not f.endswith(".csv")
                      else "id,name,email\n1,Test Person,test.person@example.com\n")
     s = root / ".seen"
     s.mkdir(parents=True)
@@ -99,16 +92,6 @@ def _make_repo(root: Path, remote: str, files: list[str], rnd: random.Random) ->
     (s / "pii.yaml").write_text('allow_paths: ["tests/fixtures/**"]\nallow_values: ["*@example.com"]\ncustom_rules: []\n')
     _git(root, "add", "-A")
     _git(root, "commit", "-qm", "seed")
-
-
-def _attribute_first_file(db: Any, pid: str, root: Path, path: str, change_ids: list[str]) -> None:
-    """Line prints for the first file of a project, as the capture hook would write them: every third line to the
-    project's first change, the lines after those to its second, the rest left human. Same install key as production."""
-    key = secret.key()
-    n = len((root / path).read_text().splitlines())
-    for i in range(n):
-        if i % 3 < 2 and i % 3 < len(change_ids):
-            db.add(LinePrint(project_id=pid, path=path, fp=fingerprint(demo_line(path, i), key), change_id=change_ids[i % 3]))
 
 
 def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) -> dict[str, int]:
@@ -149,7 +132,6 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
                                            ("pol-phi", "PHI redaction check on LLM code", ["llm/**", "src/llm/**"], "phi-redaction-check")):
                 db.add(Policy(id=f"{pid}:{pol}", project_id=pid, title=title, paths_json=json.dumps(globs), require_skill=req, mode="report"))
             counts["projects"] += 1
-            pcids: list[str] = []
             for d in range(days, -1, -1):
                 for _ in range(rnd.choice([0, 1, 1, 2, 3])):
                     start = now - timedelta(days=d, hours=rnd.randint(0, 9), minutes=rnd.randint(0, 59))
@@ -185,7 +167,6 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
                                       git_status=git_status,
                                       pii_state="found" if pii else "none", pii_count=0))
                         counts["changes"] += 1
-                        pcids.append(cid)
                         events.append({"type": "turn.start", "occurred_at": _iso(t), "actor_kind": "user", "actor_id": "u_demo",
                                        "project_id": pid, "session_id": sess_id, "change_id": cid,
                                        "detail": {"prompt_hmac": secret.keyed(cid, 64), "prompt_len": rnd.randint(20, 400)}})
@@ -235,7 +216,6 @@ def seed(home: Path | None = None, days: int = 28, now: datetime | None = None) 
                                        "detail": {"tok_out": u["tok_out"], "cost_usd": cost, "files": len(touched)}})
                     events.append({"type": "session.end", "occurred_at": _iso(t + timedelta(minutes=5)), "actor_kind": "system",
                                    "actor_id": "u_demo", "project_id": pid, "session_id": sess_id, "detail": {"reason": "other"}})
-            _attribute_first_file(db, pid, root, files[0], pcids)
         db.commit()
     events.sort(key=lambda e: e["occurred_at"])
     events.insert(5, {"type": "approval.skill", "occurred_at": events[5]["occurred_at"], "actor_kind": "user", "actor_id": "u_demo",

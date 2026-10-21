@@ -50,16 +50,6 @@ Expected:
 - Playwright: `37 passed, 1 skipped`, desktop and phone. The run fails on any CSP violation or console error.
 - The benchmark exits 0.
 
-Never run tests, scenario builders or scripts that write a ledger against `~/.seen`. Under pytest every test gets a tmp
-`SEEN_HOME`; `tests/conftest.py` makes that hard to break: `paths.home()` raises if it resolves outside the test's tmp dir
-(so a stray `monkeypatch.undo()`, which also reverts the isolation, or an unset `SEEN_HOME` fails the test instead of writing),
-and at the end of the session the run fails if the real ledger's project list changed (read-only check; it can also fire if your
-own Seen session added a project meanwhile). `Replay` and the scenario `Scene` refuse the real home with an error naming
-`SEEN_HOME`. Scope a patch with `with monkeypatch.context() as m:`, never `monkeypatch.undo()`. To see the scenario
-precision/recall table run `uv run python spikes/provenance/compare.py` (scratch repos only, no ledger); to run the scenario
-suite use `uv run pytest tests/provenance/test_scenarios.py`, never an ad-hoc script importing `scenarios.py`; if you must, export
-`SEEN_HOME=$(mktemp -d)` first.
-
 The same checks run in CI on every push: <https://github.com/surenganne/seen/actions>.
 
 ---
@@ -69,15 +59,11 @@ The same checks run in CI on every push: <https://github.com/surenganne/seen/act
 ```bash
 seen docker-sync && docker compose up -d --build  # dashboard on a snapshot of your real ~/.seen
 open http://127.0.0.1:47821                      # or paste into a browser
-docker compose --profile test build tests && docker compose --profile test run --rm tests  # lint, types, unit tests in a container
+docker compose --profile test run --rm tests     # lint, types, unit tests in a container
 docker compose --profile test run --rm e2e       # Playwright against a tmpfs test database
 docker compose --profile dev up -d               # optional: Vite hot reload on :47822
 docker compose down                              # stop (the snapshot stays in ~/.seen-docker)
 ```
-
-The containerised suite runs git 2.39 (`python:3.12-slim-bookworm`); a Mac host usually has git 2.5x, so a git flag that works
-on the host can fail here (`git blame --end-of-options` did, ADR 0019). `docker compose run` does not rebuild a stale image: run
-`docker compose --profile test build tests` first or you test old code.
 
 Expected:
 - [ ] The dashboard opens with three projects: data-pipelines, patient360-web and payments-api.
@@ -284,30 +270,6 @@ seen serve --open
 
 ---
 
-## Part 10b. Provenance: blame, PR report and the page
-
-Uses the `seen dev-seed` data from the dashboard parts (`seen dev-seed --home "$SEEN_HOME"`; the demo file is `src/payments/charge.py` in `demo-payments`).
-
-```bash
-seen blame src/payments/charge.py       # run inside the demo-payments repo, or pass --project
-seen blame src/payments/charge.py --json
-seen pr-report --base main              # prints the report; nothing is posted
-seen serve --open
-```
-
-- [ ] `seen blame` prints runs of lines marked agent, human or not observed, with the request headline for agent runs, and says what it could not attribute. No line text appears in any output.
-- [ ] `seen pr-report` states what was and was not checked. `--post` asks for confirmation first; answering no posts nothing.
-- [ ] Open **Provenance** in the left nav: with no file chosen the page is a ranked list, "Files agents changed", with the sentence "Pick a file to see which lines an agent wrote." There is no browser datalist any more. Rows show File, Requests, Lines (+added −removed) and Last changed (IST); **Most recent / Most requests / Most lines** re-rank it. Type `charge` in **Filter files** and press Enter: the list narrows and `?q=charge` is in the URL. Click the `src/payments/charge.py` row, or Tab to it and press Enter: its blocks show and the list folds into **Choose another file** (open it: the chosen row is marked current). The list follows the 7d/14d/28d range and says so: "Files changed by your requests in the last N days. Change the range in the top bar." With a file open, the folded summary reads "Choose another file (N files, last N days)", and a file that has no requests in the range gets a calm note ("<path> has no requests in the last N days") while its provenance still shows. Bad `days`, `page` or `page_size` values on the files route are a 422 that never echoes them (try `?page=abc`). With the filter matching nothing it says what was checked and offers **Clear filter**.
-- [ ] Overview, "Where the work happened": each folder has a **See files** link to the Provenance list filtered by that folder. Timeline: each area chip on an entry is a link ("Files in <area>") to the same filtered list.
-- [ ] The summary shows agent, human and not observed counts as separate numbers, and the sentence "Not observed means Seen could not have seen it; it is not a claim that a person wrote it."
-- [ ] Each block shows a word and an icon for who (never colour alone), its line range, and for agent blocks the headline, time (IST), model and skills. The headline opens that Change.
-- [ ] Tab reaches the block list (a labelled scroll region). **Table view** (a toggle button that stays named "Table view" and is announced pressed while the table shows) swaps in the same blocks as a table; press it again to return. Each table link has its own name ("Open change: headline, lines a–b").
-- [ ] A path that is not tracked by git (`no/such/file.py`) shows a calm note with the reason, not a red alert. A `.ipynb` path says notebook files are not line-attributed.
-- [ ] Change detail lists a **Provenance** link on each file; Settings has a read-only **Provenance** card.
-- [ ] Light and dark themes, and a 320px-wide window: no horizontal page scroll.
-
----
-
 ## Part 11. Required-skill rules
 
 Edit `.seen/policies.yaml` in the demo repo:
@@ -384,7 +346,6 @@ seen docker-sync --watch 300 --restart               # optional: refresh every 5
 ```
 
 - [ ] The Docker dashboard shows your real projects and change counts, not generated mock data.
-- [ ] In the Docker dashboard, open **Provenance** and click a file: the list works, and instead of blocks a calm note says the dashboard has no copy of the repository so blame cannot run there (use `seen serve` on the host). The browser console shows no red 404 for the file.
 - [ ] With no snapshot folder, `docker compose up` exits with "Run 'seen docker-sync' on the host" instead of showing mock data.
 - [ ] Settings changed in the container dashboard are lost on the next refresh (change them on the host dashboard).
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Float, Index, Integer, LargeBinary, MetaData, String, Text
+from sqlalchemy import Float, Integer, MetaData, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 T = Text
@@ -143,13 +143,3 @@ class Outbox(Base):
     sent_at: Mapped[str | None] = mapped_column(T)
     dead_at: Mapped[str | None] = mapped_column(T)  # the server rejected it for good; parked until `seen sync --retry-failed`
     last_status: Mapped[int | None] = mapped_column(Integer)
-
-
-class LinePrint(Base):
-    """Keyed 8-byte fingerprint of one line an agent wrote. Never the line text."""
-    __tablename__ = "line_prints"
-    __table_args__ = (Index("ix_line_prints_change", "change_id"),)
-    project_id: Mapped[str] = mapped_column(String, primary_key=True)
-    path: Mapped[str] = mapped_column(String, primary_key=True)
-    fp: Mapped[bytes] = mapped_column(LargeBinary, primary_key=True)
-    change_id: Mapped[str] = mapped_column(String, primary_key=True)

@@ -5,6 +5,7 @@ ponytail: O(n) per request; move filters into SQL if a project passes ~50k chang
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -26,8 +27,6 @@ from seen_core.db.models import (
     SkillInvocation,
     SkillVersion,
 )
-from seen_core.headline import areas_of, headline_of, request_line
-from seen_core.pii.checked import PII_CHECKED
 from seen_core.skills import lock
 
 from . import schemas as S
@@ -59,6 +58,26 @@ class Row:
             pii_state=c.pii_state, pii_count=sum(p.count for p in self.pii if p.status == "open") if self.pii else c.pii_count,
             pii_high=any(p.confidence == "high" and p.status == "open" for p in self.pii),
             unapproved_skill=any(s.status in ("changed", "unreviewed", "blocked") for s in self.skills))
+
+
+_TAG = re.compile(r"<(command-name|command-args|summary)>(.*?)</\1>", re.S)
+
+
+def request_line(prompt: str | None) -> str | None:
+    """The request on one line. Text Claude Code injects reads as what it is, not as raw tags."""
+    if not prompt:
+        return None
+    tags = {k: " ".join(v.split()) for k, v in _TAG.findall(prompt)}
+    if prompt.lstrip().startswith("<task-notification>"):
+        return "Automatic follow-up: a background task finished" + (f" ({tags['summary'][:300]})" if tags.get("summary") else "")
+    if tags.get("command-name"):
+        return " ".join(x for x in (tags["command-name"], tags.get("command-args", "")) if x)[:400]
+    return " ".join(prompt.split())[:400]
+
+
+PII_CHECKED = ("Structured identifiers (email, phone, Aadhaar, PAN, card, IBAN, SSN, UPI, DOB, GSTIN, passport, secrets) in the "
+               "prompt, file reads, tool and MCP output, network tool inputs and added diff lines. "
+               "Names, addresses and free-text health details are not detected.")
 
 
 def pii_out(p: PiiFinding) -> S.PiiFindingOut:
@@ -300,6 +319,28 @@ def _actors(pid: str) -> dict[str, str]:
             con.close()
     except sqlite3.Error:
         return {}
+
+
+def areas_of(paths: list[str]) -> list[str]:
+    """Top folders a change touched: two levels deep, a root file as (root). Most files first, ties in first-seen order."""
+    def area(p: str) -> str:
+        parts = p.strip("/").split("/")
+        return "(root)" if len(parts) == 1 else parts[0] if len(parts) == 2 else "/".join(parts[:2])
+    return [a for a, _ in Counter(area(p) for p in paths).most_common(3)]
+
+
+_SENTENCE = re.compile(r"(?<=[.!?])\s")
+
+
+def headline_of(summary: str | None, request: str | None, files: list[str]) -> str:
+    """One line for a change: the first sentence of the reply, else the request, else what was touched."""
+    for src in (summary, request):
+        text = " ".join((src or "").replace("*", "").replace("`", "").split())
+        text = _SENTENCE.split(text, 1)[0] if text else ""
+        if len(text) >= 15:
+            return text if len(text) <= 140 else text[:139].rstrip() + "…"
+    n = len(files)
+    return f"Changed {n} {'file' if n == 1 else 'files'} in {', '.join(areas_of(files))}"
 
 
 def timeline(db: DB, pid: str, *, actor: str | None, days: int | None, all_turns: bool, page: int, page_size: int) -> S.TimelinePage:

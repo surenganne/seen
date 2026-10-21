@@ -59,10 +59,7 @@ export function ChangeDetail() {
               {c.files.map((f) => (
                 <li key={f.path}>
                   <Link className="path" to={withRange(`/p/${pid}/changes`, range, { file: f.path })}>{f.path}</Link>
-                  <span className="checks">
-                    <Link className="small" to={withRange(`/p/${pid}/provenance`, range, { path: f.path })} aria-label={`Provenance of ${f.path}`}>Provenance</Link>
-                    <span className="mono small" style={{ whiteSpace: "nowrap" }}><span className="plus">+{f.added}</span> <span className="minus">−{f.removed}</span></span>
-                  </span>
+                  <span className="mono small" style={{ whiteSpace: "nowrap" }}><span className="plus">+{f.added}</span> <span className="minus">−{f.removed}</span></span>
                 </li>
               ))}
             </ul>

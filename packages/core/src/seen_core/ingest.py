@@ -9,14 +9,12 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from . import audit, gitdelta, gitutil, paths, policy, pricing, secret, spool
+from . import audit, gitdelta, gitutil, paths, policy, pricing, spool
 from .db import ledger_session
 from .db.models import (
     Change,
     ChangeFile,
-    LinePrint,
     PiiFinding,
     Policy,
     PolicyResult,
@@ -29,7 +27,6 @@ from .db.models import (
 from .hook import EDIT_TOOLS
 from .identity import user_id as _uid
 from .invocations import Invocation, reconcile
-from .provenance import baseline
 from .redact import redact, summarise
 from .skills import lock
 from .skills.scan import TRUST
@@ -79,7 +76,6 @@ def finish_turn(session_id: str) -> dict[str, Any]:
     cwd = ts.get("cwd") or "."
     files: dict[str, tuple[int, int]] = {}
     head_after = None
-    top: str | None = None
     if before is not None:
         after = gitdelta.snapshot(cwd, base=before["head"])
         head_after = after["head"]
@@ -123,7 +119,6 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.git_status = ("committed" if head_after != row.git_head_before else "uncommitted") if files else None
         pii_rows, pii_allowed = _stop_scan(t, start, lines, turn_lines, files, before)
         _write_prompt_pii(db, cid, turn_lines)
-        _write_prints(db, cid, pid, turn_lines, top, before["head"] if before else None)
         _write_stop_pii(db, cid, pii_rows)
         _sync_inventory(db, pid)
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
@@ -479,27 +474,3 @@ def _write_stop_pii(db: Any, cid: str, rows: list[Any]) -> None:
                           fingerprints_json=json.dumps(r.fingerprints)))
     row = db.get(Change, cid)
     _set_pii_state(db, row, row.pii_state == "blocked")
-
-
-def _write_prints(db: Any, cid: str, project_id: str | None, turn_lines: list[dict[str, Any]],
-                  root: str | None = None, head_before: str | None = None) -> None:
-    """Line fingerprints only, never text, minus lines already in the file at `head_before` (so a whole-file Write does
-    not claim a person's committed lines). Malformed spool lines are skipped, never raised on."""
-    db.execute(delete(LinePrint).where(LinePrint.change_id == cid))
-    if not project_id:
-        return
-    keys: set[tuple[str, bytes]] = set()
-    key = secret.key()
-    for ln in turn_lines:
-        path, fps = ln.get("path"), ln.get("fps")
-        if ln.get("ev") != "prints" or not isinstance(path, str) or not path or not isinstance(fps, list):
-            continue
-        good = [fp for fp in fps if isinstance(fp, str) and len(fp) == 16]
-        for fp in baseline.subtract(root, head_before, path, key, good):
-            try:
-                keys.add((path, bytes.fromhex(fp)))
-            except ValueError:
-                pass
-    if keys:
-        db.execute(sqlite_insert(LinePrint).prefix_with("OR IGNORE"),
-                   [{"project_id": project_id, "path": p, "fp": f, "change_id": cid} for p, f in sorted(keys)])
