@@ -2,21 +2,28 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import shutil
+import subprocess
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import typer
 from sqlalchemy import select
 
-from seen_core import audit, brand, config, ingest, paths, safeio
+from seen_core import audit, brand, config, gitutil, ingest, paths, safeio
 from seen_core.db import ledger_session
 from seen_core.db.models import Change, ChangeFile, Project, Session, SkillInvocation
+from seen_core.headline import clean
 from seen_core.identity import user_id
 from seen_core.project import resolve_project
+from seen_core.provenance.blame import blame_file, is_failure
+from seen_core.provenance.enrich import enrich_blocks
+from seen_core.provenance.report import FAIL_ON, Report, build_report, gate, render_md
 
 app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
 skills_app = typer.Typer(help="Skill inventory and approvals", no_args_is_help=True)
@@ -45,6 +52,137 @@ def _project_or_exit(cwd: Path | None = None) -> tuple[str, Path]:
         typer.echo("Not inside a git repository.", err=True)
         raise typer.Exit(1)
     return p.id, Path(p.root)
+
+
+_LIMIT = ("agent / human / not observed are shown separately. Not observed means Seen could not have seen who wrote the line "
+          "(before Seen, or a gap in capture); it is not a claim that a person wrote it. Checked: git blame, fingerprints of "
+          "recorded edits.")
+
+
+def _ist(ts: str | None) -> str:
+    try:
+        return (datetime.fromisoformat((ts or "").replace("Z", "+00:00")) + timedelta(minutes=330)).strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return "-"
+
+
+@app.command("blame")
+def blame_cmd(path: str = typer.Argument(..., help="File, relative to the repo root"),
+              rev: str = typer.Option("HEAD", "--rev", help="Commit to blame"),
+              as_json: bool = typer.Option(False, "--json", help="Machine-readable output (no line text)")) -> None:
+    """Who wrote each line: the agent, a person, or not observed."""
+    pid, _ = _project_or_exit()
+
+    def fail(msg: str) -> typer.Exit:
+        typer.echo(msg, err=True)
+        return typer.Exit(2)
+
+    with ledger_session() as db:
+        proj = db.get(Project, pid)
+        if proj is None:
+            raise fail("This repository has no recorded changes yet.")
+        try:
+            fp = blame_file(db, proj, path, rev)
+        except ValueError as e:
+            raise fail(f"Cannot blame {clean(path)!r}: {clean(str(e))}.") from e
+        if is_failure(fp.reason):
+            raise fail(f"Cannot blame {clean(path)!r} at {clean(rev)}: {clean(fp.reason)}.")
+        blocks = enrich_blocks(db, fp.blocks)
+    if as_json:
+        typer.echo(json.dumps({**dataclasses.asdict(fp), "blocks": [dataclasses.asdict(b) for b in blocks]}, indent=2))
+        return
+    if path.endswith(".ipynb"):
+        typer.echo("Notebook files are not line-attributed (a cell is one JSON line); showing blame counts only.")
+    if fp.truncated:
+        typer.echo("Stopped at the time budget; the result is incomplete.")
+    for b in blocks:
+        typer.echo(f"{b.start}-{b.end}  {b.who}  {clean(b.headline) or '-'}  {_ist(b.started_at)} IST  {clean(b.model) or '-'}")
+    c = fp.counts
+    if fp.reason:
+        typer.echo(f"No lines attributed: {clean(fp.reason)}.")
+        return
+    typer.echo(f"{fp.path} at {rev}: agent {c['agent']} / human {c['human']} / not observed {c['not_observed']} lines"
+               f" ({c['neutral']} blank lines). {_LIMIT}")
+
+
+_FAIL_HELP = f"Exit 1 when it holds: {', '.join(FAIL_ON)} (repeatable)"
+
+
+def _stdin_is_tty() -> bool:
+    return sys.stdin is not None and sys.stdin.isatty()  # fd 0 closed: sys.stdin is None
+
+
+def _post(root: Path, pid: str, rep: Report, body: str, yes: bool, fail: Callable[[str], typer.Exit]) -> None:
+    if not yes:
+        try:
+            if not typer.confirm("Post this to the PR?", default=False):
+                return
+        except typer.Abort:  # EOF or Ctrl-C: no answer is a no
+            typer.echo("")
+            return
+    try:  # fixed argv, no shell; the body goes on stdin, never into the command line
+        r = subprocess.run(["gh", "pr", "comment", "--body-file", "-"], input=body, text=True, capture_output=True,
+                           timeout=30, cwd=root)
+    except FileNotFoundError as e:
+        raise fail("gh not found; install the GitHub CLI: https://cli.github.com") from e
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise fail(f"gh did not run: {type(e).__name__}.") from e
+    if r.returncode:
+        first = (r.stderr or "").strip().splitlines()[:1]
+        raise fail(f"gh failed (exit {r.returncode}): {clean(first[0]) if first else 'no message'}")
+    # counts only: no headlines, branch or repo names, URLs or comment text
+    try:
+        audit.append([{"type": "provenance.reported", "actor_kind": "user", "actor_id": user_id(), "project_id": pid,
+                       "detail": {"added": sum(rep.added.values()) + rep.neutral, "requests": len(rep.requests)}}])
+    except Exception as e:  # the comment is already up: say so, type name only
+        raise fail(f"Posted the report to the PR, but the audit event could not be written ({type(e).__name__})") from e
+    typer.echo("Posted the report to the PR.")
+
+
+@app.command("pr-report")
+def pr_report_cmd(base: str = typer.Option(..., "--base", help="Base ref (the range is BASE...HEAD, from the merge base)"),
+                  head: str = typer.Option("HEAD", "--head", help="Head ref"),
+                  fmt: str = typer.Option("md", "--format", help="md or json"),
+                  no_cost: bool = typer.Option(False, "--no-cost", help="Leave the API-equivalent cost out"),
+                  fail_on: list[str] = typer.Option([], "--fail-on", help=_FAIL_HELP),
+                  post: bool = typer.Option(False, "--post", help="Post the Markdown as a comment on this branch's PR (uses gh)"),
+                  yes: bool = typer.Option(False, "--yes", help="With --post: do not ask first")
+                  ) -> None:
+    """Who wrote the lines a branch adds, for a pull request."""
+    def fail(msg: str) -> typer.Exit:
+        typer.echo(msg, err=True)
+        return typer.Exit(2)
+
+    if fmt not in ("md", "json"):
+        raise fail("--format must be md or json.")
+    if bad := [x for x in fail_on if x not in FAIL_ON]:
+        raise fail(f"Unknown --fail-on {clean(bad[0])!r}; use one of {', '.join(FAIL_ON)}.")
+    if post and fmt != "md":
+        raise fail("--post posts the Markdown report only; drop --format json.")
+    if post and not yes and not _stdin_is_tty():
+        raise fail("--post needs a terminal to ask first; pass --yes to post without asking.")
+    pid, root = _project_or_exit()
+    if post:
+        # gh comments on the PR of the checked-out branch: the report must describe exactly that commit
+        h = gitutil.run(root, "rev-parse", "--verify", "--end-of-options", f"{head}^{{commit}}")
+        if not h or h != gitutil.run(root, "rev-parse", "--verify", "HEAD"):
+            raise fail("--post only works when --head is the checked-out branch's HEAD; check it out first.")
+    with ledger_session() as db:
+        proj = db.get(Project, pid)
+        if proj is None:
+            raise fail("This repository has no recorded changes yet.")
+        try:
+            rep = build_report(db, proj, base, head, with_cost=not no_cost)
+        except ValueError as e:
+            raise fail(f"Cannot report {clean(base)!r}...{clean(head)!r}: {clean(str(e))}.") from e
+    body = json.dumps(dataclasses.asdict(rep), indent=2) if fmt == "json" else render_md(rep)
+    typer.echo(body, nl=fmt == "json")
+    if post:
+        _post(root, pid, rep, body, yes, fail)
+    if reasons := gate(rep, set(fail_on)):
+        for x in reasons:
+            typer.echo(x, err=True)
+        raise typer.Exit(1)
 
 
 @app.command()

@@ -14,7 +14,7 @@ def test_every_get_route_answers(client: TestClient) -> None:
     assert len(routes) > 10
     for r in routes:
         path = r.path.replace("{pid}", PID).replace("{cid}", cid).replace("{sid}", "release-notes")
-        resp = client.get(path, params={"project": PID})
+        resp = client.get(path, params={"project": PID, "path": "src/payments/charge.py", "base": "HEAD"})
         assert resp.status_code == 200, (path, resp.status_code, resp.text[:200])
 
 

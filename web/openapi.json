@@ -1715,6 +1715,409 @@
         "title": "ProjectOut",
         "type": "object"
       },
+      "ProvenanceBlock": {
+        "properties": {
+          "change_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Id"
+          },
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "headline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Headline"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "pii_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pii State"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "who": {
+            "enum": [
+              "agent",
+              "human",
+              "not_observed",
+              "neutral"
+            ],
+            "title": "Who",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "who",
+          "change_id",
+          "headline",
+          "started_at",
+          "model",
+          "skills",
+          "pii_state"
+        ],
+        "title": "ProvenanceBlock",
+        "type": "object"
+      },
+      "ProvenanceFile": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/ProvenanceBlock"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rev": {
+            "title": "Rev",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "rev",
+          "counts",
+          "blocks",
+          "truncated",
+          "reason"
+        ],
+        "title": "ProvenanceFile",
+        "type": "object"
+      },
+      "ProvenanceFileRow": {
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "last_change_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Change Id"
+          },
+          "last_changed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Changed At"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "integer"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "requests",
+          "added",
+          "removed",
+          "last_changed_at",
+          "last_change_id"
+        ],
+        "title": "ProvenanceFileRow",
+        "type": "object"
+      },
+      "ProvenanceFiles": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProvenanceFileRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "items"
+        ],
+        "title": "ProvenanceFiles",
+        "type": "object"
+      },
+      "ProvenanceRange": {
+        "properties": {
+          "added": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Added",
+            "type": "object"
+          },
+          "base": {
+            "title": "Base",
+            "type": "string"
+          },
+          "commits": {
+            "title": "Commits",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "files": {
+            "title": "Files",
+            "type": "integer"
+          },
+          "head": {
+            "title": "Head",
+            "type": "string"
+          },
+          "missed_rules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missed Rules",
+            "type": "array"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "neutral": {
+            "title": "Neutral",
+            "type": "integer"
+          },
+          "pii_checked": {
+            "title": "Pii Checked",
+            "type": "string"
+          },
+          "pii_high": {
+            "title": "Pii High",
+            "type": "integer"
+          },
+          "pii_state": {
+            "title": "Pii State",
+            "type": "string"
+          },
+          "pii_unchecked": {
+            "title": "Pii Unchecked",
+            "type": "integer"
+          },
+          "requests": {
+            "items": {
+              "$ref": "#/components/schemas/ProvenanceRequest"
+            },
+            "title": "Requests",
+            "type": "array"
+          },
+          "rules_checked": {
+            "title": "Rules Checked",
+            "type": "integer"
+          },
+          "rules_missed": {
+            "title": "Rules Missed",
+            "type": "integer"
+          },
+          "sessions": {
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "skills": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Skills",
+            "type": "array"
+          }
+        },
+        "required": [
+          "base",
+          "head",
+          "commits",
+          "added",
+          "requests",
+          "sessions",
+          "models",
+          "skills",
+          "rules_missed",
+          "pii_state",
+          "pii_checked",
+          "cost_usd",
+          "neutral",
+          "files",
+          "missed_rules",
+          "rules_checked",
+          "pii_high",
+          "pii_unchecked"
+        ],
+        "title": "ProvenanceRange",
+        "type": "object"
+      },
+      "ProvenanceRequest": {
+        "properties": {
+          "change_id": {
+            "title": "Change Id",
+            "type": "string"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          }
+        },
+        "required": [
+          "change_id",
+          "headline",
+          "started_at",
+          "model"
+        ],
+        "title": "ProvenanceRequest",
+        "type": "object"
+      },
       "RhythmCell": {
         "properties": {
           "changes": {
@@ -2025,6 +2428,11 @@
             "title": "Prices",
             "type": "object"
           },
+          "provenance": {
+            "additionalProperties": true,
+            "title": "Provenance",
+            "type": "object"
+          },
           "skills": {
             "additionalProperties": true,
             "title": "Skills",
@@ -2057,7 +2465,8 @@
           "sync",
           "prices",
           "tools",
-          "local_data"
+          "local_data",
+          "provenance"
         ],
         "title": "SettingsOut",
         "type": "object"
@@ -3891,6 +4300,230 @@
           }
         },
         "summary": "Policies"
+      }
+    },
+    "/api/projects/{pid}/provenance/file": {
+      "get": {
+        "operationId": "provenance_file_api_projects__pid__provenance_file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "rev",
+            "required": false,
+            "schema": {
+              "default": "HEAD",
+              "title": "Rev",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvenanceFile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provenance File"
+      }
+    },
+    "/api/projects/{pid}/provenance/files": {
+      "get": {
+        "description": "Files your requests changed, from the ledger alone: no git and no file contents.",
+        "operationId": "provenance_files_api_projects__pid__provenance_files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Days"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "recent",
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvenanceFiles"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provenance Files"
+      }
+    },
+    "/api/projects/{pid}/provenance/range": {
+      "get": {
+        "operationId": "provenance_range_api_projects__pid__provenance_range_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "base",
+            "required": true,
+            "schema": {
+              "title": "Base",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "head",
+            "required": false,
+            "schema": {
+              "default": "HEAD",
+              "title": "Head",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvenanceRange"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provenance Range"
       }
     },
     "/api/projects/{pid}/sessions": {

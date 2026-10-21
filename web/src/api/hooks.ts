@@ -44,6 +44,24 @@ export const useTimeline = (pid: string, query: { actor?: string; days?: number;
     placeholderData: keepPreviousData,
   });
 
+/** Off until a path is chosen. */
+export const useProvenanceFile = (pid: string, path: string | undefined, rev?: string) =>
+  useQuery({
+    queryKey: ["provenance", pid, path, rev],
+    enabled: !!path,
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/provenance/file", { params: { path: { pid }, query: { path: path ?? "", rev } } })),
+  });
+
+const str = (n: number | undefined) => (n === undefined ? undefined : String(n));
+export type FileQuery = { q?: string; sort?: string; page?: number; days?: number; page_size?: number };
+/** The ranked "files agents changed" list: from the ledger, so it needs no repo. */
+export const useProvenanceFiles = (pid: string, query: FileQuery) =>
+  useQuery({
+    queryKey: ["provenance-files", pid, query],
+    queryFn: () => unwrap(api.GET("/api/projects/{pid}/provenance/files", { params: { path: { pid }, query: { q: query.q, sort: query.sort, days: str(query.days), page: str(query.page), page_size: str(query.page_size) } } })), // plain strings: the server validates them itself so a 422 never echoes input
+    placeholderData: keepPreviousData,
+  });
+
 export const useChange = (cid: string) =>
   useQuery({ queryKey: ["change", cid], queryFn: () => unwrap(api.GET("/api/changes/{cid}", { params: { path: { cid } } })) });
 
