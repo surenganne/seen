@@ -298,27 +298,7 @@ def _on_post_tool(p: dict[str, Any]) -> Result:
     if tool == "Bash" and isinstance(ti.get("command"), str):
         line["cmd0"] = _cmd0(ti["command"])
     spool.append(p["session_id"], line)
-    if tool in _PRINT_TOOLS:
-        try:  # provenance must never cost the tool line above
-            _spool_prints(p, tool, ti)
-        except Exception:
-            _log_exception("post-tool:prints")
     return Result()
-
-
-_PRINT_TOOLS = {"Edit", "Write", "NotebookEdit"}
-
-
-def _spool_prints(p: dict[str, Any], tool: str, ti: dict[str, Any]) -> None:
-    from . import config, secret
-    from .provenance import prints
-
-    if not config.load()["provenance"]["enabled"]:
-        return
-    root = sessionstate.read(p["session_id"]).get("root")
-    if not root or (r := prints.capture(tool, ti, root, secret.key())) is None:
-        return
-    spool.append(p["session_id"], {"ev": "prints", **_base(p), "tool_use_id": p.get("tool_use_id"), **r})
 
 
 def _on_stop(p: dict[str, Any]) -> Result:

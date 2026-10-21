@@ -415,7 +415,6 @@ class SettingsOut(BaseModel):
     prices: dict[str, Any]
     tools: list[dict[str, Any]]
     local_data: dict[str, str]
-    provenance: dict[str, Any]  # read-only here: not in SettingsIn or writes.EDITABLE
 
 
 class SettingsIn(BaseModel):
@@ -446,68 +445,3 @@ class DenySnippet(BaseModel):
     rules: list[str]
     snippet: str
     note: str
-
-
-class ProvenanceBlock(BaseModel):
-    start: int
-    end: int
-    who: Literal["agent", "human", "not_observed", "neutral"]
-    change_id: str | None
-    headline: str | None
-    started_at: str | None
-    model: str | None
-    skills: list[str]
-    pii_state: str | None
-
-
-class ProvenanceFile(BaseModel):
-    path: str
-    rev: str
-    counts: dict[str, int]
-    blocks: list[ProvenanceBlock]
-    truncated: bool
-    reason: str | None
-
-
-class ProvenanceFileRow(BaseModel):
-    path: str
-    requests: int  # distinct changes of yours (not background) that touched the file
-    added: int
-    removed: int
-    last_changed_at: str | None
-    last_change_id: str | None
-
-
-class ProvenanceFiles(BaseModel):
-    total: int
-    page: int
-    page_size: int
-    items: list[ProvenanceFileRow]
-
-
-class ProvenanceRequest(BaseModel):
-    change_id: str
-    headline: str
-    started_at: str | None
-    model: str | None
-
-
-class ProvenanceRange(BaseModel):
-    base: str
-    head: str
-    commits: int
-    added: dict[str, int]
-    requests: list[ProvenanceRequest]
-    sessions: int
-    models: list[str]
-    skills: list[tuple[str, str]]
-    rules_missed: int
-    pii_state: str
-    pii_checked: str
-    cost_usd: float | None
-    neutral: int
-    files: int
-    missed_rules: list[str]
-    rules_checked: int
-    pii_high: int
-    pii_unchecked: int
