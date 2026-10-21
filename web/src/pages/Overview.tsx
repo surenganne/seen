@@ -115,8 +115,7 @@ export function Overview() {
         <Card title="Where the work happened" aside={<span className="hint">requests touching each folder</span>}>
           {o.areas.length === 0 ? <Empty icon={FileCode2} title="No files changed" /> : (
             <MagnitudeBars items={o.areas.map((a) => ({ label: a.area, value: a.changes, sub: `+${int(a.added)} −${int(a.removed)}`,
-              to: a.area === "(root)" ? undefined : rows({ q: a.area }),
-              more: a.area === "(root)" ? undefined : { to: withRange(`/p/${pid}/provenance`, range, { q: a.area }), text: "See files", name: `See files in ${a.area}` } }))} />
+              to: a.area === "(root)" ? undefined : rows({ q: a.area }) }))} />
           )}
         </Card>
         <Card title="What happened to it" aside={<span className="hint">requests that changed files</span>}>

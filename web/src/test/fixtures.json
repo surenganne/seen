@@ -6,11 +6,11 @@
   "count": 1991,
   "expected": null,
   "found": null,
-  "head": "a6c14c0d737b914bd210f327e7c2f4a6267739a12751fb7ac04db9665f315b17",
+  "head": "8b3080431dbf1595f8d1c1a22c552409bfd49e7dc7da17ab623af6a30362e5d2",
   "head_seq": 1991,
   "ok": true,
   "reason": null,
-  "verified_at": "2026-10-20T17:32:22.296Z"
+  "verified_at": "2026-10-20T09:00:18.856Z"
  },
  "/api/changes/ch_82c299f07487d772": {
   "cost_breakdown": [
@@ -41,7 +41,7 @@
   ],
   "cost_usd": 0.104187,
   "duration_s": 513,
-  "ended_at": "2026-10-20T11:27:21Z",
+  "ended_at": "2026-10-20T02:55:18Z",
   "files": [
    {
     "added": 31,
@@ -101,7 +101,7 @@
    }
   ],
   "source": "live",
-  "started_at": "2026-10-20T11:24:21Z",
+  "started_at": "2026-10-20T02:52:18Z",
   "summary": "Refactored chart component to use shared axis",
   "tokens": {
    "cache_read": 212774,
@@ -117,30 +117,30 @@
    "changes": 112,
    "cost_7d": 5.3297,
    "id": "demo-pipes",
-   "last_change_at": "2026-10-20T16:35:21Z",
+   "last_change_at": "2026-10-20T08:03:18Z",
    "name": "data-pipelines",
    "remote": "github.com/acme/data-pipelines",
-   "root_path": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmp5k3jh9pq/demo-repos/data-pipelines"
+   "root_path": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmpxm1ynj3s/demo-repos/data-pipelines"
   },
   {
    "alert": true,
    "changes": 81,
    "cost_7d": 1.8415,
    "id": "demo-patient",
-   "last_change_at": "2026-10-20T14:40:21Z",
+   "last_change_at": "2026-10-20T06:08:18Z",
    "name": "patient360-web",
    "remote": "github.com/acme/patient360-web",
-   "root_path": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmp5k3jh9pq/demo-repos/patient360-web"
+   "root_path": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmpxm1ynj3s/demo-repos/patient360-web"
   },
   {
    "alert": true,
    "changes": 89,
    "cost_7d": 4.2063,
    "id": "demo-payments",
-   "last_change_at": "2026-10-20T11:24:21Z",
+   "last_change_at": "2026-10-20T02:52:18Z",
    "name": "payments-api",
    "remote": "github.com/acme/payments-api",
-   "root_path": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmp5k3jh9pq/demo-repos/payments-api"
+   "root_path": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmpxm1ynj3s/demo-repos/payments-api"
   }
  ],
  "/api/projects/demo-payments/audit": {
@@ -152,13 +152,13 @@
     "detail": {
      "reason": "other"
     },
-    "event_id": "5349a293417b457ba93f8b80b5297717",
-    "hash": "ff1557179718d7cd368298f98bac657b0ab9b7fe871f999e870d430b892f7a8f",
-    "occurred_at": "2026-10-20T11:29:21Z",
+    "event_id": "37d5e41a9d2b4c75b5234accbe265d67",
+    "hash": "7dbe3b00250bc9589efc5b4bd7edf1597c160926f8d016f7ac676f8fdca1db75",
+    "occurred_at": "2026-10-20T02:57:18Z",
     "outcome": "ok",
-    "prev_hash": "804670f78f2a93f5031aa90d820e499aabfb82e85f3ba1545f37ec55890b84bf",
+    "prev_hash": "a3529ee2c75c7da95fa601be622d9fa86eed07536de1366d2df382e1c2b354c4",
     "project_id": "demo-payments",
-    "recorded_at": "2026-10-20T17:32:22.201Z",
+    "recorded_at": "2026-10-20T09:00:18.764Z",
     "seq": 1939,
     "session_id": "demo-demo-payments-1059861b4f5b",
     "subject": null,
@@ -173,13 +173,13 @@
      "files": 3,
      "tok_out": 3034
     },
-    "event_id": "ef76c3f252684c1d9b89867b2bea6878",
-    "hash": "804670f78f2a93f5031aa90d820e499aabfb82e85f3ba1545f37ec55890b84bf",
-    "occurred_at": "2026-10-20T11:27:21Z",
+    "event_id": "3e767aa55f214bddae6a55639828f0df",
+    "hash": "a3529ee2c75c7da95fa601be622d9fa86eed07536de1366d2df382e1c2b354c4",
+    "occurred_at": "2026-10-20T02:55:18Z",
     "outcome": "ok",
-    "prev_hash": "fdf2514484de400ca8e56a3fa641bd6ca361a7c8d12a8ddd1b30b2acb8c7d0df",
+    "prev_hash": "99eea55c6d25934a4236d67a5fb1cf1b1ca95395731572fd2082c6980caf96e8",
     "project_id": "demo-payments",
-    "recorded_at": "2026-10-20T17:32:22.201Z",
+    "recorded_at": "2026-10-20T09:00:18.764Z",
     "seq": 1938,
     "session_id": "demo-demo-payments-1059861b4f5b",
     "subject": null,
@@ -193,13 +193,13 @@
      "met": true,
      "policy": "pol-auth"
     },
-    "event_id": "3996dcf9c5ed42a38befc61406609f57",
-    "hash": "fdf2514484de400ca8e56a3fa641bd6ca361a7c8d12a8ddd1b30b2acb8c7d0df",
-    "occurred_at": "2026-10-20T11:24:21Z",
+    "event_id": "1fad37b9d7e94a7b9fe2bc22666f3fc7",
+    "hash": "99eea55c6d25934a4236d67a5fb1cf1b1ca95395731572fd2082c6980caf96e8",
+    "occurred_at": "2026-10-20T02:52:18Z",
     "outcome": "ok",
-    "prev_hash": "27e81851248320390069e577210b571ee9f867f13edc4b769256697cd8947170",
+    "prev_hash": "fd0440d3b1adad0e4841bc189f4c50386832c54620bd00f525c9adbd93fc80ce",
     "project_id": "demo-payments",
-    "recorded_at": "2026-10-20T17:32:22.201Z",
+    "recorded_at": "2026-10-20T09:00:18.764Z",
     "seq": 1937,
     "session_id": "demo-demo-payments-1059861b4f5b",
     "subject": "pol-auth",
@@ -214,13 +214,13 @@
      "skill": "security-review",
      "status": "approved"
     },
-    "event_id": "4aed73e80fcf4f8399e884e242332558",
-    "hash": "27e81851248320390069e577210b571ee9f867f13edc4b769256697cd8947170",
-    "occurred_at": "2026-10-20T11:24:21Z",
+    "event_id": "7fba0016d819408698b9f9191655eaee",
+    "hash": "fd0440d3b1adad0e4841bc189f4c50386832c54620bd00f525c9adbd93fc80ce",
+    "occurred_at": "2026-10-20T02:52:18Z",
     "outcome": "ok",
-    "prev_hash": "055a96dffd6c7949c9c27d1999072c2b3873a448e7075e7753b72744af65f719",
+    "prev_hash": "6f340acb717b0b26549d9d5f5a16627085444224a9302468105b0a7f2093bd92",
     "project_id": "demo-payments",
-    "recorded_at": "2026-10-20T17:32:22.201Z",
+    "recorded_at": "2026-10-20T09:00:18.764Z",
     "seq": 1936,
     "session_id": "demo-demo-payments-1059861b4f5b",
     "subject": "security-review",
@@ -235,13 +235,13 @@
      "skill": "release-notes",
      "status": "unreviewed"
     },
-    "event_id": "69a43d3edc004cada0bad2db5aa9453c",
-    "hash": "055a96dffd6c7949c9c27d1999072c2b3873a448e7075e7753b72744af65f719",
-    "occurred_at": "2026-10-20T11:24:21Z",
+    "event_id": "2aadfe8fa8da468c9d3768a7c7706ae4",
+    "hash": "6f340acb717b0b26549d9d5f5a16627085444224a9302468105b0a7f2093bd92",
+    "occurred_at": "2026-10-20T02:52:18Z",
     "outcome": "ok",
-    "prev_hash": "ecf795faf2136fa4931e81b1099bf9787f91da6e13f06444eb3bcb40b2c9e4e2",
+    "prev_hash": "aca66efa7114d9355ded156e87a661d1c012a38319b16d9bf40769e950c5f4dd",
     "project_id": "demo-payments",
-    "recorded_at": "2026-10-20T17:32:22.201Z",
+    "recorded_at": "2026-10-20T09:00:18.764Z",
     "seq": 1935,
     "session_id": "demo-demo-payments-1059861b4f5b",
     "subject": "release-notes",
@@ -256,13 +256,13 @@
      "path": "src/auth/tokens.py",
      "removed": 20
     },
-    "event_id": "b10a7842247c42bbae27f8ccb07e7ce5",
-    "hash": "ecf795faf2136fa4931e81b1099bf9787f91da6e13f06444eb3bcb40b2c9e4e2",
-    "occurred_at": "2026-10-20T11:24:21Z",
+    "event_id": "39f577ad57524f2d9d09554834c3f83a",
+    "hash": "aca66efa7114d9355ded156e87a661d1c012a38319b16d9bf40769e950c5f4dd",
+    "occurred_at": "2026-10-20T02:52:18Z",
     "outcome": "ok",
-    "prev_hash": "81425c5c7516510c21cede4ea4d67e28bef4b0976d33528f4e0ef31b94b1e5bb",
+    "prev_hash": "3b815071d64a53b07d93467652453fce2c7994be9f168ca11c74dc81b9beff8b",
     "project_id": "demo-payments",
-    "recorded_at": "2026-10-20T17:32:22.201Z",
+    "recorded_at": "2026-10-20T09:00:18.764Z",
     "seq": 1934,
     "session_id": "demo-demo-payments-1059861b4f5b",
     "subject": "src/auth/tokens.py",
@@ -277,13 +277,13 @@
      "path": "pyproject.toml",
      "removed": 26
     },
-    "event_id": "552768966a1b4e1db4796389b494c699",
-    "hash": "81425c5c7516510c21cede4ea4d67e28bef4b0976d33528f4e0ef31b94b1e5bb",
-    "occurred_at": "2026-10-20T11:24:21Z",
+    "event_id": "e7b648344cd64d50a469290d6d8ae8e1",
+    "hash": "3b815071d64a53b07d93467652453fce2c7994be9f168ca11c74dc81b9beff8b",
+    "occurred_at": "2026-10-20T02:52:18Z",
     "outcome": "ok",
-    "prev_hash": "ac4ebc118c5e0cd8a4ac24c853afd0e857a56900e24608397d5e35ebaa5d0651",
+    "prev_hash": "28caae415008c2ae9da99a79867316bd120b6ff60a5b6afd94f8b8740679730a",
     "project_id": "demo-payments",
-    "recorded_at": "2026-10-20T17:32:22.201Z",
+    "recorded_at": "2026-10-20T09:00:18.764Z",
     "seq": 1933,
     "session_id": "demo-demo-payments-1059861b4f5b",
     "subject": "pyproject.toml",
@@ -298,13 +298,13 @@
      "path": "src/payments/refund.py",
      "removed": 20
     },
-    "event_id": "bd55263ca84e452cb59af4b0f5e14e02",
-    "hash": "ac4ebc118c5e0cd8a4ac24c853afd0e857a56900e24608397d5e35ebaa5d0651",
-    "occurred_at": "2026-10-20T11:24:21Z",
+    "event_id": "49068ad307f4454fb60231e5212652fd",
+    "hash": "28caae415008c2ae9da99a79867316bd120b6ff60a5b6afd94f8b8740679730a",
+    "occurred_at": "2026-10-20T02:52:18Z",
     "outcome": "ok",
-    "prev_hash": "161f1f10f2eed4b53df905ff678d8fa6da066c2dd6e15f0512f6b28d4e4eb6f5",
+    "prev_hash": "ed2fc413e802d38c90d66485774f3dfee1c2478e7b668665cfa522526889505a",
     "project_id": "demo-payments",
-    "recorded_at": "2026-10-20T17:32:22.201Z",
+    "recorded_at": "2026-10-20T09:00:18.764Z",
     "seq": 1932,
     "session_id": "demo-demo-payments-1059861b4f5b",
     "subject": "src/payments/refund.py",
@@ -346,7 +346,7 @@
      "release-notes",
      "security-review"
     ],
-    "started_at": "2026-10-20T11:24:21Z",
+    "started_at": "2026-10-20T02:52:18Z",
     "summary": "Refactored chart component to use shared axis",
     "tokens": 228377,
     "tool": "claude-code",
@@ -373,7 +373,7 @@
     "seq": 4,
     "session_id": "demo-demo-payments-b1d84739cc7b",
     "skills": [],
-    "started_at": "2026-10-18T09:10:21Z",
+    "started_at": "2026-10-18T00:38:18Z",
     "summary": "Added refund idempotency key and tests",
     "tokens": 358980,
     "tool": "claude-code",
@@ -402,7 +402,7 @@
     "skills": [
      "phi-redaction-check"
     ],
-    "started_at": "2026-10-18T09:05:21Z",
+    "started_at": "2026-10-18T00:33:18Z",
     "summary": "Refactored chart component to use shared axis",
     "tokens": 35258,
     "tool": "claude-code",
@@ -428,7 +428,7 @@
     "seq": 2,
     "session_id": "demo-demo-payments-b1d84739cc7b",
     "skills": [],
-    "started_at": "2026-10-18T08:56:21Z",
+    "started_at": "2026-10-18T00:24:18Z",
     "summary": "Bumped dependencies and fixed lint",
     "tokens": 58399,
     "tool": "claude-code",
@@ -455,7 +455,7 @@
     "skills": [
      "systematic-debugging"
     ],
-    "started_at": "2026-10-18T08:54:21Z",
+    "started_at": "2026-10-18T00:22:18Z",
     "summary": "Removed dead feature flag",
     "tokens": 288041,
     "tool": "claude-code",
@@ -481,7 +481,7 @@
     "seq": 2,
     "session_id": "demo-demo-payments-8bde5d8babd7",
     "skills": [],
-    "started_at": "2026-10-18T08:26:21Z",
+    "started_at": "2026-10-17T23:54:18Z",
     "summary": "Added dbt test for orders uniqueness",
     "tokens": 215025,
     "tool": "claude-code",
@@ -509,7 +509,7 @@
     "skills": [
      "release-notes"
     ],
-    "started_at": "2026-10-18T08:15:21Z",
+    "started_at": "2026-10-17T23:43:18Z",
     "summary": "Added dbt test for orders uniqueness",
     "tokens": 47832,
     "tool": "claude-code",
@@ -537,7 +537,7 @@
     "skills": [
      "release-notes"
     ],
-    "started_at": "2026-10-17T16:44:21Z",
+    "started_at": "2026-10-17T08:12:18Z",
     "summary": "Added dbt test for orders uniqueness",
     "tokens": 186748,
     "tool": "claude-code",
@@ -848,42 +848,42 @@
    {
     "changes": 1,
     "dow": 1,
-    "hour": 16
+    "hour": 8
    },
    {
-    "changes": 1,
+    "changes": 4,
     "dow": 2,
-    "hour": 14
-   },
-   {
-    "changes": 3,
-    "dow": 2,
-    "hour": 15
+    "hour": 6
    },
    {
     "changes": 1,
     "dow": 3,
-    "hour": 20
+    "hour": 11
    },
    {
-    "changes": 3,
+    "changes": 4,
     "dow": 3,
-    "hour": 21
-   },
-   {
-    "changes": 1,
-    "dow": 3,
-    "hour": 22
+    "hour": 13
    },
    {
     "changes": 3,
     "dow": 4,
-    "hour": 17
+    "hour": 8
    },
    {
-    "changes": 1,
+    "changes": 4,
     "dow": 5,
-    "hour": 14
+    "hour": 6
+   },
+   {
+    "changes": 2,
+    "dow": 5,
+    "hour": 13
+   },
+   {
+    "changes": 4,
+    "dow": 6,
+    "hour": 5
    }
   ],
   "skill_status": {
@@ -975,194 +975,6 @@
    "title": "PHI redaction check on LLM code"
   }
  ],
- "/api/projects/demo-payments/provenance/file": {
-  "blocks": [
-   {
-    "change_id": "ch_23bed01d43cf2fde",
-    "end": 1,
-    "headline": "Investigated flaky refund test and pinned clock",
-    "model": "claude-sonnet-5-5",
-    "pii_state": "none",
-    "skills": [
-     "phi-redaction-check"
-    ],
-    "start": 1,
-    "started_at": "2026-09-22T12:23:21Z",
-    "who": "agent"
-   },
-   {
-    "change_id": "ch_00d4af5974273ca3",
-    "end": 2,
-    "headline": "Bumped dependencies and fixed lint",
-    "model": "claude-haiku-5-5",
-    "pii_state": "none",
-    "skills": [
-     "release-notes",
-     "pii-scan"
-    ],
-    "start": 2,
-    "started_at": "2026-09-22T12:27:21Z",
-    "who": "agent"
-   },
-   {
-    "change_id": null,
-    "end": 3,
-    "headline": null,
-    "model": null,
-    "pii_state": null,
-    "skills": [],
-    "start": 3,
-    "started_at": null,
-    "who": "human"
-   },
-   {
-    "change_id": "ch_23bed01d43cf2fde",
-    "end": 4,
-    "headline": "Investigated flaky refund test and pinned clock",
-    "model": "claude-sonnet-5-5",
-    "pii_state": "none",
-    "skills": [
-     "phi-redaction-check"
-    ],
-    "start": 4,
-    "started_at": "2026-09-22T12:23:21Z",
-    "who": "agent"
-   },
-   {
-    "change_id": "ch_00d4af5974273ca3",
-    "end": 5,
-    "headline": "Bumped dependencies and fixed lint",
-    "model": "claude-haiku-5-5",
-    "pii_state": "none",
-    "skills": [
-     "release-notes",
-     "pii-scan"
-    ],
-    "start": 5,
-    "started_at": "2026-09-22T12:27:21Z",
-    "who": "agent"
-   },
-   {
-    "change_id": null,
-    "end": 6,
-    "headline": null,
-    "model": null,
-    "pii_state": null,
-    "skills": [],
-    "start": 6,
-    "started_at": null,
-    "who": "human"
-   },
-   {
-    "change_id": "ch_23bed01d43cf2fde",
-    "end": 7,
-    "headline": "Investigated flaky refund test and pinned clock",
-    "model": "claude-sonnet-5-5",
-    "pii_state": "none",
-    "skills": [
-     "phi-redaction-check"
-    ],
-    "start": 7,
-    "started_at": "2026-09-22T12:23:21Z",
-    "who": "agent"
-   },
-   {
-    "change_id": "ch_00d4af5974273ca3",
-    "end": 8,
-    "headline": "Bumped dependencies and fixed lint",
-    "model": "claude-haiku-5-5",
-    "pii_state": "none",
-    "skills": [
-     "release-notes",
-     "pii-scan"
-    ],
-    "start": 8,
-    "started_at": "2026-09-22T12:27:21Z",
-    "who": "agent"
-   }
-  ],
-  "counts": {
-   "agent": 26,
-   "human": 12,
-   "neutral": 0,
-   "not_observed": 0
-  },
-  "path": "src/payments/charge.py",
-  "reason": null,
-  "rev": "HEAD",
-  "truncated": false
- },
- "/api/projects/demo-payments/provenance/files": {
-  "items": [
-   {
-    "added": 1034,
-    "last_change_id": "ch_82c299f07487d772",
-    "last_changed_at": "2026-10-20T11:24:21Z",
-    "path": "pyproject.toml",
-    "removed": 288,
-    "requests": 15
-   },
-   {
-    "added": 1416,
-    "last_change_id": "ch_82c299f07487d772",
-    "last_changed_at": "2026-10-20T11:24:21Z",
-    "path": "src/auth/tokens.py",
-    "removed": 491,
-    "requests": 19
-   },
-   {
-    "added": 1364,
-    "last_change_id": "ch_82c299f07487d772",
-    "last_changed_at": "2026-10-20T11:24:21Z",
-    "path": "src/payments/refund.py",
-    "removed": 528,
-    "requests": 21
-   },
-   {
-    "added": 1124,
-    "last_change_id": "ch_e5871d8916312fc6",
-    "last_changed_at": "2026-10-18T09:10:21Z",
-    "path": "llm/summarise.py",
-    "removed": 427,
-    "requests": 18
-   },
-   {
-    "added": 1797,
-    "last_change_id": "ch_e5871d8916312fc6",
-    "last_changed_at": "2026-10-18T09:10:21Z",
-    "path": "src/auth/session.py",
-    "removed": 412,
-    "requests": 22
-   },
-   {
-    "added": 1291,
-    "last_change_id": "ch_e5871d8916312fc6",
-    "last_changed_at": "2026-10-18T09:10:21Z",
-    "path": "tests/test_charge.py",
-    "removed": 476,
-    "requests": 23
-   },
-   {
-    "added": 977,
-    "last_change_id": "ch_edef50031fce01e3",
-    "last_changed_at": "2026-10-18T08:56:21Z",
-    "path": "api/routes.py",
-    "removed": 333,
-    "requests": 17
-   },
-   {
-    "added": 982,
-    "last_change_id": "ch_94fb09f053c93ae7",
-    "last_changed_at": "2026-10-18T08:54:21Z",
-    "path": "README.md",
-    "removed": 474,
-    "requests": 20
-   }
-  ],
-  "page": 1,
-  "page_size": 50,
-  "total": 10
- },
  "/api/projects/demo-payments/sessions": {
   "active": 0,
   "counts": {
@@ -1174,17 +986,17 @@
    {
     "background": false,
     "cost_usd": 0.1042,
-    "ended_at": "2026-10-20T11:55:21Z",
+    "ended_at": "2026-10-20T03:23:18Z",
     "entrypoint": "cli",
     "events": 10,
     "files": 3,
     "id": "demo-demo-payments-1059861b4f5b",
-    "last_event_at": "2026-10-20T11:29:21Z",
+    "last_event_at": "2026-10-20T02:57:18Z",
     "models": [
      "claude-sonnet-5-5"
     ],
     "source": "live",
-    "started_at": "2026-10-20T11:15:21Z",
+    "started_at": "2026-10-20T02:43:18Z",
     "status": "ended",
     "tool": "claude-code",
     "tool_calls": 0,
@@ -1194,18 +1006,18 @@
    {
     "background": false,
     "cost_usd": 0.691,
-    "ended_at": "2026-10-18T09:25:21Z",
+    "ended_at": "2026-10-18T00:53:18Z",
     "entrypoint": "cli",
     "events": 28,
     "files": 6,
     "id": "demo-demo-payments-b1d84739cc7b",
-    "last_event_at": "2026-10-18T09:15:21Z",
+    "last_event_at": "2026-10-18T00:43:18Z",
     "models": [
      "claude-opus-5-5",
      "claude-sonnet-5-5"
     ],
     "source": "live",
-    "started_at": "2026-10-18T08:45:21Z",
+    "started_at": "2026-10-18T00:13:18Z",
     "status": "ended",
     "tool": "claude-code",
     "tool_calls": 0,
@@ -1215,17 +1027,17 @@
    {
     "background": false,
     "cost_usd": 0.3485,
-    "ended_at": "2026-10-18T08:46:21Z",
+    "ended_at": "2026-10-18T00:14:18Z",
     "entrypoint": "cli",
     "events": 13,
     "files": 3,
     "id": "demo-demo-payments-8bde5d8babd7",
-    "last_event_at": "2026-10-18T08:31:21Z",
+    "last_event_at": "2026-10-17T23:59:18Z",
     "models": [
      "claude-opus-5-5"
     ],
     "source": "live",
-    "started_at": "2026-10-18T08:06:21Z",
+    "started_at": "2026-10-17T23:34:18Z",
     "status": "ended",
     "tool": "claude-code",
     "tool_calls": 0,
@@ -1235,17 +1047,17 @@
    {
     "background": false,
     "cost_usd": 0.3162,
-    "ended_at": "2026-10-17T17:12:21Z",
+    "ended_at": "2026-10-17T08:40:18Z",
     "entrypoint": "cli",
     "events": 12,
     "files": 3,
     "id": "demo-demo-payments-423c193e4783",
-    "last_event_at": "2026-10-17T16:49:21Z",
+    "last_event_at": "2026-10-17T08:17:18Z",
     "models": [
      "claude-sonnet-5-5"
     ],
     "source": "live",
-    "started_at": "2026-10-17T16:32:21Z",
+    "started_at": "2026-10-17T08:00:18Z",
     "status": "ended",
     "tool": "claude-code",
     "tool_calls": 0,
@@ -1255,18 +1067,18 @@
    {
     "background": false,
     "cost_usd": 0.8537,
-    "ended_at": "2026-10-17T10:01:21Z",
+    "ended_at": "2026-10-17T01:29:18Z",
     "entrypoint": "cli",
     "events": 35,
     "files": 8,
     "id": "demo-demo-payments-53735da49cb9",
-    "last_event_at": "2026-10-17T09:55:21Z",
+    "last_event_at": "2026-10-17T01:23:18Z",
     "models": [
      "claude-opus-5-5",
      "claude-sonnet-5-5"
     ],
     "source": "live",
-    "started_at": "2026-10-17T09:21:21Z",
+    "started_at": "2026-10-17T00:49:18Z",
     "status": "ended",
     "tool": "claude-code",
     "tool_calls": 0,
@@ -1276,18 +1088,18 @@
    {
     "background": false,
     "cost_usd": 0.3819,
-    "ended_at": "2026-10-16T12:02:21Z",
+    "ended_at": "2026-10-16T03:30:18Z",
     "entrypoint": "cli",
     "events": 21,
     "files": 5,
     "id": "demo-demo-payments-44d7238b05b7",
-    "last_event_at": "2026-10-16T11:46:21Z",
+    "last_event_at": "2026-10-16T03:14:18Z",
     "models": [
      "claude-haiku-5-5",
      "claude-sonnet-5-5"
     ],
     "source": "live",
-    "started_at": "2026-10-16T11:22:21Z",
+    "started_at": "2026-10-16T02:50:18Z",
     "status": "ended",
     "tool": "claude-code",
     "tool_calls": 0,
@@ -1297,17 +1109,17 @@
    {
     "background": false,
     "cost_usd": 0.1664,
-    "ended_at": "2026-10-15T17:39:21Z",
+    "ended_at": "2026-10-15T09:07:18Z",
     "entrypoint": "cli",
     "events": 8,
     "files": 1,
     "id": "demo-demo-payments-d6cd08a8ac7f",
-    "last_event_at": "2026-10-15T17:06:21Z",
+    "last_event_at": "2026-10-15T08:34:18Z",
     "models": [
      "claude-opus-5-5"
     ],
     "source": "live",
-    "started_at": "2026-10-15T16:59:21Z",
+    "started_at": "2026-10-15T08:27:18Z",
     "status": "ended",
     "tool": "claude-code",
     "tool_calls": 0,
@@ -1317,17 +1129,17 @@
    {
     "background": false,
     "cost_usd": 0.5474,
-    "ended_at": "2026-10-15T16:39:21Z",
+    "ended_at": "2026-10-15T08:07:18Z",
     "entrypoint": "cli",
     "events": 20,
     "files": 6,
     "id": "demo-demo-payments-3db0261e2555",
-    "last_event_at": "2026-10-15T16:32:21Z",
+    "last_event_at": "2026-10-15T08:00:18Z",
     "models": [
      "claude-sonnet-5-5"
     ],
     "source": "live",
-    "started_at": "2026-10-15T15:59:21Z",
+    "started_at": "2026-10-15T07:27:18Z",
     "status": "ended",
     "tool": "claude-code",
     "tool_calls": 0,
@@ -1382,7 +1194,7 @@
        "release-notes",
        "security-review"
       ],
-      "started_at": "2026-10-20T11:24:21Z",
+      "started_at": "2026-10-20T02:52:18Z",
       "summary": "Refactored chart component to use shared axis",
       "tokens": 228377,
       "tool": "claude-code",
@@ -1427,7 +1239,7 @@
       "seq": 4,
       "session_id": "demo-demo-payments-b1d84739cc7b",
       "skills": [],
-      "started_at": "2026-10-18T09:10:21Z",
+      "started_at": "2026-10-18T00:38:18Z",
       "summary": "Added refund idempotency key and tests",
       "tokens": 358980,
       "tool": "claude-code",
@@ -1464,7 +1276,7 @@
       "skills": [
        "phi-redaction-check"
       ],
-      "started_at": "2026-10-18T09:05:21Z",
+      "started_at": "2026-10-18T00:33:18Z",
       "summary": "Refactored chart component to use shared axis",
       "tokens": 35258,
       "tool": "claude-code",
@@ -1497,7 +1309,7 @@
       "seq": 2,
       "session_id": "demo-demo-payments-b1d84739cc7b",
       "skills": [],
-      "started_at": "2026-10-18T08:56:21Z",
+      "started_at": "2026-10-18T00:24:18Z",
       "summary": "Bumped dependencies and fixed lint",
       "tokens": 58399,
       "tool": "claude-code",
@@ -1530,7 +1342,7 @@
       "skills": [
        "systematic-debugging"
       ],
-      "started_at": "2026-10-18T08:54:21Z",
+      "started_at": "2026-10-18T00:22:18Z",
       "summary": "Removed dead feature flag",
       "tokens": 288041,
       "tool": "claude-code",
@@ -1563,7 +1375,7 @@
       "seq": 2,
       "session_id": "demo-demo-payments-8bde5d8babd7",
       "skills": [],
-      "started_at": "2026-10-18T08:26:21Z",
+      "started_at": "2026-10-17T23:54:18Z",
       "summary": "Added dbt test for orders uniqueness",
       "tokens": 215025,
       "tool": "claude-code",
@@ -1598,7 +1410,7 @@
       "skills": [
        "release-notes"
       ],
-      "started_at": "2026-10-18T08:15:21Z",
+      "started_at": "2026-10-17T23:43:18Z",
       "summary": "Added dbt test for orders uniqueness",
       "tokens": 47832,
       "tool": "claude-code",
@@ -1643,7 +1455,7 @@
       "skills": [
        "release-notes"
       ],
-      "started_at": "2026-10-17T16:44:21Z",
+      "started_at": "2026-10-17T08:12:18Z",
       "summary": "Added dbt test for orders uniqueness",
       "tokens": 186748,
       "tool": "claude-code",
@@ -1674,7 +1486,7 @@
       "seq": 1,
       "session_id": "demo-demo-payments-423c193e4783",
       "skills": [],
-      "started_at": "2026-10-17T16:41:21Z",
+      "started_at": "2026-10-17T08:09:18Z",
       "summary": "Added visit list pagination",
       "tokens": 132491,
       "tool": "claude-code",
@@ -1711,7 +1523,7 @@
       "skills": [
        "security-review"
       ],
-      "started_at": "2026-10-17T09:50:21Z",
+      "started_at": "2026-10-17T01:18:18Z",
       "summary": "Tightened PHI redaction on clinical notes",
       "tokens": 216491,
       "tool": "claude-code",
@@ -1747,7 +1559,7 @@
       "seq": 3,
       "session_id": "demo-demo-payments-53735da49cb9",
       "skills": [],
-      "started_at": "2026-10-17T09:40:21Z",
+      "started_at": "2026-10-17T01:08:18Z",
       "summary": "Hardened auth cookie flags",
       "tokens": 330693,
       "tool": "claude-code",
@@ -1786,7 +1598,7 @@
        "api-contract-check",
        "dbt-lint"
       ],
-      "started_at": "2026-10-17T09:33:21Z",
+      "started_at": "2026-10-17T01:01:18Z",
       "summary": "Investigated flaky refund test and pinned clock",
       "tokens": 212280,
       "tool": "claude-code",
@@ -1824,7 +1636,7 @@
       "skills": [
        "pii-scan"
       ],
-      "started_at": "2026-10-17T09:24:21Z",
+      "started_at": "2026-10-17T00:52:18Z",
       "summary": "Fixed token refresh race in session middleware",
       "tokens": 366162,
       "tool": "claude-code",
@@ -1872,7 +1684,7 @@
       "skills": [
        "release-notes"
       ],
-      "started_at": "2026-10-16T11:41:21Z",
+      "started_at": "2026-10-16T03:09:18Z",
       "summary": "Bumped dependencies and fixed lint",
       "tokens": 427886,
       "tool": "claude-code",
@@ -1908,7 +1720,7 @@
       "seq": 2,
       "session_id": "demo-demo-payments-44d7238b05b7",
       "skills": [],
-      "started_at": "2026-10-16T11:37:21Z",
+      "started_at": "2026-10-16T03:05:18Z",
       "summary": "Investigated flaky refund test and pinned clock",
       "tokens": 206618,
       "tool": "claude-code",
@@ -1941,7 +1753,7 @@
       "skills": [
        "systematic-debugging"
       ],
-      "started_at": "2026-10-16T11:31:21Z",
+      "started_at": "2026-10-16T02:59:18Z",
       "summary": "Updated LLM summarise prompt to strip identifiers",
       "tokens": 218235,
       "tool": "claude-code",
@@ -1985,7 +1797,7 @@
        "dbt-lint",
        "dataviz"
       ],
-      "started_at": "2026-10-15T17:01:21Z",
+      "started_at": "2026-10-15T08:29:18Z",
       "summary": "Added refund idempotency key and tests",
       "tokens": 404193,
       "tool": "claude-code",
@@ -2020,7 +1832,7 @@
       "seq": 3,
       "session_id": "demo-demo-payments-3db0261e2555",
       "skills": [],
-      "started_at": "2026-10-15T16:27:21Z",
+      "started_at": "2026-10-15T07:55:18Z",
       "summary": "Wrote runbook section for backfills",
       "tokens": 156207,
       "tool": "claude-code",
@@ -2053,7 +1865,7 @@
       "skills": [
        "security-review"
       ],
-      "started_at": "2026-10-15T16:17:21Z",
+      "started_at": "2026-10-15T07:45:18Z",
       "summary": "Refactored chart component to use shared axis",
       "tokens": 348570,
       "tool": "claude-code",
@@ -2089,7 +1901,7 @@
        "airflow-dag-check",
        "phi-redaction-check"
       ],
-      "started_at": "2026-10-15T16:06:21Z",
+      "started_at": "2026-10-15T07:34:18Z",
       "summary": "Removed dead feature flag",
       "tokens": 306822,
       "tool": "claude-code",
@@ -2122,7 +1934,7 @@
       "skills": [
        "dbt-lint"
       ],
-      "started_at": "2026-10-15T14:48:21Z",
+      "started_at": "2026-10-15T06:16:18Z",
       "summary": "Investigated flaky refund test and pinned clock",
       "tokens": 89189,
       "tool": "claude-code",
@@ -2170,7 +1982,7 @@
        "api-contract-check",
        "quick-sql-helper"
       ],
-      "started_at": "2026-10-14T14:12:21Z",
+      "started_at": "2026-10-14T05:40:18Z",
       "summary": "Tightened PHI redaction on clinical notes",
       "tokens": 262709,
       "tool": "claude-code",
@@ -2204,7 +2016,7 @@
        "security-review",
        "dbt-lint"
       ],
-      "started_at": "2026-10-14T14:06:21Z",
+      "started_at": "2026-10-14T05:34:18Z",
       "summary": "Removed dead feature flag",
       "tokens": 162558,
       "tool": "claude-code",
@@ -2239,7 +2051,7 @@
       "skills": [
        "pii-scan"
       ],
-      "started_at": "2026-10-14T09:45:21Z",
+      "started_at": "2026-10-14T01:13:18Z",
       "summary": "Cached customer lookup",
       "tokens": 194182,
       "tool": "claude-code",
@@ -2274,7 +2086,7 @@
       "skills": [
        "frontend-design"
       ],
-      "started_at": "2026-10-14T09:40:21Z",
+      "started_at": "2026-10-14T01:08:18Z",
       "summary": "Added visit list pagination",
       "tokens": 73750,
       "tool": "claude-code",
@@ -2312,7 +2124,7 @@
       "skills": [
        "dbt-lint"
       ],
-      "started_at": "2026-10-14T09:30:21Z",
+      "started_at": "2026-10-14T00:58:18Z",
       "summary": "Cached customer lookup",
       "tokens": 65526,
       "tool": "claude-code",
@@ -2345,7 +2157,7 @@
       "skills": [
        "perf-audit"
       ],
-      "started_at": "2026-10-14T09:27:21Z",
+      "started_at": "2026-10-14T00:55:18Z",
       "summary": "Hardened auth cookie flags",
       "tokens": 433924,
       "tool": "claude-code",
@@ -2388,7 +2200,7 @@
       "seq": 2,
       "session_id": "demo-demo-payments-a5f6757b6b29",
       "skills": [],
-      "started_at": "2026-10-12T14:54:21Z",
+      "started_at": "2026-10-12T06:22:18Z",
       "summary": "Removed dead feature flag",
       "tokens": 365190,
       "tool": "claude-code",
@@ -2427,7 +2239,7 @@
        "phi-redaction-check",
        "tdd"
       ],
-      "started_at": "2026-10-12T14:48:21Z",
+      "started_at": "2026-10-12T06:16:18Z",
       "summary": "Added daily sales DAG retry policy",
       "tokens": 144342,
       "tool": "claude-code",
@@ -2472,7 +2284,7 @@
       "skills": [
        "tdd"
       ],
-      "started_at": "2026-10-10T12:39:21Z",
+      "started_at": "2026-10-10T04:07:18Z",
       "summary": "Investigated flaky refund test and pinned clock",
       "tokens": 142464,
       "tool": "claude-code",
@@ -2505,7 +2317,7 @@
       "seq": 1,
       "session_id": "demo-demo-payments-b2388fe069b6",
       "skills": [],
-      "started_at": "2026-10-10T12:36:21Z",
+      "started_at": "2026-10-10T04:04:18Z",
       "summary": "Removed dead feature flag",
       "tokens": 409247,
       "tool": "claude-code",
@@ -2539,7 +2351,7 @@
       "seq": 4,
       "session_id": "demo-demo-payments-12d249e1cd13",
       "skills": [],
-      "started_at": "2026-10-10T12:26:21Z",
+      "started_at": "2026-10-10T03:54:18Z",
       "summary": "Hardened auth cookie flags",
       "tokens": 228333,
       "tool": "claude-code",
@@ -2575,7 +2387,7 @@
       "seq": 3,
       "session_id": "demo-demo-payments-12d249e1cd13",
       "skills": [],
-      "started_at": "2026-10-10T12:20:21Z",
+      "started_at": "2026-10-10T03:48:18Z",
       "summary": "Refactored chart component to use shared axis",
       "tokens": 254872,
       "tool": "claude-code",
@@ -2613,7 +2425,7 @@
        "frontend-design",
        "perf-audit"
       ],
-      "started_at": "2026-10-10T12:17:21Z",
+      "started_at": "2026-10-10T03:45:18Z",
       "summary": "Added dbt test for orders uniqueness",
       "tokens": 277648,
       "tool": "claude-code",
@@ -2649,7 +2461,7 @@
       "seq": 1,
       "session_id": "demo-demo-payments-12d249e1cd13",
       "skills": [],
-      "started_at": "2026-10-10T12:07:21Z",
+      "started_at": "2026-10-10T03:35:18Z",
       "summary": "Tightened PHI redaction on clinical notes",
       "tokens": 98391,
       "tool": "claude-code",
@@ -2682,7 +2494,7 @@
       "skills": [
        "dbt-lint"
       ],
-      "started_at": "2026-10-10T10:04:21Z",
+      "started_at": "2026-10-10T01:32:18Z",
       "summary": "Fixed token refresh race in session middleware",
       "tokens": 354919,
       "tool": "claude-code",
@@ -2703,10 +2515,10 @@
    "retention_days": 365
   },
   "local_data": {
-   "audit": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmp5k3jh9pq/audit.db",
-   "home": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmp5k3jh9pq",
-   "ledger": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmp5k3jh9pq/ledger.db",
-   "spool": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmp5k3jh9pq/spool"
+   "audit": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmpxm1ynj3s/audit.db",
+   "home": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmpxm1ynj3s",
+   "ledger": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmpxm1ynj3s/ledger.db",
+   "spool": "/var/folders/ds/y097158x4vb6lwd5nrwjwc2r0000gn/T/tmpxm1ynj3s/spool"
   },
   "pii": {
    "engine": "regex",
@@ -2803,9 +2615,6 @@
    "verified": false,
    "version": "2026-10-18.1"
   },
-  "provenance": {
-   "enabled": true
-  },
   "skills": {
    "audit": true
   },
@@ -2838,12 +2647,12 @@
   {
    "allowed_tools": null,
    "description": "Phi redaction check skill",
-   "first_seen": "2026-09-17T17:32:21Z",
+   "first_seen": "2026-09-17T09:00:18Z",
    "hash": "972a846916419f828b9d2434e465e150bd9c66b3ad3c2d6d1a3d1fa7bc8960a9",
    "hash_short": "972a846",
    "id": "phi-redaction-check",
    "kind": "project",
-   "last_used": "2026-10-20T16:35:21Z",
+   "last_used": "2026-10-20T08:03:18Z",
    "origin": null,
    "path": null,
    "runs": 23,
@@ -2852,12 +2661,12 @@
   {
    "allowed_tools": null,
    "description": "Security review skill",
-   "first_seen": "2026-09-17T17:32:21Z",
+   "first_seen": "2026-09-17T09:00:18Z",
    "hash": "23b8c1e9392456de3eb13b9046685257bdd640fb06671ad11c80317fa3b1799d",
    "hash_short": "23b8c1e",
    "id": "security-review",
    "kind": "plugin",
-   "last_used": "2026-10-20T16:35:21Z",
+   "last_used": "2026-10-20T08:03:18Z",
    "origin": "everything-claude-code@1.4.0",
    "path": null,
    "runs": 23,
@@ -2866,12 +2675,12 @@
   {
    "allowed_tools": null,
    "description": "Airflow dag check skill",
-   "first_seen": "2026-09-17T17:32:21Z",
+   "first_seen": "2026-09-17T09:00:18Z",
    "hash": "a28defe39bf0027312476f57a5e5a5abaefcfad8efc89849b3aa7efe4458a885",
    "hash_short": "a28defe",
    "id": "airflow-dag-check",
    "kind": "project",
-   "last_used": "2026-10-20T16:29:21Z",
+   "last_used": "2026-10-20T07:57:18Z",
    "origin": null,
    "path": null,
    "runs": 21,
@@ -2880,12 +2689,12 @@
   {
    "allowed_tools": null,
    "description": "Tdd skill",
-   "first_seen": "2026-09-17T17:32:21Z",
+   "first_seen": "2026-09-17T09:00:18Z",
    "hash": "9a1de644815ef6d13b8faa1837f8a88b17fc695a07a0ca6e0822e8f36c031199",
    "hash_short": "9a1de64",
    "id": "tdd",
    "kind": "plugin",
-   "last_used": "2026-10-20T16:29:21Z",
+   "last_used": "2026-10-20T07:57:18Z",
    "origin": "superpowers@7.0.0",
    "path": null,
    "runs": 19,
@@ -2894,12 +2703,12 @@
   {
    "allowed_tools": null,
    "description": "Api contract check skill",
-   "first_seen": "2026-09-17T17:32:21Z",
+   "first_seen": "2026-09-17T09:00:18Z",
    "hash": "fc377a4c4a15544dc5e7ce8a3a578a8ea9488d990bbb259911ce5dd2b45ed1f0",
    "hash_short": "fc377a4",
    "id": "api-contract-check",
    "kind": "project",
-   "last_used": "2026-10-20T14:51:21Z",
+   "last_used": "2026-10-20T06:19:18Z",
    "origin": null,
    "path": null,
    "runs": 27,
@@ -2908,12 +2717,12 @@
   {
    "allowed_tools": null,
    "description": "Frontend design skill",
-   "first_seen": "2026-09-17T17:32:21Z",
+   "first_seen": "2026-09-17T09:00:18Z",
    "hash": "c241330b01a9e71fde8a774bcf36d58b4737819096da1dac72ff5d2a386ecbe0",
    "hash_short": "c241330",
    "id": "frontend-design",
    "kind": "plugin",
-   "last_used": "2026-10-20T14:51:21Z",
+   "last_used": "2026-10-20T06:19:18Z",
    "origin": "frontend-design@ea10b21",
    "path": null,
    "runs": 23,
@@ -2922,12 +2731,12 @@
   {
    "allowed_tools": null,
    "description": "Pii scan skill",
-   "first_seen": "2026-09-17T17:32:21Z",
+   "first_seen": "2026-09-17T09:00:18Z",
    "hash": "3139d32c93cd59bf5c941cf0dc98d2c1e2acf72f9e574f7aa0ee89aed453dd32",
    "hash_short": "3139d32",
    "id": "pii-scan",
    "kind": "org",
-   "last_used": "2026-10-20T14:40:21Z",
+   "last_used": "2026-10-20T06:08:18Z",
    "origin": null,
    "path": null,
    "runs": 19,
@@ -2936,12 +2745,12 @@
   {
    "allowed_tools": null,
    "description": "Release notes skill",
-   "first_seen": "2026-09-17T17:32:21Z",
+   "first_seen": "2026-09-17T09:00:18Z",
    "hash": "4b0dbb418d5288f1142c3fe860e7a113ec1b8ca1f91e1d4c1ff49b7889463e85",
    "hash_short": "4b0dbb4",
    "id": "release-notes",
    "kind": "user",
-   "last_used": "2026-10-20T11:24:21Z",
+   "last_used": "2026-10-20T02:52:18Z",
    "origin": null,
    "path": "~/.claude/skills/release-notes",
    "runs": 19,

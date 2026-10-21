@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session as DB
 from seen_core import audit, brand, config, paths, pricing
 from seen_core.db import ledger_session
 from seen_core.db.models import Project, Session
-from seen_core.pii.checked import PII_CHECKED
 
 from . import queries
 from . import schemas as S
@@ -191,7 +190,7 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
         items = [S.PiiRow(**queries.pii_out(f).model_dump(), change_id=r.c.id, started_at=r.c.started_at, summary=r.c.summary)
                  for r in rows for f in r.pii
                  if (not type or f.type == type) and (not source or f.source_kind == source) and (not status or f.status == status)]
-        return S.PiiPage(items=items, checked=PII_CHECKED)
+        return S.PiiPage(items=items, checked=queries.PII_CHECKED)
 
     @app.get("/api/changes/{cid}/pii", response_model=list[S.PiiFindingOut])
     def change_pii(cid: str, db: Db) -> list[S.PiiFindingOut]:
@@ -220,16 +219,15 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
         t = pricing.table()
         versions = sorted({v for (v,) in db.execute(select(Session.tool_version).where(Session.tool_version.is_not(None)))})
         return S.SettingsOut(user=cfg["user"], skills=cfg["skills"], audit=cfg["audit"], pii=cfg["pii"],
-                             sync=cfg["sync"], provenance=cfg["provenance"], prices={"version": t["version"], "verified": t.get("verified", False),
+                             sync=cfg["sync"], prices={"version": t["version"], "verified": t.get("verified", False),
                                                        "source": t.get("source"), "models": t["models"]},
                              tools=[{"id": "claude-code", "name": "Claude Code", "versions": versions, "connected": bool(versions)}],
                              local_data={"home": paths.redact_home(str(paths.home())), "ledger": paths.redact_home(str(paths.ledger_db())),
                                          "audit": paths.redact_home(str(paths.audit_db())), "spool": paths.redact_home(str(paths.home() / "spool"))})
 
-    from . import provenance_api, writes
+    from . import writes
 
     writes.register(app, state)
-    provenance_api.register(app, project_or_404)
 
     if web_dist and web_dist.is_dir():
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="assets")

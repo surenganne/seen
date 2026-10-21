@@ -6,7 +6,7 @@ import sqlalchemy as sa
 
 from seen_core import audit, paths, purge
 from seen_core.db import ledger_engine, ledger_session
-from seen_core.db.models import Change, LinePrint, Project, Session
+from seen_core.db.models import Change, Project, Session
 from tests.helpers import Replay
 
 WORD = "sentinelerasureword"
@@ -91,15 +91,3 @@ def test_project_purge_drops_queued_sync_payloads_for_that_project_only(repo: Pa
     with ledger_session() as db:
         left = db.query(Outbox).all()
         assert len(left) == 1 and "other-project" in left[0].payload_json
-
-
-def test_purge_removes_prints_with_the_change(repo: Path, tmp_path: Path) -> None:
-    record(repo, tmp_path)
-    with ledger_session() as db:
-        cid, pid = db.query(Change.id).one()[0], db.query(Project.id).one()[0]
-        db.add(LinePrint(project_id=pid, path="a.py", fp=b"\x01" * 8, change_id=cid))
-        db.commit()
-    res = purge.purge(project=pid, actor="u_test")
-    assert res["line_prints"] == 1
-    with ledger_session() as db:
-        assert db.query(LinePrint).count() == 0
