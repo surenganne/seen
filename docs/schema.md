@@ -16,6 +16,7 @@
 
 - `skill_invocations.status`: approval status at the moment the skill ran (P4-3).
 - `policies.id` is `<project_id>:<policy id>` so two repos can both use `pol-auth`.
+- `line_prints(project_id, path, fp, change_id)`: keyed 8-byte fingerprints of lines an agent wrote, never line text; erased with its change (provenance, PV-3).
 
 ## Audit event catalogue
 

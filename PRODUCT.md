@@ -35,7 +35,8 @@ Precise, calm, trustworthy. An instrument people rely on: quiet when nothing is 
 2. **Calm by default, loud only when earned.** Colour and motion are reserved for state that needs a human: missed policy, high-confidence PII, a broken chain.
 3. **Say what was checked.** Limits are stated next to results, never hidden in docs.
 4. **One click from summary to proof.** Every number links to the changes or events behind it.
-5. **The same truth for all three readers.** Leads, developers and reviewers see one data model; views differ by emphasis, not by facts.
+5. **Say "not observed" instead of guessing.** Provenance marks a line agent, human or not observed; where Seen could not have seen the edit it says so and never claims a person wrote it.
+6. **The same truth for all three readers.** Leads, developers and reviewers see one data model; views differ by emphasis, not by facts.
 
 ## Accessibility & Inclusion
 

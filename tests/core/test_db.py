@@ -56,3 +56,25 @@ def test_migration_0005_drops_memory_and_keeps_changes(tmp_path: Path) -> None:
     assert not {"mem_state", "mem_injected_tokens"} & {c["name"] for c in insp.get_columns("changes")}
     with eng.connect() as c:
         assert c.execute(sa.text("SELECT tok_out FROM changes WHERE id = 'c1'")).scalar() == 2
+
+
+def test_migration_0006_adds_line_prints_and_keeps_data(tmp_path: Path) -> None:
+    url = f"sqlite:///{tmp_path / 'l.db'}"
+    upgrade(url, "0005")
+    eng = sa.create_engine(url)
+    with eng.begin() as c:
+        c.execute(sa.text("INSERT INTO changes (id, tok_in, tok_out, tok_cache_read, tok_cache_write, pii_count) VALUES ('c1', 1, 2, 3, 4, 0)"))
+    upgrade(url)
+    assert "line_prints" in sa.inspect(eng).get_table_names()
+    with eng.connect() as c:
+        assert c.execute(sa.text("SELECT tok_out FROM changes WHERE id = 'c1'")).scalar() == 2
+    from alembic import command
+    from alembic.config import Config
+
+    from seen_core import db as dbmod
+
+    cfg = Config()
+    cfg.set_main_option("script_location", str(Path(dbmod.__file__).parent / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.downgrade(cfg, "0005")
+    assert "line_prints" not in sa.inspect(eng).get_table_names()
