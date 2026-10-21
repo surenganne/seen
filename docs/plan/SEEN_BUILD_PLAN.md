@@ -3,9 +3,6 @@
 > **Amended 2026-10-20 (ADR 0017):** project memory (the memory service, injection, the edit gate, `seen memory`, the Memory page,
 > the `change_memories` table) was removed, and a Timeline page was added. Memory text below is history, not a task list.
 
-> **Note 2026-10-20 (provenance):** `seen blame`, `seen pr-report` and the Provenance page were added. The built design is in
-> `docs/specs/provenance.md` (status: implemented) and the capture decision is in `docs/adr/0018-provenance-capture.md`.
-
 **Naming and packaging (decided)**
 
 | Thing | Value |

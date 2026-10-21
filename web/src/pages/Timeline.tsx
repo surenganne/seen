@@ -32,7 +32,7 @@ function Node({ e, pid, range, max }: { e: S["TimelineEntry"]; pid: string; rang
         <div className="tl-meta">
           <span className="mono">{clock(e.started_at)}</span>
           <span className="mono">{e.actor ?? "unknown user"}</span>
-          {e.areas.length > 0 && e.files.length > 0 && <span className="tl-areas">{e.areas.map((a) => a === "(root)" ? <span key={a} className="tag mono">{a}</span> : <Link key={a} className="tag mono" to={withRange(`/p/${pid}/provenance`, range, { q: a })} aria-label={`Files in ${a}`}>{a}</Link>)}</span>}
+          {e.areas.length > 0 && e.files.length > 0 && <span className="tl-areas">{e.areas.map((a) => <span key={a} className="tag mono">{a}</span>)}</span>}
           <span>{e.files.length} {e.files.length === 1 ? "file" : "files"}</span>
           <span>{e.git_status === "committed" && e.commit ? <>committed <span className="mono">{short(e.commit)}</span></> : state}</span>
         </div>
