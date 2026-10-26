@@ -3,7 +3,7 @@ name = "seen-local"
 version = "0.1.0"
 description = "Seen local dashboard API"
 requires-python = ">=3.11"
-dependencies = ["seen-core", "fastapi==0.146.0", "uvicorn==0.54.0"]
+dependencies = ["seen-core", "fastapi==0.161.1", "uvicorn==0.54.0"]
 
 [build-system]
 requires = ["hatchling"]

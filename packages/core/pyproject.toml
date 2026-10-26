@@ -3,7 +3,7 @@ name = "seen-core"
 version = "0.1.0"
 description = "Seen core: ledger, audit, skills, PII"
 requires-python = ">=3.11"
-dependencies = ["sqlalchemy==2.1.5", "alembic==1.20.0", "pathspec==1.1.1", "pyyaml==6.0.3", "tomli-w==1.2.0"]
+dependencies = ["sqlalchemy==2.1.6", "alembic==1.20.0", "pathspec==1.1.1", "pyyaml==6.0.3", "tomli-w==1.2.0"]
 
 [project.optional-dependencies]
 # Tier 2 PII (names, locations). Heavy; never used by hooks. Then: python -m spacy download en_core_web_lg

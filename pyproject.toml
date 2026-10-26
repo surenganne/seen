@@ -17,7 +17,7 @@ seen-local = { workspace = true }
 seen-team = { workspace = true }
 
 [dependency-groups]
-dev = ["pytest==9.1.1", "pytest-asyncio==1.4.0", "hypothesis==6.170.1", "ruff==0.17.1", "mypy==2.4.0", "httpx==0.28.1", "types-PyYAML==6.0.12.20260906"]
+dev = ["pytest==9.1.1", "pytest-asyncio==1.4.0", "hypothesis==6.170.8", "ruff==0.17.2", "mypy==2.4.0", "httpx==0.28.1", "types-PyYAML==6.0.12.20260906"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
