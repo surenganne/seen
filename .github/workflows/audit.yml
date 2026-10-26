@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
       # the lockfile, not whatever happens to be installed: every workspace package, no dev-only noise
       - run: uv export --frozen --no-hashes --all-packages --no-emit-workspace --no-dev > requirements-audit.txt
       - run: uvx --from pip-audit==2.10.1 pip-audit -r requirements-audit.txt --no-deps --disable-pip
