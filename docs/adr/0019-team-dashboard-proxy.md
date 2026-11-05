@@ -9,17 +9,17 @@ credential at any point.
 **Rules.** Outbound calls happen only when `sync.server` is set. Every failure is HTTP 200 with a `state`
 (`not_configured`, `login_required`, `unreachable`, `unauthorized`, `forbidden`, `bad_response`) and a fixed
 reason, so no server text or exception detail reaches the page. Redirects are disabled, responses are capped at
-2 MB, and the project id is validated before it is put in a URL. A down team server is logged by exception type
-name only.
+2 MB, and the project id is validated before it is put in a URL. A network failure (down or unreachable team server) is not logged; unexpected failures log the exception type name
+only.
 
 **Privacy.** Aggregates only: no per-person change detail. The members list ("Last synced") is for leads and
 admins; it shows the email when the member signed in through SSO and the user id otherwise. A project's members
 for SSO are those with activity in that project, so an SSO user with no changes there is not listed. The Docker
 snapshot dashboard is not team-configured: `seen docker-sync` strips the `[sync]` table from the copied
-`config.toml`, so it shows `not_configured`, and a dashboard started with `--allow-remote` or a non-loopback bind
-refuses sign-in on its own (`/api/team/login` returns `not_configured`, `/api/team/callback` only redirects, no
-outbound call; sign-out still works). The compose file should also mount the snapshot read-only (`:ro`); it does
-not yet.
+`config.toml`, so it shows `not_configured`. Independently, a dashboard started with `--allow-remote` or a
+non-loopback bind is "remote": its session, projects, overview and members routes answer `not_configured` without any
+outbound call (it never reads team data on the owner's key), login returns no URL, the callback only redirects, and
+logout does nothing. The compose file should also mount the snapshot read-only (`:ro`); it does not yet.
 
 **Known limit.** A server that drip-feeds a response is not cut off by a total timeout (only per-read timeouts).
 

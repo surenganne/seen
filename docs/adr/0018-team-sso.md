@@ -15,16 +15,19 @@ shown once. Revocation is therefore immediate: deactivate the user, or `DELETE /
 tombstone that keeps the pseudonymous `sub` with the email blanked and the user inactive, so coming back needs an explicit
 re-activation.
 
-**Roles.** `SEEN_TEAM_ADMINS` bootstraps admins; after that `PUT /api/users` sets roles. The last-admin guard (409) is not
+**Roles.** `SEEN_TEAM_ADMINS` bootstraps admins; after that `PUT /api/users/{sub}` sets roles. The last-admin guard (409) is not
 atomic across concurrent requests (known limit). The bootstrap key can be disabled with `SEEN_TEAM_BOOTSTRAP_DISABLE=1|true|yes`.
-The production guard refuses to start only when `APP_ENV=production` AND the bootstrap key is disabled AND no OIDC is
-configured; a bootstrap-only production install still starts (see open decision 6).
+With `APP_ENV=production` the server refuses to start in three cases: the bootstrap key is disabled and no OIDC is
+configured (no way to sign in); the bootstrap key is not disabled and `SEEN_TEAM_BOOTSTRAP_KEY` is shorter than 32
+characters (so an OIDC-only install must set `SEEN_TEAM_BOOTSTRAP_DISABLE`); or the OIDC issuer is not https. A
+bootstrap-only production install still starts (see open decision 6). Setting only one of `SEEN_OIDC_ISSUER` and
+`SEEN_OIDC_CLIENT_ID` stops startup in every environment.
 
 **One-time id_token.** An id_token mints at most one key. `/auth/exchange` records `sha256(id_token)` in
 `team_used_tokens` (kept until the token's `exp` plus the 60 s leeway, pruned on later exchanges) and answers a
 replay with the same fixed 401, counted as a failure by the limiter. Without an `exp` the row is kept 2 hours.
 
-**Revoke on deactivate.** Deactivating a user (`PUT /api/users`, `active=false`) and erasing one both revoke every
+**Revoke on deactivate.** Deactivating a user (`PUT /api/users/{sub}`, `active=false`) and erasing one both revoke every
 live key whose `user_id` is that person's `sub`, whatever its origin, so a manual key bound to the same id stops at
 once. Reactivating does not bring keys back: the person signs in again.
 
@@ -45,7 +48,10 @@ https (a loopback http issuer is for development and tests only).
 `http://127.0.0.1/callback` (CLI) and `http://127.0.0.1:47821/api/team/callback` (dashboard); add the `email` optional claim
 to the ID token. Use placeholders such as YOUR_TENANT_ID and YOUR_CLIENT_ID in config; never commit real ones.
 
-**Known limits.** The discovery document's `jwks_uri` host is not pinned beyond the configured issuer. `/auth/config`
+**Known limits.** The members route builds `IN` lists from the project's user ids without a bound (fine at team scale). A lost
+`/auth/exchange` reply leaves one orphaned 30-day key (hash only); the next `seen team login` works. Installs that synced
+with a manual key get a 403 on the same install id after SSO login, and the reverse (env key set after an SSO sync)
+also 403s. The discovery document's `jwks_uri` host is not pinned beyond the configured issuer. `/auth/config`
 failures are not negatively cached. `seen serve` disables the uvicorn access log so callback codes are not logged.
 `/auth/config` serves only https IdP endpoints, so a plain-http loopback IdP can validate tokens but cannot drive
 `seen team login` or the dashboard sign-in; local testing uses a TLS fake IdP with `SSL_CERT_FILE` pointing at its
@@ -70,7 +76,9 @@ fix 2026.10.18), is in the dev/test dependencies only and is not in the producti
    (`owns()` accepts only earlier SSO keys). Needs an admin re-bind or a fresh install id.
 5. **Docker or `--allow-remote` dashboards** used to be able to complete a sign-in and write `team_key` inside the
    container. Resolved: `seen docker-sync` strips `[sync]` from the copied config, and a dashboard started with
-   `--allow-remote` or a non-loopback bind answers `not_configured` and never signs in.
+   `--allow-remote` or a non-loopback bind is "remote": `/api/team/session`, `/projects`, `/overview` and `/members`
+   answer `not_configured` without any outbound call, `/api/team/login` returns no URL, `/api/team/callback` only
+   redirects, and `/api/team/logout` does nothing (a network peer cannot revoke the owner's key).
 6. **Production guard.** Is a bootstrap-only production install acceptable, or must OIDC be required?
 7. **Members `last_synced_at` and `key_expired`** are account-wide, not per project.
 8. **Bootstrap admin by `email` claim.** `SEEN_TEAM_ADMINS` matches the `email` claim, which Entra treats as a
@@ -83,3 +91,19 @@ fix 2026.10.18), is in the dev/test dependencies only and is not in the producti
 bootstrap admin key never expires and coexists with SSO in production unless `SEEN_TEAM_BOOTSTRAP_DISABLE` is set
 (open decision 6). IPv6 clients can rotate source addresses to refresh the throttle budget. Non-Entra issuers accept a
 missing `email_verified` without a tenant pin.
+
+## Pre-deploy checklist (required before the team server faces users)
+
+- Run `cso --owasp` (daily mode) on the branch and keep its PDF report under `docs/security/`. The baseline report there
+  was written by hand; the tool run is outstanding.
+- Reproduce on the Postgres and Docker stack: security headers via `curl`, the container user (`id`), and the throttle
+  status codes. Not done so far.
+- Decide the open items above (plaintext email at rest, scoping, bootstrap key, admin matching by email claim).
+
+## Maintainability follow-ups (not done)
+
+- Three copies of `_NoRedirect` (`oidc.py`, `teamauth.py`, `team.py`), a second opener in `team.py`, and the key lookup
+  duplicated between `teamauth._current_key` and `sync.server_and_key`; key minting is repeated in `exchange` and the
+  manual key route.
+- `packages/team_server/src/seen_team/app.py` is large with one `create_app` closure; move SSO and user routes to their
+  own module with a `register(app, ...)`, like `seen_local/team_login.py`.
