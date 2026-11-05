@@ -77,6 +77,7 @@ contributor accepts the workspace trust dialog:
 seen report --days 7          # what changed, what it cost, which skills ran
 seen serve --open             # the dashboard on your real data (needs a web build once: see Dashboard)
 seen skills scan | list
+seen team login | logout | whoami   # sign in to the team server with your identity provider
 seen import --dry-run         # past sessions from Claude Code transcripts (before the plugin was installed)
 seen audit verify
 seen purge --before 2026-01-01      # report what would be erased; add --yes to erase (DPDP)
