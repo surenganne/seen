@@ -82,6 +82,6 @@ def fetch(path: str, query: dict[str, int] | None = None) -> TeamResult:
         body = json.loads(raw)
     except ValueError:
         return _fail("bad_response")
-    if not isinstance(body, dict):
+    if not isinstance(body, dict | list):
         return _fail("bad_response")
     return TeamResult("ok", None, body)

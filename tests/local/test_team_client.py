@@ -81,13 +81,22 @@ def test_status_mapping(seen_home: Path, monkeypatch: pytest.MonkeyPatch, status
     assert KEY not in repr(r)
 
 
-@pytest.mark.parametrize("body", [b"not json", b"[1, 2]", b'"s"', b"{" + b" " * (2 * 1024 * 1024 + 1) + b"}"])
+@pytest.mark.parametrize("body", [b"not json", b'"s"', b"5", b"null", b"true", b"\xff\xfe{}", b"{" + b" " * (2 * 1024 * 1024 + 1) + b"}"])
 def test_bad_body_states(seen_home: Path, monkeypatch: pytest.MonkeyPatch, body: bytes) -> None:
     cfg()
     monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
     reply(monkeypatch, 200, body)
     r = team.fetch("/api/x")
     assert r.state == "bad_response" and r.reason == team.REASONS["bad_response"]
+
+
+@pytest.mark.parametrize("raw,want", [(b"[1, 2]", [1, 2]), (b'[{"id": "p"}]', [{"id": "p"}]), (b'{"a": 1}', {"a": 1})])
+def test_list_and_object_bodies_come_back_intact(seen_home: Path, monkeypatch: pytest.MonkeyPatch, raw: bytes, want: Any) -> None:
+    cfg()
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
+    reply(monkeypatch, 200, raw)
+    r = team.fetch("/api/x")
+    assert r.state == "ok" and r.body == want
 
 
 @pytest.mark.parametrize("path", ["x", "/other", "/api//x", "/api/../x", "/api/x?a=1", "/api/x#f"])
