@@ -465,3 +465,13 @@ def test_production_refuses_a_plain_http_issuer(team_url: str, monkeypatch: pyte
     with pytest.raises(SystemExit) as e:
         create_app(team_url, reset=True)
     assert str(e.value) == "SEEN_OIDC_ISSUER must be https in production."
+
+
+def test_short_production_bootstrap_key_message_names_the_disable_switch(team_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_team.app import create_app
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("SEEN_TEAM_BOOTSTRAP_KEY", "short")
+    monkeypatch.delenv("SEEN_TEAM_BOOTSTRAP_DISABLE", raising=False)
+    with pytest.raises(SystemExit, match="SEEN_TEAM_BOOTSTRAP_DISABLE=1 when SSO is the only sign-in"):
+        create_app(team_url, reset=True)

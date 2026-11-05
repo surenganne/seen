@@ -29,9 +29,12 @@ def _parse(r: team.TeamResult, tp: type[Any]) -> Any:
         return None
 
 
-def register(app: FastAPI) -> None:
+def register(app: FastAPI, remote: bool = False) -> None:
+    """remote: the dashboard is reachable beyond this machine; it never reads team data on the owner's key."""
     @app.get("/api/team/projects", response_model=S.TeamProjects)
     def team_projects() -> S.TeamProjects:
+        if remote:
+            return S.TeamProjects(state="not_configured", reason=team.REASONS["not_configured"])
         r = team.fetch("/api/projects")
         if r.state != "ok":
             return S.TeamProjects(state=r.state, reason=r.reason)
@@ -45,6 +48,8 @@ def register(app: FastAPI) -> None:
         q = _pid(pid)
         if range_ not in (7, 14, 28):
             raise HTTPException(422, "range must be 7, 14 or 28")
+        if remote:
+            return S.TeamOverviewOut(state="not_configured", reason=team.REASONS["not_configured"])
         r = team.fetch(f"/api/projects/{q}/overview", {"range": range_})
         if r.state != "ok":
             return S.TeamOverviewOut(state=r.state, reason=r.reason)
@@ -55,7 +60,10 @@ def register(app: FastAPI) -> None:
 
     @app.get("/api/team/projects/{pid}/members", response_model=S.TeamMembers)
     def team_members(pid: Annotated[str, Path()]) -> S.TeamMembers:
-        r = team.fetch(f"/api/projects/{_pid(pid)}/members")
+        q = _pid(pid)
+        if remote:
+            return S.TeamMembers(state="not_configured", reason=team.REASONS["not_configured"])
+        r = team.fetch(f"/api/projects/{q}/members")
         if r.state != "ok":
             return S.TeamMembers(state=r.state, reason=r.reason)
         rows = _parse(r, list[S.TeamMemberOut])

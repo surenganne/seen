@@ -241,7 +241,36 @@ def test_remote_dashboard_callback_never_calls_out(remote_client: TestClient, co
     assert teamauth._current_key() is None
 
 
-def test_remote_dashboard_can_still_sign_out_locally(remote_client: TestClient, configured: Fake) -> None:
+def test_remote_dashboard_logout_is_a_no_op_and_cannot_revoke_the_owners_key(remote_client: TestClient, configured: Fake,
+                                                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _record(monkeypatch)
     teamauth.save_key(SENTINEL_KEY)
     assert remote_client.post("/api/team/logout", headers=H).json() == {"state": "signed_out"}
-    assert teamauth._current_key() is None
+    assert teamauth._current_key() == SENTINEL_KEY and calls == [] and configured.deletes == 0
+
+
+def test_remote_dashboard_team_read_routes_never_call_out(remote_client: TestClient, configured: Fake,
+                                                         monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_local import team
+
+    fetched: list[str] = []
+    real = team.fetch
+    monkeypatch.setattr(team, "fetch", lambda *a, **k: (fetched.append(a[0]), real(*a, **k))[1])
+    calls = _record(monkeypatch)
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", SENTINEL_KEY)
+    for path in ("/api/team/projects", "/api/team/projects/p1/overview", "/api/team/projects/p1/members"):
+        r = remote_client.get(path, headers=H)
+        assert r.status_code == 200 and r.json()["state"] == "not_configured" and r.json()["reason"] == team.REASONS["not_configured"], path
+    assert fetched == [] and calls == []
+
+
+def test_local_dashboard_team_read_routes_still_fetch(client: TestClient, configured: Fake, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_local import team
+
+    fetched: list[str] = []
+    real = team.fetch
+    monkeypatch.setattr(team, "fetch", lambda *a, **k: (fetched.append(a[0]), real(*a, **k))[1])
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", SENTINEL_KEY)
+    for path in ("/api/team/projects", "/api/team/projects/p1/overview", "/api/team/projects/p1/members"):
+        assert client.get(path, headers=H).status_code == 200
+    assert len(fetched) == 3
