@@ -51,7 +51,7 @@ This plan assumes a key exists. Today that is a hand-minted API key from an env 
 
 ---
 
-### Task TD-0: Team server members route (last synced per member)
+### Task 0: TD-0 Team server members route (last synced per member)
 
 **Files:**
 - Modify: `packages/team_server/src/seen_team/app.py` (new route after `/api/projects/{pid}/changes`)
@@ -78,7 +78,7 @@ This plan assumes a key exists. Today that is a hand-minted API key from an env 
 - [ ] **Step 4: Run to verify pass:** `uv run pytest tests/team -q`. Expected: PASS. (The `pg` marker runs the same tests against Postgres once the stack is up.)
 - [ ] **Step 5: Commit:** `git add packages/team_server tests/team && git commit -m "TD-0: team server members route with last synced"`
 
-### Task TD-1: Team client in the local server
+### Task 1: TD-1 Team client in the local server
 
 **Files:**
 - Modify: `packages/core/src/seen_core/sync.py` (add public `server_and_key`)
@@ -105,7 +105,7 @@ This plan assumes a key exists. Today that is a hand-minted API key from an env 
 - [ ] **Step 4: Run to verify pass:** same command. Expected: PASS.
 - [ ] **Step 5: Commit:** `git add packages/core/src/seen_core/sync.py packages/local_server/src/seen_local/team.py tests/local/test_team_client.py && git commit -m "TD-1: team server client for the local dashboard"`
 
-### Task TD-2: `/api/team/*` routes and schemas
+### Task 2: TD-2 `/api/team/*` routes and schemas
 
 **Files:**
 - Modify: `packages/local_server/src/seen_local/schemas.py`, `packages/local_server/src/seen_local/app.py` (two routes, placed after `/api/settings`)
@@ -143,7 +143,7 @@ This plan assumes a key exists. Today that is a hand-minted API key from an env 
 - [ ] **Step 4: Regenerate and verify:** `uv run python scripts/gen_openapi.py && (cd web && npm run gen:api) && uv run pytest tests/local -q && uv run python scripts/gen_openapi.py --check`. Expected: PASS.
 - [ ] **Step 5: Commit:** `git add packages/local_server tests/local docs web/src/api/schema.d.ts && git commit -m "TD-2: /api/team routes proxy team aggregates"`
 
-### Task TD-3: Team page in the web app
+### Task 3: TD-3 Team page in the web app
 
 **Files:**
 - Create: `web/src/pages/Team.tsx`
@@ -179,7 +179,7 @@ This plan assumes a key exists. Today that is a hand-minted API key from an env 
 - [ ] **Step 4: Run to verify pass:** `cd web && npm run lint && npm run typecheck && npm test`. Expected: PASS.
 - [ ] **Step 5: Commit:** `git add web && git commit -m "TD-3: team dashboard page"`
 
-### Task TD-4: E2E, docs, security review, live check
+### Task 4: TD-4 E2E, docs, security review, live check
 
 **Files:**
 - Create: `web/e2e/team.spec.ts`, `docs/adr/<next number>-team-dashboard-proxy.md`
