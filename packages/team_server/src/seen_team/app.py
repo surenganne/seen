@@ -12,6 +12,7 @@ import os
 import secrets
 import time
 from collections import Counter, defaultdict, deque
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal
 
@@ -21,7 +22,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base, TeamApiKey, TeamAuditHead, TeamBatch, TeamChange, TeamInstall, TeamProject
+from .models import Base, TeamApiKey, TeamAuditHead, TeamBatch, TeamChange, TeamInstall, TeamProject, TeamUser
+from .oidc import Identity, OidcConfig, _get_json, make_jwks_fetcher, validate_id_token
 
 DEFAULT_PORT = 47824
 SECURITY_HEADERS = {"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
@@ -38,6 +40,8 @@ def _add_missing_key_columns(engine: sa.Engine) -> None:
         for col in ("expires_at", "revoked_at"):
             if col not in have:
                 c.execute(sa.text(f"ALTER TABLE team_api_keys ADD COLUMN {col} VARCHAR(40)"))
+        if "origin" not in have:
+            c.execute(sa.text("ALTER TABLE team_api_keys ADD COLUMN origin VARCHAR(16) NOT NULL DEFAULT 'manual'"))
 
 
 def client_ip(request: Request) -> str:
@@ -147,11 +151,36 @@ class KeyIn(Strict):
     expires_in_days: int | None = Field(default=None, ge=1, le=3650)
 
 
-def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
+class ExchangeIn(Strict):
+    id_token: str = Field(max_length=16384)
+    nonce: str = Field(max_length=256)
+
+
+class UserPatch(Strict):
+    role: Literal["member", "lead", "admin"] | None = None
+    active: bool | None = None
+
+
+SSO_KEY_DAYS = 30
+
+
+def create_app(url: str | None = None, reset: bool = False, oidc_validate: Callable[[str, str], Identity] | None = None) -> FastAPI:
     url = url or os.environ.get("SEEN_TEAM_DATABASE_URL") or "sqlite:///seen-team.db"
-    boot = os.environ.get("SEEN_TEAM_BOOTSTRAP_KEY", "")
-    if os.environ.get("APP_ENV") == "production" and len(boot) < 32:
-        raise SystemExit("SEEN_TEAM_BOOTSTRAP_KEY must be set to 32+ random characters in production.")
+    cfg = OidcConfig.from_env()  # raises OidcConfigError on a partial or unsafe config: startup stops
+    if oidc_validate is None and cfg is not None:
+        fetcher = make_jwks_fetcher(cfg.issuer)  # one fetcher (and cache) for the process
+        oidc_cfg = cfg
+
+        def oidc_validate(token: str, nonce: str) -> Identity:  # noqa: F811
+            return validate_id_token(token, nonce, oidc_cfg, fetcher)
+    bootstrap_off = os.environ.get("SEEN_TEAM_BOOTSTRAP_DISABLE") == "1"
+    boot = "" if bootstrap_off else os.environ.get("SEEN_TEAM_BOOTSTRAP_KEY", "")
+    if os.environ.get("APP_ENV") == "production":
+        if bootstrap_off and oidc_validate is None:
+            raise SystemExit("Production with SEEN_TEAM_BOOTSTRAP_DISABLE=1 needs SEEN_OIDC_ISSUER and SEEN_OIDC_CLIENT_ID: no way to sign in.")
+        if not bootstrap_off and len(boot) < 32:
+            raise SystemExit("SEEN_TEAM_BOOTSTRAP_KEY must be set to 32+ random characters in production.")
+    disco: dict[str, Any] = {"at": 0.0, "doc": None}
     engine = sa.create_engine(url, pool_pre_ping=True)
     if reset:
         Base.metadata.drop_all(engine)
@@ -185,7 +214,8 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
 
     Db = Annotated[Session, Depends(db)]
 
-    def auth(request: Request, s: Db, authorization: str = Header(default="")) -> TeamApiKey:
+    def throttle(request: Request) -> deque[float]:
+        """Per-IP limiter shared by auth and the pre-auth exchange. Returns the failure queue: append to it on a failed attempt."""
         ip = client_ip(request)
         q, h = fails[ip], hits[ip]
         for dq in (q, h):
@@ -194,6 +224,10 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
         if len(q) >= MAX_FAILS or len(h) >= MAX_REQUESTS:  # locked: even a correct key waits, so the lockout is not an oracle
             raise HTTPException(429, "too many requests; retry later")
         h.append(time.monotonic())
+        return q
+
+    def auth(request: Request, s: Db, authorization: str = Header(default="")) -> TeamApiKey:
+        q = throttle(request)
         token = authorization.removeprefix("Bearer ").strip()
         tb = token.encode("utf-8", "surrogatepass")
         if boot and hmac.compare_digest(tb, boot.encode()):
@@ -201,6 +235,13 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
         k = s.scalars(sa.select(TeamApiKey).where(TeamApiKey.key_hash == hashlib.sha256(tb).hexdigest())).first() if token else None
         if k is not None and (k.revoked_at or (k.expires_at and k.expires_at <= now())):
             k = None  # a revoked or expired key is indistinguishable from a wrong one
+        if k is not None and k.origin == "sso":
+            u = s.get(TeamUser, k.user_id)
+            if u is None or not u.active:
+                k = None  # deactivated or erased: the key dies with the user
+            else:
+                s.expunge(k)  # the role is read live from the user row; never write it back to the key
+                k.role = u.role
         if k is None:
             q.append(time.monotonic())
             raise HTTPException(401, "invalid API key")
@@ -208,9 +249,62 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
 
     Key = Annotated[TeamApiKey, Depends(auth)]
 
+    def sees(k: TeamApiKey, pid: str) -> bool:
+        return k.role == "admin" or k.project_id == pid or (k.origin == "sso" and k.role == "lead")
+
     def can_see(k: TeamApiKey, pid: str) -> None:
-        if k.role != "admin" and k.project_id != pid:
+        if not sees(k, pid):
             raise HTTPException(403, "key is not scoped to this project")
+
+    def need_oidc() -> Callable[[str, str], Identity]:
+        if oidc_validate is None:
+            raise HTTPException(503, "SSO is not configured")
+        return oidc_validate
+
+    @app.post("/auth/exchange")
+    def exchange(body: ExchangeIn, request: Request, s: Db) -> dict[str, str]:
+        """Trade an IdP id_token for a 30-day team key. Every failure is the same 401; nothing from the token is echoed or logged."""
+        q = throttle(request)
+        validate = need_oidc()
+        try:
+            ident = validate(body.id_token, body.nonce)
+            email, t = ident.email.lower(), now()
+            u = s.get(TeamUser, ident.sub)
+            if u is None:
+                admins = {a.strip().lower() for a in os.environ.get("SEEN_TEAM_ADMINS", "").split(",") if a.strip()}
+                u = TeamUser(sub=ident.sub, email=email, role="admin" if email in admins else "member", active=True, first_seen=t, last_login=t)
+                s.add(u)
+            elif not u.active:
+                raise ValueError
+            u.email, u.last_login = email, t
+            token = "seen_" + secrets.token_urlsafe(32)
+            exp = (datetime.now(UTC) + timedelta(days=SSO_KEY_DAYS)).isoformat(timespec="seconds").replace("+00:00", "Z")
+            s.add(TeamApiKey(id=secrets.token_hex(8), key_hash=hashlib.sha256(token.encode()).hexdigest(), project_id=None, role=u.role,
+                             user_id=u.sub, created_at=t, expires_at=exp, origin="sso"))
+            s.commit()
+            return {"key": token, "expires_at": exp, "email": u.email, "role": u.role}
+        except Exception:  # noqa: BLE001 - validation failures and surprises alike: one fixed 401, never a 500
+            s.rollback()
+            q.append(time.monotonic())
+            raise HTTPException(401, "sign-in failed") from None
+
+    @app.get("/auth/config")
+    def auth_config(request: Request) -> dict[str, str]:
+        throttle(request)
+        if cfg is None:
+            raise HTTPException(503, "SSO is not configured")
+        try:
+            if disco["doc"] is None or time.monotonic() - disco["at"] > 3600:
+                disco["doc"], disco["at"] = _get_json(cfg.issuer.rstrip("/") + "/.well-known/openid-configuration"), time.monotonic()
+            d = disco["doc"]
+            return {"authorization_endpoint": str(d["authorization_endpoint"]), "token_endpoint": str(d["token_endpoint"]), "client_id": cfg.client_id}
+        except Exception:  # noqa: BLE001
+            raise HTTPException(503, "SSO provider unavailable") from None
+
+    @app.get("/auth/me")
+    def me(k: Key, s: Db) -> dict[str, str | None]:
+        u = s.get(TeamUser, k.user_id) if k.origin == "sso" else None
+        return {"email": u.email if u else None, "role": k.role}
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, e: HTTPException) -> JSONResponse:
@@ -252,6 +346,25 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
         s.commit()
         return {"id": row.id, "revoked_at": row.revoked_at}
 
+    @app.get("/api/users")
+    def list_users(k: Key, s: Db) -> list[dict[str, Any]]:
+        admin_only(k)
+        return [{"sub": u.sub, "email": u.email, "role": u.role, "active": u.active, "last_login": u.last_login}
+                for u in s.scalars(sa.select(TeamUser).order_by(TeamUser.email))]
+
+    @app.put("/api/users/{sub}")
+    def update_user(sub: str, body: UserPatch, k: Key, s: Db) -> dict[str, Any]:
+        admin_only(k)
+        u = s.get(TeamUser, sub)
+        if u is None:
+            raise HTTPException(404, "no such user")
+        if body.role is not None:
+            u.role = body.role
+        if body.active is not None:
+            u.active = body.active
+        s.commit()
+        return {"sub": u.sub, "email": u.email, "role": u.role, "active": u.active, "last_login": u.last_login}
+
     @app.delete("/api/users/{user_id}")
     def erase_user(user_id: str, k: Key, s: Db) -> dict[str, int]:
         """DPDP erasure: the person's changes go, their keys stop working. Audit-head anchors hold only hashes and stay."""
@@ -260,6 +373,7 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
         keys = list(s.scalars(sa.select(TeamApiKey).where(TeamApiKey.user_id == user_id, TeamApiKey.revoked_at.is_(None))))
         for row in keys:
             row.revoked_at = now()
+        s.execute(sa.delete(TeamUser).where(TeamUser.sub == user_id))  # the email is personal data too
         s.commit()
         return {"changes": n, "keys_revoked": len(keys)}
 
@@ -273,8 +387,16 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
 
     @app.post("/api/sync")
     def sync(body: BatchIn, k: Key, s: Db, x_idempotency_key: str = Header(..., max_length=128)) -> dict[str, Any]:
-        if k.role != "member" or not k.user_id:
+        sso = k.origin == "sso"  # an SSO key writes its own changes at any role and for any project
+        if not sso and (k.role != "member" or not k.user_id):
             raise HTTPException(403, "only member keys (bound to a user) can send changes")
+        def same_writer(key_id: str) -> bool:
+            """The same key, or (SSO) an earlier key of the same person: a re-login mints a new key but keeps the install."""
+            if key_id == k.id:
+                return True
+            o = s.get(TeamApiKey, key_id) if sso else None
+            return o is not None and o.origin == "sso" and o.user_id == k.user_id
+
         prior = s.scalars(sa.select(TeamBatch).where(TeamBatch.key_id == k.id, TeamBatch.idempotency_key == x_idempotency_key)).first()
         if prior:
             return {**json.loads(prior.response), "duplicate": True}
@@ -282,14 +404,17 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
         inst = s.get(TeamInstall, body.install_id)
         if inst is None:
             s.add(TeamInstall(install_id=body.install_id, key_id=k.id, first_seen=t))
-        elif inst.key_id != k.id:
+        elif not same_writer(inst.key_id):
             raise HTTPException(403, "this install id belongs to another key")
+        if sso:
+            body.changes = [c.model_copy(update={"user_id": k.user_id}) for c in body.changes]  # never trust the client's value
         for c in body.changes:
-            can_see(k, c.project_id)
-            if c.user_id != k.user_id:
-                raise HTTPException(403, "member keys can only send their own changes")
+            if not sso:
+                can_see(k, c.project_id)
+                if c.user_id != k.user_id:
+                    raise HTTPException(403, "member keys can only send their own changes")
             old = s.get(TeamChange, c.id)
-            if old is not None and (old.project_id != c.project_id or old.writer_key != k.id):
+            if old is not None and (old.project_id != c.project_id or not same_writer(old.writer_key)):
                 raise HTTPException(409, f"change {c.id} already belongs to another project or writer")
         for h in body.audit_heads:
             old_h = s.get(TeamAuditHead, (body.install_id, h.seq))
@@ -330,7 +455,7 @@ def create_app(url: str | None = None, reset: bool = False) -> FastAPI:
     def projects(k: Key, s: Db) -> list[dict[str, Any]]:
         out = []
         for p in s.scalars(sa.select(TeamProject).order_by(TeamProject.id)):
-            if k.role == "admin" or k.project_id == p.id:
+            if sees(k, p.id):
                 rs = rows(s, p.id)
                 out.append({"id": p.id, "name": p.id, "changes": len(rs), "last_change_at": rs[0].started_at if rs else None,
                             "cost_7d": round(sum(r.payload.get("cost_usd") or 0 for r in rows(s, p.id, 7)), 4)})

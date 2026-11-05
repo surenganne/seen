@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, Integer, MetaData, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Integer, MetaData, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -54,6 +54,18 @@ class TeamApiKey(Base):
     created_at: Mapped[str] = mapped_column(String(40))
     expires_at: Mapped[str | None] = mapped_column(String(40), default=None)
     revoked_at: Mapped[str | None] = mapped_column(String(40), default=None)
+    origin: Mapped[str] = mapped_column(String(16), default="manual", server_default="manual")  # manual | sso
+
+
+class TeamUser(Base):
+    """An SSO identity, keyed by the IdP's stable subject; email is an attribute (lowercased), not the key."""
+    __tablename__ = "team_users"
+    sub: Mapped[str] = mapped_column(String(200), primary_key=True)
+    email: Mapped[str] = mapped_column(String(320))
+    role: Mapped[str] = mapped_column(String(16))  # member | lead | admin
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    first_seen: Mapped[str] = mapped_column(String(40))
+    last_login: Mapped[str] = mapped_column(String(40))
 
 
 class TeamBatch(Base):
