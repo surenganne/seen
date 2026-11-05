@@ -108,7 +108,7 @@ class ChangeIn(Strict):
     tok_out: int | None = Field(default=None, ge=0)
     tok_cache_read: int | None = Field(default=None, ge=0)
     tok_cache_write: int | None = Field(default=None, ge=0)
-    cost_usd: float | None = Field(default=None, ge=0)
+    cost_usd: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     price_version: str | None = Field(default=None, max_length=40)
     skills: list[SkillIn] | None = Field(default=None, max_length=100)
     policies: list[PolicyIn] | None = Field(default=None, max_length=200)
@@ -179,7 +179,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     boot = "" if bootstrap_off else os.environ.get("SEEN_TEAM_BOOTSTRAP_KEY", "")
     if os.environ.get("APP_ENV") == "production":
         if bootstrap_off and oidc_validate is None:
-            raise SystemExit("Production with SEEN_TEAM_BOOTSTRAP_DISABLE=1 needs SEEN_OIDC_ISSUER and SEEN_OIDC_CLIENT_ID: no way to sign in.")
+            raise SystemExit("Production with SEEN_TEAM_BOOTSTRAP_DISABLE=1 (or true/yes) needs SEEN_OIDC_ISSUER and SEEN_OIDC_CLIENT_ID: no way to sign in.")
         if not bootstrap_off and len(boot) < 32:
             raise SystemExit("SEEN_TEAM_BOOTSTRAP_KEY must be set to 32+ random characters in production.")
     disco: dict[str, Any] = {"at": 0.0, "doc": None}
@@ -385,6 +385,9 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         s.commit()
         return {"id": row.id, "revoked_at": row.revoked_at}
 
+    def other_active_admin(s: Session, sub: str) -> bool:
+        return s.scalars(sa.select(TeamUser).where(TeamUser.role == "admin", TeamUser.active.is_(True), TeamUser.sub != sub)).first() is not None
+
     @app.get("/api/users")
     def list_users(k: Key, s: Db) -> list[dict[str, Any]]:
         admin_only(k)
@@ -398,8 +401,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         if u is None:
             raise HTTPException(404, "no such user")
         role, active = body.role or u.role, u.active if body.active is None else body.active
-        if u.role == "admin" and u.active and not (role == "admin" and active) and not s.scalars(
-                sa.select(TeamUser).where(TeamUser.role == "admin", TeamUser.active.is_(True), TeamUser.sub != sub)).first():
+        if u.role == "admin" and u.active and not (role == "admin" and active) and not other_active_admin(s, sub):
             raise HTTPException(409, "cannot remove the last active admin")
         u.role, u.active = role, active
         s.commit()
@@ -409,6 +411,9 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     def erase_user(user_id: str, k: Key, s: Db) -> dict[str, int]:
         """DPDP erasure: the person's changes go, their keys stop working. Audit-head anchors hold only hashes and stay."""
         admin_only(k)
+        target = s.get(TeamUser, user_id)
+        if target is not None and target.role == "admin" and target.active and not other_active_admin(s, user_id):
+            raise HTTPException(409, "cannot remove the last active admin")
         n = s.execute(sa.delete(TeamChange).where(TeamChange.user_id == user_id)).rowcount  # type: ignore[attr-defined]
         keys = list(s.scalars(sa.select(TeamApiKey).where(TeamApiKey.user_id == user_id, TeamApiKey.revoked_at.is_(None))))
         for row in keys:
@@ -432,9 +437,6 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         sso = k.origin == "sso"  # an SSO key writes its own changes at any role and for any project
         if not sso and (k.role != "member" or not k.user_id):
             raise HTTPException(403, "only member keys (bound to a user) can send changes")
-        def same_writer(key_id: str) -> bool:
-            return owns(s, k, key_id)
-
         prior = s.scalars(sa.select(TeamBatch).where(TeamBatch.key_id == k.id, TeamBatch.idempotency_key == x_idempotency_key)).first()
         if prior:
             return {**json.loads(prior.response), "duplicate": True}
@@ -442,7 +444,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         inst = s.get(TeamInstall, body.install_id)
         if inst is None:
             s.add(TeamInstall(install_id=body.install_id, key_id=k.id, first_seen=t))
-        elif not same_writer(inst.key_id):
+        elif not owns(s, k, inst.key_id):
             raise HTTPException(403, "this install id belongs to another key")
         if sso:
             body.changes = [c.model_copy(update={"user_id": k.user_id}) for c in body.changes]  # never trust the client's value
@@ -452,7 +454,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
                 if c.user_id != k.user_id:
                     raise HTTPException(403, "member keys can only send their own changes")
             old = s.get(TeamChange, c.id)
-            if old is not None and (old.project_id != c.project_id or not same_writer(old.writer_key)):
+            if old is not None and (old.project_id != c.project_id or not owns(s, k, old.writer_key)):
                 raise HTTPException(409, f"change {c.id} already belongs to another project or writer")
         for h in body.audit_heads:
             old_h = s.get(TeamAuditHead, (body.install_id, h.seq))
@@ -538,7 +540,8 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
 
     @app.get("/api/projects/{pid}/members")
     def project_members(pid: str, k: Key, s: Db) -> list[dict[str, Any]]:
-        """Who syncs this project and when they last did. Metadata only: no role, key id or hash."""
+        """Who syncs this project and when they last did. Metadata only: no role, key id or hash.
+        last_synced_at and key_expired are account-wide (across all of the user's keys), not per project."""
         can_see(k, pid)
         if k.role not in ("lead", "admin"):
             raise HTTPException(403, "only leads and admins can list members")
@@ -547,7 +550,9 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
             TeamApiKey.revoked_at.is_(None), TeamApiKey.user_id.is_not(None))))
         counts = dict(s.execute(sa.select(TeamChange.user_id, sa.func.count()).where(
             TeamChange.project_id == pid, TeamChange.user_id.is_not(None)).group_by(TeamChange.user_id)).all())
-        users = {u.sub: u for u in s.scalars(sa.select(TeamUser).where(TeamUser.sub.in_(list(counts))))} if counts else {}
+        want = list(set(counts) | manual)
+        users = {u.sub: u for u in s.scalars(sa.select(TeamUser).where(TeamUser.sub.in_(want)))} if want else {}
+        manual -= {sub for sub, u in users.items() if not u.active}  # a deactivated or erased user is never listed
         ids = sorted(manual | {sub for sub, u in users.items() if u.active})
         if not ids:
             return []

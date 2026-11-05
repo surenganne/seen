@@ -354,3 +354,11 @@ def test_delete_me_refuses_manual_and_bootstrap_keys(sso: TestClient) -> None:
     assert r.status_code == 403 and "revoke" in r.text
     assert sso.get("/auth/me", headers=bearer(m)).status_code == 200
     assert sso.delete("/auth/me", headers=admin(sso)).status_code == 403
+
+
+def test_erase_refuses_the_last_active_admin(sso: TestClient) -> None:
+    boss = bearer(login(sso, "t-boss")["key"])
+    r = sso.delete("/api/users/sub-boss", headers=boss)
+    assert r.status_code == 409 and r.json()["detail"] == "cannot remove the last active admin"
+    assert login(sso, "t-other")["role"] == "admin"
+    assert sso.delete("/api/users/sub-boss", headers=bearer(login(sso, "t-other")["key"])).status_code == 200

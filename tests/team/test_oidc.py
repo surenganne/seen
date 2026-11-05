@@ -48,7 +48,7 @@ json_null = object()
 def tok(key: Any = KEY, kid: str = "k1", alg: str = "RS256", **over: Any) -> str:
     now = int(time.time())
     claims = {"iss": ISS, "aud": CID, "sub": "sub-1", "iat": now, "exp": now + 600,
-              "nonce": "n1", "email": "a@minfytech.com", **over}
+              "nonce": "n1", "email": "a@minfytech.com", "tid": TENANT, **over}
     claims = {k: (None if v is json_null else v) for k, v in claims.items() if v is not None}
     return jwt.encode(claims, key, algorithm=alg, headers={"kid": kid})
 
@@ -353,3 +353,10 @@ def test_fetcher_failures_are_oidc_error(server: str):
         make_jwks_fetcher(server + "/nope")(False)  # 404
     with pytest.raises(OidcError):
         make_jwks_fetcher("http://localhost:1")(False)  # refused
+
+
+def test_entra_issuer_requires_tid():
+    bad(tok(tid=json_null))  # present but null
+    bad(tok(tid=None))  # absent: None drops the claim
+    bad(tok(tid="99999999-2222-3333-4444-555555555555"))
+    assert check(tok(tid=TENANT)).sub == "sub-1"
