@@ -536,6 +536,32 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
             raise HTTPException(403, "per-person detail is only visible to that person")
         return [r.payload for r in rows(s, pid) if r.user_id == k.user_id]
 
+    @app.get("/api/projects/{pid}/members")
+    def project_members(pid: str, k: Key, s: Db) -> list[dict[str, Any]]:
+        """Who syncs this project and when they last did. Metadata only: no role, key id or hash."""
+        can_see(k, pid)
+        if k.role not in ("lead", "admin"):
+            raise HTTPException(403, "only leads and admins can list members")
+        manual = set(s.scalars(sa.select(TeamApiKey.user_id).where(
+            TeamApiKey.project_id == pid, TeamApiKey.role == "member", TeamApiKey.origin != "sso",
+            TeamApiKey.revoked_at.is_(None), TeamApiKey.user_id.is_not(None))))
+        counts = dict(s.execute(sa.select(TeamChange.user_id, sa.func.count()).where(
+            TeamChange.project_id == pid, TeamChange.user_id.is_not(None)).group_by(TeamChange.user_id)).all())
+        users = {u.sub: u for u in s.scalars(sa.select(TeamUser).where(TeamUser.sub.in_(list(counts))))} if counts else {}
+        ids = sorted(manual | {sub for sub, u in users.items() if u.active})
+        if not ids:
+            return []
+        last = dict(s.execute(sa.select(TeamApiKey.user_id, sa.func.max(TeamBatch.received_at)).join(
+            TeamBatch, TeamBatch.key_id == TeamApiKey.id).where(TeamApiKey.user_id.in_(ids)).group_by(TeamApiKey.user_id)).all())
+        t = now()
+        fresh: set[str] = set()  # users holding at least one live, unexpired key
+        for uid, exp in s.execute(sa.select(TeamApiKey.user_id, TeamApiKey.expires_at).where(
+                TeamApiKey.user_id.in_(ids), TeamApiKey.revoked_at.is_(None))):
+            if exp is None or exp > t:
+                fresh.add(uid)
+        return [{"user_id": i, "email": (users[i].email if i in users else None), "last_synced_at": last.get(i),
+                 "changes": counts.get(i, 0), "key_expired": i not in fresh} for i in ids]
+
     return app
 
 
