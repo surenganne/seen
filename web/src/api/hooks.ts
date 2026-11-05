@@ -107,3 +107,26 @@ export function useWrite<TArgs, TOut>(fn: (a: TArgs) => Promise<TOut>) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries() });
 }
+
+export const useTeamSession = () => useQuery({ queryKey: ["team", "session"], queryFn: () => unwrap(api.GET("/api/team/session")) });
+
+export const useTeamProjects = () => useQuery({ queryKey: ["team", "projects"], queryFn: () => unwrap(api.GET("/api/team/projects")) });
+
+export const useTeamOverview = (pid: string, range: Range) =>
+  useQuery({
+    queryKey: ["team", "overview", pid, range],
+    enabled: !!pid,
+    queryFn: () => unwrap(api.GET("/api/team/projects/{pid}/overview", { params: { path: { pid }, query: { range } } })),
+    placeholderData: keepPreviousData,
+  });
+
+export const useTeamMembers = (pid: string) =>
+  useQuery({
+    queryKey: ["team", "members", pid],
+    enabled: !!pid,
+    queryFn: () => unwrap(api.GET("/api/team/projects/{pid}/members", { params: { path: { pid } } })),
+  });
+
+// The shared client sends X-Seen-Request on every call, which login and logout require.
+export const teamLogin = () => unwrap(api.POST("/api/team/login"));
+export const teamLogout = () => unwrap(api.POST("/api/team/logout"));
