@@ -172,11 +172,13 @@ def make_jwks_fetcher(
     def fetch(refresh: bool) -> dict[str, Any]:
         with lock:
             now, keys = clock(), st["keys"]
-            if keys is not None:
-                if not refresh and now - st["at"] < _JWKS_TTL_S:
-                    return dict(keys)
-                if refresh and st["forced"] is not None and now - st["forced"] < _FORCED_MIN_S:
+            fresh = keys is not None and now - st["at"] <= _JWKS_TTL_S
+            if fresh and not refresh:
+                return dict(keys)
+            if refresh and st["forced"] is not None and now - st["forced"] < _FORCED_MIN_S:
+                if fresh:
                     return dict(keys)  # throttled: a junk kid cannot force a network call
+                raise OidcError(_FAIL)  # throttled and past the TTL: fail closed, no grace period
             if refresh:
                 st["forced"] = now
             ev: threading.Event | None = st["inflight"]
@@ -187,8 +189,8 @@ def make_jwks_fetcher(
         if not leader:
             ev.wait(_TIMEOUT_S * 2 + 1)
             with lock:
-                if st["keys"] is None:
-                    raise OidcError(_FAIL)
+                if st["keys"] is None or clock() - st["at"] > _JWKS_TTL_S:
+                    raise OidcError(_FAIL)  # leader failed and the cache is past the TTL
                 return dict(st["keys"])
         try:
             disc = _get_json(issuer.rstrip("/") + "/.well-known/openid-configuration")
