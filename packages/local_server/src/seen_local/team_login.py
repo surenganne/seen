@@ -77,7 +77,9 @@ def _done() -> RedirectResponse:
     return RedirectResponse("/team", status_code=303)  # fixed target: nothing is ever reflected
 
 
-def register(app: FastAPI) -> None:
+def register(app: FastAPI, remote: bool = False) -> None:
+    """remote: the dashboard is reachable beyond this machine (container / --allow-remote). Such an instance never signs
+    in: a key it minted would land in a folder nothing expects it in (a Docker snapshot), reachable by its network peers."""
     pending = app.state.login_pending = PendingStore()
 
     def server() -> str | None:
@@ -88,7 +90,7 @@ def register(app: FastAPI) -> None:
 
     @app.get("/api/team/session", response_model=S.TeamSession)
     def session() -> S.TeamSession:
-        if server() is None:
+        if remote or server() is None:
             return S.TeamSession(state="not_configured", email=None, role=None)
         if not teamauth._current_key():
             return SIGNED_OUT
@@ -100,7 +102,7 @@ def register(app: FastAPI) -> None:
 
     @app.post("/api/team/login", response_model=S.TeamLoginOut)
     def login(request: Request) -> S.TeamLoginOut:
-        srv = server()
+        srv = None if remote else server()
         if srv is None:
             _audit("team.login_started", "failed")
             return S.TeamLoginOut(url=None, reason="not_configured")
@@ -119,7 +121,7 @@ def register(app: FastAPI) -> None:
     @app.get("/api/team/callback", include_in_schema=False)
     def callback(code: str = "", state: str = "") -> RedirectResponse:
         p = pending.take(state)  # unknown, replayed or expired: nothing else happens, no outbound call
-        if p is None or not code:
+        if remote or p is None or not code:
             return _done()
         try:
             srv = server()

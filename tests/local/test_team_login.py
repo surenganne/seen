@@ -200,3 +200,48 @@ def test_no_secret_in_any_response_header_or_log(client: TestClient, configured:
     blob = " ".join(f"{r.text} {dict(r.headers)} {r.history}" for r in seen) + caplog.text
     for secret in (SENTINEL_KEY, SENTINEL_TOKEN, "the-code", verifier):
         assert secret not in blob
+
+
+@pytest.fixture
+def remote_client(seeded: Path) -> TestClient:
+    from seen_local.app import create_app
+
+    return TestClient(create_app(web_dist=None, remote=True), base_url="http://localhost")
+
+
+def _record(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    calls: list[str] = []
+    real = teamauth._call
+    monkeypatch.setattr(teamauth, "_call", lambda *a, **k: (calls.append(a[0]), real(*a, **k))[1])
+    return calls
+
+
+def test_remote_dashboard_refuses_sign_in_without_any_outbound_call(remote_client: TestClient, configured: Fake,
+                                                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = _record(monkeypatch)
+    teamauth.save_key(SENTINEL_KEY)  # even with a key on disk the session is not shown
+    assert remote_client.get("/api/team/session", headers=H).json() == {"state": "not_configured", "email": None, "role": None}
+    assert remote_client.post("/api/team/login", headers=H).json() == {"url": None, "reason": "not_configured"}
+    assert remote_client.app.state.login_pending.entries == {}  # type: ignore[attr-defined]
+    assert calls == [] and configured.token_calls == [] and configured.exchange_calls == []
+
+
+def test_remote_dashboard_callback_never_calls_out(remote_client: TestClient, configured: Fake,
+                                                  monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+
+    from seen_local.team_login import Pending
+
+    # a pending login that is valid in every way: only the remote guard can stop the exchange
+    remote_client.app.state.login_pending.put("st", Pending("v" * 43, "nonce-1", "http://127.0.0.1:1/api/team/callback", time.monotonic() + 60))  # type: ignore[attr-defined]
+    calls = _record(monkeypatch)
+    r = cb(remote_client, code="the-code", state="st")
+    assert r.status_code == 303 and r.headers["location"] == "/team"
+    assert calls == [] and configured.token_calls == [] and configured.exchange_calls == []
+    assert teamauth._current_key() is None
+
+
+def test_remote_dashboard_can_still_sign_out_locally(remote_client: TestClient, configured: Fake) -> None:
+    teamauth.save_key(SENTINEL_KEY)
+    assert remote_client.post("/api/team/logout", headers=H).json() == {"state": "signed_out"}
+    assert teamauth._current_key() is None

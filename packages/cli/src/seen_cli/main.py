@@ -364,7 +364,8 @@ def serve(port: int = typer.Option(47821, help="Port (default 47821, off the com
         import webbrowser
 
         threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{port}/")).start()
-    uvicorn.run(create_app(dist), host=host, port=port, log_level="warning", server_header=False,
+    remote = allow_remote or host not in ("127.0.0.1", "localhost", "::1")
+    uvicorn.run(create_app(dist, remote=remote), host=host, port=port, log_level="warning", server_header=False,
                 access_log=False)  # the OIDC callback query holds a code and state
 
 

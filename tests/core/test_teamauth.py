@@ -5,6 +5,7 @@ import stat
 import urllib.parse
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -256,3 +257,100 @@ def test_callback_page_for_a_wrong_state_is_neutral() -> None:
         srv.server_close()
     assert "Signed in" not in wrong and "Signed in" not in missing and "not valid" in wrong
     assert "Signed in" in right
+
+
+def _serve(handler: type) -> Any:
+    import threading
+    from http.server import HTTPServer
+
+    s = HTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=s.serve_forever, daemon=True).start()
+    return s
+
+
+def test_calls_ignore_proxy_environment(seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The team server and IdP are reached directly. A proxy variable pointing at a listener that records connections
+    must never be dialled by _call (login), the revoke in logout, or whoami."""
+    import socket
+    import threading
+    from http.server import BaseHTTPRequestHandler
+
+    dialled: list[int] = []
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    probe.listen(5)
+
+    def accept() -> None:
+        while True:
+            try:
+                c, _ = probe.accept()
+            except OSError:
+                return
+            dialled.append(1)
+            c.close()
+
+    threading.Thread(target=accept, daemon=True).start()
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'{"ok": 1}')
+
+        do_DELETE = do_GET
+
+        def log_message(self, *a: object) -> None: ...
+
+    s = _serve(H)
+    try:
+        for v in ("HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"):
+            monkeypatch.setenv(v, f"http://127.0.0.1:{probe.getsockname()[1]}")
+        monkeypatch.setenv("NO_PROXY", "")
+        status, body = teamauth._call(f"http://127.0.0.1:{s.server_port}/x")
+        paths.ensure_dir(seen_home)
+        paths.config_toml().write_text(f'[sync]\nenabled = true\nserver = "http://127.0.0.1:{s.server_port}"\n')
+        teamauth.save_key(SENTINEL_KEY)
+        teamauth.logout()
+    finally:
+        s.shutdown()
+        probe.close()
+    assert (status, body) == (200, {"ok": 1}) and dialled == []
+
+
+@pytest.mark.parametrize("lie", [True, False])
+def test_call_stops_reading_at_the_cap(monkeypatch: pytest.MonkeyPatch, lie: bool) -> None:
+    import http.client
+    from http.server import BaseHTTPRequestHandler
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            if lie:
+                self.send_header("Content-Length", "10")
+            self.end_headers()
+            try:
+                self.wfile.write(b'{"a": "' + b"x" * (3 * 1024 * 1024))
+            except OSError:
+                pass
+            self.close_connection = True
+
+        def log_message(self, *a: object) -> None: ...
+
+    got = [0]
+    real_read = http.client.HTTPResponse.read
+
+    def counting(self: http.client.HTTPResponse, amt: int | None = None) -> bytes:
+        data = real_read(self, amt)
+        got[0] += len(data)
+        return data
+
+    monkeypatch.setattr(http.client.HTTPResponse, "read", counting)
+    s = _serve(H)
+    try:
+        result = teamauth._call(f"http://127.0.0.1:{s.server_port}/x")
+    finally:
+        s.shutdown()
+    assert result == (0, {})  # over the cap is a failure, not a truncated parse
+    assert got[0] <= teamauth.MAX_BYTES + 1
+    if not lie:
+        assert got[0] == teamauth.MAX_BYTES + 1

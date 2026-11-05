@@ -142,6 +142,20 @@ def test_serve_turns_the_access_log_off(monkeypatch: pytest.MonkeyPatch) -> None
     assert kw["access_log"] is False
 
 
+@pytest.mark.parametrize(("args", "remote"), [([], False), (["--host", "localhost"], False), (["--allow-remote"], True),
+                                               (["--allow-remote", "--host", "0.0.0.0"], True)])
+def test_serve_marks_the_dashboard_remote_when_it_can_be_reached_from_elsewhere(monkeypatch: pytest.MonkeyPatch, args: list[str], remote: bool) -> None:
+    import uvicorn
+
+    import seen_local.app as local_app
+
+    seen: dict = {}
+    monkeypatch.setattr(local_app, "create_app", lambda dist=None, remote=False: seen.update(remote=remote))
+    monkeypatch.setattr(uvicorn, "run", lambda app, **k: None)
+    assert cli.invoke(app, ["serve", *args]).exit_code == 0
+    assert seen["remote"] is remote
+
+
 def test_serve_refuses_non_loopback_without_flag() -> None:
     r = cli.invoke(app, ["serve", "--host", "0.0.0.0"])
     assert r.exit_code == 2 and "--allow-remote" in r.output
