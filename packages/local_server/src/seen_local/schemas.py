@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr
 
 from .team import TeamState
 
@@ -464,55 +464,59 @@ class DenySnippet(BaseModel):
     note: str
 
 
+# Team bodies are untrusted: strict types, and money accepts JSON ints but never NaN/Infinity.
+Money = Annotated[float, Field(strict=True, allow_inf_nan=False)]
+
+
 class TeamProjectOut(BaseModel):
-    id: str
-    name: str
-    changes: int
-    last_change_at: str | None
-    cost_7d: float
+    id: StrictStr
+    name: StrictStr
+    changes: StrictInt
+    last_change_at: StrictStr | None
+    cost_7d: Money
 
 
 class TeamProjects(BaseModel):
     state: TeamState
-    reason: str | None
+    reason: StrictStr | None
     projects: list[TeamProjectOut] = []
 
 
 class TeamTiles(BaseModel):
-    changes: int
-    lines_added: int
-    lines_removed: int
-    policy_missed: int
-    pii_changes: int
-    cost_usd: float
+    changes: StrictInt
+    lines_added: StrictInt
+    lines_removed: StrictInt
+    policy_missed: StrictInt
+    pii_changes: StrictInt
+    cost_usd: Money
 
 
 class TeamCostDay(BaseModel):
-    date: str
-    by_tool: dict[str, float]
+    date: StrictStr
+    by_tool: dict[str, Money]
 
 
 class TeamSkillRuns(BaseModel):
-    skill_id: str
-    runs: int
+    skill_id: StrictStr
+    runs: StrictInt
 
 
 class TeamModelRow(BaseModel):
-    model: str
-    changes: int
-    tok_out: int
-    cost_usd: float
+    model: StrictStr
+    changes: StrictInt
+    tok_out: StrictInt
+    cost_usd: Money
 
 
 class TeamPiiType(BaseModel):
-    type: str
-    count: int
+    type: StrictStr
+    count: StrictInt
 
 
 class TeamOverviewData(BaseModel):
     """The team server's overview body; unknown fields are dropped."""
 
-    range: int
+    range: StrictInt
     tiles: TeamTiles
     cost_by_day: list[TeamCostDay] = []
     top_skills: list[TeamSkillRuns] = []
@@ -522,8 +526,8 @@ class TeamOverviewData(BaseModel):
 
 class TeamOverviewOut(BaseModel):
     state: TeamState
-    reason: str | None
-    range: int | None = None
+    reason: StrictStr | None
+    range: StrictInt | None = None
     tiles: TeamTiles | None = None
     cost_by_day: list[TeamCostDay] = []
     top_skills: list[TeamSkillRuns] = []
@@ -532,14 +536,14 @@ class TeamOverviewOut(BaseModel):
 
 
 class TeamMemberOut(BaseModel):
-    user_id: str
-    email: str | None = None
-    last_synced_at: str | None
-    changes: int
-    key_expired: bool
+    user_id: StrictStr
+    email: StrictStr | None = None
+    last_synced_at: StrictStr | None
+    changes: StrictInt
+    key_expired: StrictBool
 
 
 class TeamMembers(BaseModel):
     state: TeamState
-    reason: str | None
+    reason: StrictStr | None
     members: list[TeamMemberOut] = []

@@ -12,11 +12,11 @@ from pydantic import TypeAdapter, ValidationError
 from . import schemas as S
 from . import team
 
-PID = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
+PID = re.compile(r"[A-Za-z0-9_.:-]{1,64}")
 
 
 def _pid(pid: str) -> str:
-    if not PID.match(pid) or pid in (".", ".."):
+    if not PID.fullmatch(pid) or ".." in pid or pid == ".":
         raise HTTPException(422, "invalid project id")
     return urllib.parse.quote(pid, safe="")
 
