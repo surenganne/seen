@@ -13,6 +13,8 @@ def test_every_get_route_answers(client: TestClient) -> None:
     routes = [r for r in client.app.routes if isinstance(r, APIRoute) and "GET" in r.methods]
     assert len(routes) > 10
     for r in routes:
+        if r.path == "/api/team/callback":
+            continue  # a redirect to the SPA /team page; covered in test_team_login.py
         path = r.path.replace("{pid}", PID).replace("{cid}", cid).replace("{sid}", "release-notes")
         resp = client.get(path, params={"project": PID})
         assert resp.status_code == 200, (path, resp.status_code, resp.text[:200])

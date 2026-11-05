@@ -229,6 +229,10 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
 
     writes.register(app, state)
 
+    from . import team_login
+
+    team_login.register(app)
+
     if web_dist and web_dist.is_dir():
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="assets")
 

@@ -2496,6 +2496,82 @@
         "title": "SkillVersionOut",
         "type": "object"
       },
+      "TeamLoginOut": {
+        "properties": {
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "TeamLoginOut",
+        "type": "object"
+      },
+      "TeamLogoutOut": {
+        "properties": {
+          "state": {
+            "const": "signed_out",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "TeamLogoutOut",
+        "type": "object"
+      },
+      "TeamSession": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "state": {
+            "enum": [
+              "signed_in",
+              "signed_out",
+              "not_configured"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "email",
+          "role"
+        ],
+        "title": "TeamSession",
+        "type": "object"
+      },
       "Tiles": {
         "properties": {
           "background_changes": {
@@ -4393,6 +4469,60 @@
           }
         },
         "summary": "Skill Block"
+      }
+    },
+    "/api/team/login": {
+      "post": {
+        "operationId": "login_api_team_login_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamLoginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Login"
+      }
+    },
+    "/api/team/logout": {
+      "post": {
+        "operationId": "logout_api_team_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamLogoutOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout"
+      }
+    },
+    "/api/team/session": {
+      "get": {
+        "operationId": "session_api_team_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Session"
       }
     }
   }

@@ -1,0 +1,160 @@
+"""Dashboard SSO through the local server: the browser never sees the key, id_token, code or verifier."""
+
+from __future__ import annotations
+
+import urllib.parse
+from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+
+from seen_core import paths, teamauth
+from tests.core.teamfakes import SENTINEL_KEY, SENTINEL_TOKEN, Fake, fakes
+
+H = {"Host": "localhost", "X-Seen-Request": "1"}
+
+
+@pytest.fixture
+def fake(seen_home: Path) -> Iterator[Fake]:
+    yield from fakes()
+
+
+@pytest.fixture
+def configured(fake: Fake, seeded: Path, monkeypatch: pytest.MonkeyPatch) -> Fake:
+    paths.config_toml().write_text(f'[sync]\nenabled = true\nserver = "{fake.url}"\n')
+    monkeypatch.delenv("SEEN_TEAM_API_KEY", raising=False)
+    return fake
+
+
+def start(client: TestClient, fake: Fake) -> dict[str, str]:
+    r = client.post("/api/team/login", headers=H)
+    assert r.status_code == 200
+    q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(r.json()["url"]).query))
+    fake.nonce = q["nonce"]
+    return q
+
+
+def cb(client: TestClient, **q: str) -> Any:
+    return client.get("/api/team/callback", params=q, headers={"Host": "localhost"}, follow_redirects=False)
+
+
+def test_login_needs_the_request_header(client: TestClient, configured: Fake) -> None:
+    assert client.post("/api/team/login", headers={"Host": "localhost"}).status_code == 403
+    assert client.post("/api/team/logout", headers={"Host": "localhost"}).status_code == 403
+
+
+def test_login_url_points_at_the_idp_with_pkce(client: TestClient, configured: Fake) -> None:
+    r = client.post("/api/team/login", headers=H)
+    u = urllib.parse.urlparse(r.json()["url"])
+    q = dict(urllib.parse.parse_qsl(u.query))
+    assert r.json()["url"].startswith(configured.url + "/idp/authorize?")
+    assert q["code_challenge_method"] == "S256" and q["client_id"] == "client-1"
+    assert q["redirect_uri"].endswith("/api/team/callback") and q["redirect_uri"].startswith("http://127.0.0.1:")
+    assert "code_verifier" not in q
+
+
+def test_login_when_not_configured_gives_no_url(client: TestClient) -> None:
+    assert client.post("/api/team/login", headers=H).json() == {"url": None}
+
+
+def test_session_reports_not_configured_and_signed_out_without_key(client: TestClient, seeded: Path, configured: Fake,
+                                                                    monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*a: object, **k: object) -> None:
+        raise AssertionError("no server call without a key")
+
+    monkeypatch.setattr(teamauth, "_call", boom)
+    assert client.get("/api/team/session", headers=H).json() == {"state": "signed_out", "email": None, "role": None}
+
+
+def test_session_not_configured(client: TestClient) -> None:
+    assert client.get("/api/team/session", headers=H).json() == {"state": "not_configured", "email": None, "role": None}
+
+
+def test_session_signed_in_then_rejected_then_unreachable(client: TestClient, configured: Fake) -> None:
+    teamauth.save_key(SENTINEL_KEY)
+    assert client.get("/api/team/session", headers=H).json() == {"state": "signed_in", "email": "dev@example.com", "role": "member"}
+    configured.me_status = 401
+    assert client.get("/api/team/session", headers=H).json() == {"state": "signed_out", "email": None, "role": None}
+    configured.close()
+    r = client.get("/api/team/session", headers=H)
+    assert r.status_code == 200 and r.json()["state"] == "signed_out"
+
+
+def test_full_login_saves_the_key_and_redirects_to_team(client: TestClient, configured: Fake) -> None:
+    q = start(client, configured)
+    r = cb(client, code="the-code", state=q["state"])
+    assert r.status_code == 303 and r.headers["location"] == "/team"
+    assert teamauth.load_key() == SENTINEL_KEY
+    assert configured.token_calls[0]["code"] == "the-code" and configured.token_calls[0]["code_verifier"]
+    assert configured.exchange_calls[0]["nonce"] == q["nonce"]
+    assert client.get("/api/team/session", headers=H).json()["state"] == "signed_in"
+
+
+def test_callback_rejects_unknown_replayed_and_expired_state(client: TestClient, configured: Fake,
+                                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*a: object, **k: object) -> None:
+        raise AssertionError("no outbound call for an unknown state")
+
+    real = teamauth._call
+    monkeypatch.setattr(teamauth, "_call", boom)
+    r = cb(client, code="c", state="never-issued")
+    assert r.status_code == 303 and r.headers["location"] == "/team" and teamauth.load_key() is None
+    monkeypatch.setattr(teamauth, "_call", real)
+    q = start(client, configured)
+    assert cb(client, code="the-code", state=q["state"]).headers["location"] == "/team" and teamauth.load_key()
+    teamauth.clear_key()
+    assert cb(client, code="the-code", state=q["state"]).status_code == 303 and teamauth.load_key() is None  # replay
+    q = start(client, configured)
+    for entry in client.app.state.login_pending.entries.values():
+        entry.expires -= 3600
+    assert cb(client, code="the-code", state=q["state"]).status_code == 303 and teamauth.load_key() is None
+
+
+def test_callback_redirect_is_fixed(client: TestClient, configured: Fake) -> None:
+    q = start(client, configured)
+    for params in ({"code": "x", "state": "<script>alert(1)</script>"}, {"error": "evil", "state": q["state"]}, {},
+                   {"code": "x" * 5000, "state": "//evil.example"}):
+        r = cb(client, **params)
+        assert r.status_code == 303 and r.headers["location"] == "/team" and r.content == b""
+        assert "evil" not in str(r.headers) and "alert" not in str(r.headers)
+
+
+def test_nonce_mismatch_does_not_sign_in(client: TestClient, configured: Fake) -> None:
+    q = start(client, configured)
+    configured.nonce_override = "other"
+    assert cb(client, code="the-code", state=q["state"]).headers["location"] == "/team"
+    assert teamauth.load_key() is None and not configured.exchange_calls
+
+
+def test_pending_logins_are_capped(client: TestClient, configured: Fake) -> None:
+    first = start(client, configured)
+    for _ in range(25):
+        start(client, configured)
+    assert len(client.app.state.login_pending.entries) == 20
+    configured.nonce_override = None
+    assert cb(client, code="the-code", state=first["state"]).status_code == 303 and teamauth.load_key() is None
+
+
+def test_logout_removes_key(client: TestClient, configured: Fake) -> None:
+    teamauth.save_key(SENTINEL_KEY)
+    r = client.post("/api/team/logout", headers=H)
+    assert r.json() == {"state": "signed_out"} and teamauth.load_key() is None and configured.deletes == 1
+
+
+def test_no_secret_in_any_response_header_or_log(client: TestClient, configured: Fake, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("DEBUG")
+    caplog.set_level("WARNING", logger="httpx")  # the test client's own request line, not the server's
+    seen: list[Any] = []
+    seen.append(client.get("/api/team/session", headers=H))
+    q = start(client, configured)
+    seen.append(client.post("/api/team/login", headers=H))
+    seen.append(cb(client, code="the-code", state=q["state"]))
+    seen.append(client.get("/api/team/session", headers=H))
+    seen.append(cb(client, code="the-code", state=q["state"]))
+    seen.append(client.post("/api/team/logout", headers=H))
+    verifier = configured.token_calls[0]["code_verifier"]
+    blob = " ".join(f"{r.text} {dict(r.headers)} {r.history}" for r in seen) + caplog.text
+    for secret in (SENTINEL_KEY, SENTINEL_TOKEN, "the-code", verifier):
+        assert secret not in blob
