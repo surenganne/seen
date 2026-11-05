@@ -112,6 +112,12 @@ def test_logout_revokes_then_clears(configured: Fake) -> None:
     assert configured.deletes == 1 and teamauth.load_key() is None
 
 
+def test_logout_401_means_the_key_was_already_invalid(configured: Fake) -> None:
+    teamauth.save_key(SENTINEL_KEY)
+    configured.delete_status = 401
+    assert teamauth.logout() == "already_invalid" and teamauth.load_key() is None
+
+
 def test_logout_clears_even_when_server_refuses_or_is_missing(configured: Fake, seen_home: Path) -> None:
     teamauth.save_key(SENTINEL_KEY)
     configured.delete_status = 403
@@ -232,3 +238,21 @@ def test_complete_never_leaks_an_unexpected_error(configured: Fake, monkeypatch:
         teamauth.complete(configured.url, cfg, "c", "v", "n1", "http://127.0.0.1:1/cb")
     assert str(e.value) == "Sign-in failed unexpectedly" and e.value.__cause__ is None and e.value.__suppress_context__
     assert SENTINEL_KEY not in repr(e.value) and SENTINEL_TOKEN not in repr(e.value)
+
+
+def test_callback_page_for_a_wrong_state_is_neutral() -> None:
+    import urllib.request
+    import threading
+
+    srv = teamauth.listen("good-state")
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{srv.server_address[1]}/callback"
+        wrong = urllib.request.urlopen(base + "?code=c&state=bad", timeout=5).read().decode()
+        missing = urllib.request.urlopen(base, timeout=5).read().decode()
+        right = urllib.request.urlopen(base + "?code=c&state=good-state", timeout=5).read().decode()
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    assert "Signed in" not in wrong and "Signed in" not in missing and "not valid" in wrong
+    assert "Signed in" in right

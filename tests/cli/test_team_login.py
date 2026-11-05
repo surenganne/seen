@@ -44,6 +44,10 @@ def test_logout_messages(configured: Fake) -> None:
     configured.delete_status = 403
     r = cli.invoke(app, ["team", "logout"])
     assert "Signed out locally" in r.output and "30 days" in r.output and teamauth.load_key() is None
+    teamauth.save_key(SENTINEL_KEY)
+    configured.delete_status = 401
+    r = cli.invoke(app, ["team", "logout"])
+    assert "Signed out. The key was already invalid on the server." in r.output and teamauth.load_key() is None
 
 
 def test_whoami_unreachable_is_distinct(configured: Fake) -> None:

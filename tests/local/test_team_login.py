@@ -136,7 +136,10 @@ def test_callback_rejects_unknown_replayed_and_expired_state(client: TestClient,
     q = start(client, configured)
     for entry in client.app.state.login_pending.entries.values():
         entry.expires -= 3600
+    calls.clear()
+    monkeypatch.setattr(teamauth, "_call", lambda *a, **k: (calls.append(a[0]), real(*a, **k))[1])
     assert cb(client, code="the-code", state=q["state"]).status_code == 303 and teamauth.load_key() is None
+    assert calls == []  # no outbound call for an expired state
 
 
 def test_callback_redirect_is_fixed(client: TestClient, configured: Fake) -> None:
@@ -168,6 +171,18 @@ def test_logout_removes_key(client: TestClient, configured: Fake) -> None:
     teamauth.save_key(SENTINEL_KEY)
     r = client.post("/api/team/logout", headers=H)
     assert r.json() == {"state": "signed_out"} and teamauth.load_key() is None and configured.deletes == 1
+
+
+def test_logout_of_an_already_invalid_key_is_audited_as_such(client: TestClient, configured: Fake,
+                                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    results: list[Any] = []
+    import seen_local.team_login as tl
+    monkeypatch.setattr(tl, "_audit", lambda *a, **k: results.append(k.get("result")), raising=False)
+    teamauth.save_key(SENTINEL_KEY)
+    configured.delete_status = 401
+    r = client.post("/api/team/logout", headers=H)
+    assert r.json() == {"state": "signed_out"} and teamauth.load_key() is None
+    assert results == ["already_invalid"]
 
 
 def test_no_secret_in_any_response_header_or_log(client: TestClient, configured: Fake, caplog: pytest.LogCaptureFixture) -> None:

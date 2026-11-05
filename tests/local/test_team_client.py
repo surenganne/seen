@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -214,6 +215,15 @@ def test_real_open_stops_at_cap(seen_home: Path, monkeypatch: pytest.MonkeyPatch
 
         def log_message(self, *a: Any) -> None: ...
 
+    got = [0]
+    real_read = http.client.HTTPResponse.read
+
+    def counting(self: http.client.HTTPResponse, amt: int | None = None) -> bytes:
+        data = real_read(self, amt)
+        got[0] += len(data)
+        return data
+
+    monkeypatch.setattr(http.client.HTTPResponse, "read", counting)
     s = _server(H)
     try:
         cfg(f"http://127.0.0.1:{s.server_port}")
@@ -222,6 +232,9 @@ def test_real_open_stops_at_cap(seen_home: Path, monkeypatch: pytest.MonkeyPatch
     finally:
         s.shutdown()
     assert r.state == "bad_response"
+    assert got[0] <= team.MAX_BYTES + 1  # the client never pulled more than the cap, whatever the server kept sending
+    if not lie:
+        assert got[0] == team.MAX_BYTES + 1
 
 
 def test_deeply_nested_json_is_bad_response(seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -232,7 +245,7 @@ def test_deeply_nested_json_is_bad_response(seen_home: Path, monkeypatch: pytest
 
 
 def _boom(*a: Any, **k: Any) -> Any:
-    raise RuntimeError(KEY)
+    raise RuntimeError(KEY + " secret-msg")
 
 
 def _setup(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -272,7 +285,7 @@ def test_no_state_raises_or_leaks_the_key(seen_home: Path, monkeypatch: pytest.M
     _setup(name, monkeypatch)
     r = team.fetch("/api/x")
     assert r.state == state
-    assert KEY not in repr(r) and KEY not in caplog.text
+    assert KEY not in repr(r) and KEY not in caplog.text and "secret-msg" not in caplog.text
     assert r.reason is None or "http" not in r.reason
 
 
@@ -282,3 +295,23 @@ def test_unusable_key_makes_no_call(seen_home: Path, calls: list[Any], monkeypat
     monkeypatch.setenv("SEEN_TEAM_API_KEY", key)
     r = team.fetch("/api/x")
     assert r.state == "unauthorized" and not calls
+
+
+@pytest.mark.parametrize("name", ["server_url_raises", "key_lookup_raises", "open_raises"])
+def test_failures_log_only_the_exception_type(seen_home: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+                                              name: str) -> None:
+    caplog.set_level("DEBUG")
+    _setup(name, monkeypatch)
+    team.fetch("/api/x")
+    assert "team fetch failed: RuntimeError" in caplog.text
+    assert KEY not in caplog.text and "secret-msg" not in caplog.text
+    assert all(r.exc_info is None for r in caplog.records)
+
+
+def test_env_key_whitespace_is_stripped(seen_home: Path, calls: list[Any], monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg()
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", f"  {KEY}\n")
+    assert team.fetch("/api/x").state == "ok"
+    assert calls[-1].get_header("Authorization") == f"Bearer {KEY}"
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", " \n")
+    assert team.fetch("/api/x").state == "unauthorized"

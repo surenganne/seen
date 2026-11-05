@@ -446,6 +446,7 @@ def team_logout() -> None:
 
     r = teamauth.logout()
     typer.echo({"revoked": "Signed out. The key was revoked on the server.",
+                "already_invalid": "Signed out. The key was already invalid on the server.",
                 "local": "Signed out locally. Could not revoke the key on the server; it expires within 30 days.",
                 "none": "Not signed in."}[r])
 
