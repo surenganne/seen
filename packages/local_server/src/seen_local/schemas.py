@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from .team import TeamState
+
 
 class SessionOut(BaseModel):
     id: str
@@ -460,3 +462,84 @@ class DenySnippet(BaseModel):
     rules: list[str]
     snippet: str
     note: str
+
+
+class TeamProjectOut(BaseModel):
+    id: str
+    name: str
+    changes: int
+    last_change_at: str | None
+    cost_7d: float
+
+
+class TeamProjects(BaseModel):
+    state: TeamState
+    reason: str | None
+    projects: list[TeamProjectOut] = []
+
+
+class TeamTiles(BaseModel):
+    changes: int
+    lines_added: int
+    lines_removed: int
+    policy_missed: int
+    pii_changes: int
+    cost_usd: float
+
+
+class TeamCostDay(BaseModel):
+    date: str
+    by_tool: dict[str, float]
+
+
+class TeamSkillRuns(BaseModel):
+    skill_id: str
+    runs: int
+
+
+class TeamModelRow(BaseModel):
+    model: str
+    changes: int
+    tok_out: int
+    cost_usd: float
+
+
+class TeamPiiType(BaseModel):
+    type: str
+    count: int
+
+
+class TeamOverviewData(BaseModel):
+    """The team server's overview body; unknown fields are dropped."""
+
+    range: int
+    tiles: TeamTiles
+    cost_by_day: list[TeamCostDay] = []
+    top_skills: list[TeamSkillRuns] = []
+    by_model: list[TeamModelRow] = []
+    pii_by_type: list[TeamPiiType] = []
+
+
+class TeamOverviewOut(BaseModel):
+    state: TeamState
+    reason: str | None
+    range: int | None = None
+    tiles: TeamTiles | None = None
+    cost_by_day: list[TeamCostDay] = []
+    top_skills: list[TeamSkillRuns] = []
+    by_model: list[TeamModelRow] = []
+    pii_by_type: list[TeamPiiType] = []
+
+
+class TeamMemberOut(BaseModel):
+    user_id: str
+    email: str | None = None
+    last_synced_at: str | None
+    changes: int
+    key_expired: bool
+
+
+class TeamMembers(BaseModel):
+    state: TeamState
+    reason: str | None
+    members: list[TeamMemberOut] = []

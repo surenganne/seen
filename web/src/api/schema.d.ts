@@ -362,6 +362,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/team/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team Projects */
+        get: operations["team_projects_api_team_projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/projects/{pid}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team Members */
+        get: operations["team_members_api_team_projects__pid__members_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/projects/{pid}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team Overview */
+        get: operations["team_overview_api_team_projects__pid__overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/team/session": {
         parameters: {
             query?: never;
@@ -1133,6 +1184,15 @@ export interface components {
             /** Runs */
             runs: number;
         };
+        /** TeamCostDay */
+        TeamCostDay: {
+            /** By Tool */
+            by_tool: {
+                [key: string]: number;
+            };
+            /** Date */
+            date: string;
+        };
         /** TeamLoginOut */
         TeamLoginOut: {
             /** Reason */
@@ -1148,6 +1208,113 @@ export interface components {
              */
             state: "signed_out";
         };
+        /** TeamMemberOut */
+        TeamMemberOut: {
+            /** Changes */
+            changes: number;
+            /** Email */
+            email?: string | null;
+            /** Key Expired */
+            key_expired: boolean;
+            /** Last Synced At */
+            last_synced_at: string | null;
+            /** User Id */
+            user_id: string;
+        };
+        /** TeamMembers */
+        TeamMembers: {
+            /**
+             * Members
+             * @default []
+             */
+            members: components["schemas"]["TeamMemberOut"][];
+            /** Reason */
+            reason: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "not_configured" | "login_required" | "unreachable" | "unauthorized" | "forbidden" | "bad_response";
+        };
+        /** TeamModelRow */
+        TeamModelRow: {
+            /** Changes */
+            changes: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Model */
+            model: string;
+            /** Tok Out */
+            tok_out: number;
+        };
+        /** TeamOverviewOut */
+        TeamOverviewOut: {
+            /**
+             * By Model
+             * @default []
+             */
+            by_model: components["schemas"]["TeamModelRow"][];
+            /**
+             * Cost By Day
+             * @default []
+             */
+            cost_by_day: components["schemas"]["TeamCostDay"][];
+            /**
+             * Pii By Type
+             * @default []
+             */
+            pii_by_type: components["schemas"]["TeamPiiType"][];
+            /** Range */
+            range?: number | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "not_configured" | "login_required" | "unreachable" | "unauthorized" | "forbidden" | "bad_response";
+            tiles?: components["schemas"]["TeamTiles"] | null;
+            /**
+             * Top Skills
+             * @default []
+             */
+            top_skills: components["schemas"]["TeamSkillRuns"][];
+        };
+        /** TeamPiiType */
+        TeamPiiType: {
+            /** Count */
+            count: number;
+            /** Type */
+            type: string;
+        };
+        /** TeamProjectOut */
+        TeamProjectOut: {
+            /** Changes */
+            changes: number;
+            /** Cost 7D */
+            cost_7d: number;
+            /** Id */
+            id: string;
+            /** Last Change At */
+            last_change_at: string | null;
+            /** Name */
+            name: string;
+        };
+        /** TeamProjects */
+        TeamProjects: {
+            /**
+             * Projects
+             * @default []
+             */
+            projects: components["schemas"]["TeamProjectOut"][];
+            /** Reason */
+            reason: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "not_configured" | "login_required" | "unreachable" | "unauthorized" | "forbidden" | "bad_response";
+        };
         /** TeamSession */
         TeamSession: {
             /** Email */
@@ -1159,6 +1326,28 @@ export interface components {
              * @enum {string}
              */
             state: "signed_in" | "signed_out" | "not_configured";
+        };
+        /** TeamSkillRuns */
+        TeamSkillRuns: {
+            /** Runs */
+            runs: number;
+            /** Skill Id */
+            skill_id: string;
+        };
+        /** TeamTiles */
+        TeamTiles: {
+            /** Changes */
+            changes: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Lines Added */
+            lines_added: number;
+            /** Lines Removed */
+            lines_removed: number;
+            /** Pii Changes */
+            pii_changes: number;
+            /** Policy Missed */
+            policy_missed: number;
         };
         /** Tiles */
         Tiles: {
@@ -2055,6 +2244,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamLogoutOut"];
+                };
+            };
+        };
+    };
+    team_projects_api_team_projects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamProjects"];
+                };
+            };
+        };
+    };
+    team_members_api_team_projects__pid__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMembers"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    team_overview_api_team_projects__pid__overview_get: {
+        parameters: {
+            query?: {
+                /** @description 7, 14 or 28 days */
+                range?: number;
+            };
+            header?: never;
+            path: {
+                pid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOverviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
