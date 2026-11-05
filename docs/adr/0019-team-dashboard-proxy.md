@@ -15,7 +15,11 @@ name only.
 **Privacy.** Aggregates only: no per-person change detail. The members list ("Last synced") is for leads and
 admins; it shows the email when the member signed in through SSO and the user id otherwise. A project's members
 for SSO are those with activity in that project, so an SSO user with no changes there is not listed. The Docker
-snapshot dashboard has no team config and shows `not_configured`.
+snapshot dashboard is not team-configured: `seen docker-sync` strips the `[sync]` table from the copied
+`config.toml`, so it shows `not_configured`, and a dashboard started with `--allow-remote` or a non-loopback bind
+refuses sign-in on its own (`/api/team/login` returns `not_configured`, `/api/team/callback` only redirects, no
+outbound call; sign-out still works). The compose file should also mount the snapshot read-only (`:ro`); it does
+not yet.
 
 **Known limit.** A server that drip-feeds a response is not cut off by a total timeout (only per-read timeouts).
 
