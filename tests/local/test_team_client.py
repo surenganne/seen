@@ -77,7 +77,7 @@ def test_status_mapping(seen_home: Path, monkeypatch: pytest.MonkeyPatch, status
     monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
     reply(monkeypatch, status, b'{"a": 1}')
     r = team.fetch("/api/x")
-    assert r.state == state and r.reason == team.REASONS[state] and r.body is None  # type: ignore[index]
+    assert r.state == state and r.reason == team.REASONS[state] and r.body is None
     assert KEY not in repr(r)
 
 
@@ -119,7 +119,9 @@ def _server(handler: type[BaseHTTPRequestHandler]) -> HTTPServer:
     return s
 
 
-def test_redirect_is_not_followed(seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("code", [301, 302, 303, 307, 308])
+def test_redirect_is_not_followed(seen_home: Path, monkeypatch: pytest.MonkeyPatch, code: int) -> None:
+    first_hits: list[str] = []
     hits: list[str] = []
 
     class Target(BaseHTTPRequestHandler):
@@ -135,7 +137,8 @@ def test_redirect_is_not_followed(seen_home: Path, monkeypatch: pytest.MonkeyPat
 
     class Redir(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
-            self.send_response(302)
+            first_hits.append(self.path)
+            self.send_response(code)
             self.send_header("Location", f"http://127.0.0.1:{second.server_port}/api/x")
             self.end_headers()
 
@@ -149,7 +152,7 @@ def test_redirect_is_not_followed(seen_home: Path, monkeypatch: pytest.MonkeyPat
     finally:
         first.shutdown()
         second.shutdown()
-    assert r.state == "unreachable" and hits == []
+    assert r.state == "unreachable" and first_hits == ["/api/x"] and hits == []
 
 
 def test_real_open_reads_json(seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -169,3 +172,113 @@ def test_real_open_reads_json(seen_home: Path, monkeypatch: pytest.MonkeyPatch) 
     finally:
         s.shutdown()
     assert r.state == "ok" and r.body == {"auth": f"Bearer {KEY}"}
+
+
+def test_proxy_env_is_ignored(seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    got: list[str | None] = []
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            got.append(self.headers.get("Authorization"))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def log_message(self, *a: Any) -> None: ...
+
+    s = _server(H)
+    try:
+        cfg(f"http://127.0.0.1:{s.server_port}")
+        monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
+        for v in ("HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"):
+            monkeypatch.setenv(v, "http://127.0.0.1:9")
+        r = team.fetch("/api/x")
+    finally:
+        s.shutdown()
+    assert r.state == "ok" and got == [f"Bearer {KEY}"]
+
+
+@pytest.mark.parametrize("lie", [True, False])
+def test_real_open_stops_at_cap(seen_home: Path, monkeypatch: pytest.MonkeyPatch, lie: bool) -> None:
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            if lie:
+                self.send_header("Content-Length", "10")
+            self.end_headers()
+            try:
+                self.wfile.write(b"{" + b" " * (3 * 1024 * 1024))
+            except OSError:
+                pass
+            self.close_connection = True
+
+        def log_message(self, *a: Any) -> None: ...
+
+    s = _server(H)
+    try:
+        cfg(f"http://127.0.0.1:{s.server_port}")
+        monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
+        r = team.fetch("/api/x")
+    finally:
+        s.shutdown()
+    assert r.state == "bad_response"
+
+
+def test_deeply_nested_json_is_bad_response(seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg()
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
+    reply(monkeypatch, 200, b"[" * 100000 + b"]" * 100000)
+    assert team.fetch("/api/x").state == "bad_response"
+
+
+def _boom(*a: Any, **k: Any) -> Any:
+    raise RuntimeError(KEY)
+
+
+def _setup(name: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SEEN_TEAM_API_KEY", raising=False)
+    if name == "not_configured":
+        monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
+        return
+    cfg()
+    if name == "login_required":
+        return
+    if name == "bad_toml":
+        paths.config_toml().write_text("[sync\nserver = " + KEY)
+        monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
+        return
+    if name == "server_url_raises":
+        monkeypatch.setattr(team.sync, "server_url", _boom)
+        return
+    if name == "key_lookup_raises":
+        monkeypatch.setattr(team.sync, "server_and_key", _boom)
+        return
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", {"ctl": "abc\ndef" + KEY, "nonascii": "abc\u00e9" + KEY}.get(name, KEY))
+    if name == "open_raises":
+        monkeypatch.setattr(team, "_open", _boom)
+    elif name == "nonjson":
+        reply(monkeypatch, 200, b"nope")
+    else:
+        reply(monkeypatch, {"ok": 200, "unauthorized": 401, "forbidden": 403, "unreachable": 500}.get(name, 200), b"{}")
+
+
+@pytest.mark.parametrize("name,state", [
+    ("ok", "ok"), ("not_configured", "not_configured"), ("login_required", "login_required"), ("bad_toml", "not_configured"),
+    ("server_url_raises", "not_configured"), ("key_lookup_raises", "not_configured"), ("unauthorized", "unauthorized"),
+    ("forbidden", "forbidden"), ("unreachable", "unreachable"), ("open_raises", "unreachable"), ("nonjson", "bad_response"),
+    ("ctl", "unauthorized"), ("nonascii", "unauthorized")])
+def test_no_state_raises_or_leaks_the_key(seen_home: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+                                          name: str, state: str) -> None:
+    _setup(name, monkeypatch)
+    r = team.fetch("/api/x")
+    assert r.state == state
+    assert KEY not in repr(r) and KEY not in caplog.text
+    assert r.reason is None or "http" not in r.reason
+
+
+@pytest.mark.parametrize("key", ["abc\ndef", "abc\u00e9", "abc def\t"])
+def test_unusable_key_makes_no_call(seen_home: Path, calls: list[Any], monkeypatch: pytest.MonkeyPatch, key: str) -> None:
+    cfg()
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", key)
+    r = team.fetch("/api/x")
+    assert r.state == "unauthorized" and not calls

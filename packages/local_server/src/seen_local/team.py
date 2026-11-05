@@ -37,7 +37,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_opener = urllib.request.build_opener(_NoRedirect)
+_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)  # no env proxies: the key goes straight to the server
 
 
 def _open(req: urllib.request.Request) -> tuple[int, bytes]:
@@ -46,6 +46,7 @@ def _open(req: urllib.request.Request) -> tuple[int, bytes]:
         with _opener.open(req, timeout=TIMEOUT) as r:  # noqa: S310 (scheme checked by sync.server_url)
             return r.status, r.read(MAX_BYTES + 1)
     except urllib.error.HTTPError as e:
+        e.close()
         return e.code, b""
     except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError):
         return 0, b""
@@ -58,18 +59,25 @@ def _fail(state: TeamState) -> TeamResult:
 def fetch(path: str, query: dict[str, int] | None = None) -> TeamResult:
     if not path.startswith("/api/") or any(s in path for s in ("//", "..", "?", "#")):
         return _fail("bad_response")
-    try:
-        url = sync.server_url()
-    except sync.SyncError:
+    try:  # never use a message: some carry config or key text
+        sync.server_url()
+    except Exception:  # noqa: BLE001 (SyncError, bad TOML, anything)
         return _fail("not_configured")
     try:
         url, key = sync.server_and_key()
     except sync.SyncError:
         return _fail("login_required")
+    except Exception:  # noqa: BLE001
+        return _fail("not_configured")
+    if not (key.isascii() and key.isprintable() and " " not in key):
+        return _fail("unauthorized")  # unusable as a header value; no call, and nothing echoes it
     if query:
         path += "?" + urllib.parse.urlencode({k: int(v) for k, v in query.items()})
     req = urllib.request.Request(url + path, headers={"Authorization": f"Bearer {key}", "Accept": "application/json"}, method="GET")
-    status, raw = _open(req)
+    try:
+        status, raw = _open(req)
+    except Exception:  # noqa: BLE001 (messages can carry the key; keep no cause)
+        status, raw = 0, b""
     if status == 401:
         return _fail("unauthorized")
     if status == 403:
@@ -80,7 +88,7 @@ def fetch(path: str, query: dict[str, int] | None = None) -> TeamResult:
         return _fail("bad_response")
     try:
         body = json.loads(raw)
-    except ValueError:
+    except (ValueError, RecursionError):
         return _fail("bad_response")
     if not isinstance(body, dict | list):
         return _fail("bad_response")
