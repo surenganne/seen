@@ -212,7 +212,7 @@ describe("Team page", () => {
       return assign;
     };
     afterEach(() => { vi.unstubAllGlobals(); });
-    it.each(["javascript:alert(1)", "data:text/html,x"])("never navigates to %s", async (u) => {
+    it.each(["javascript:alert(1)", "data:text/html,x", "//evil.example/x", "/path", "JaVaScRiPt:alert(1)", " javascript:alert(1)"])("never navigates to %s", async (u) => {
       const assign = await run(u);
       expect(await screen.findByText("Sign-in is unavailable right now. Try again later.")).toBeInTheDocument();
       expect(assign).not.toHaveBeenCalled();
