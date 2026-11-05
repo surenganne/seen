@@ -134,6 +134,16 @@ def test_extra_team_fields_are_dropped_not_forwarded(client: TestClient, setup: 
     assert "secret" not in client.get("/api/team/projects", headers=H).text
 
 
+def serve(monkeypatch: pytest.MonkeyPatch, status: int, bodies: dict[str, Any] | bytes) -> None:
+    def op(req: Any) -> tuple[int, bytes]:
+        if isinstance(bodies, bytes):
+            return status, bodies
+        tail = req.full_url.split("?")[0].rsplit("/", 1)[-1]
+        return status, json.dumps(bodies["projects" if tail == "projects" else tail]).encode()
+
+    monkeypatch.setattr(team, "_open", op)
+
+
 @pytest.mark.parametrize("state", STATES)
 def test_key_never_in_any_response(client: TestClient, seeded: Path, monkeypatch: pytest.MonkeyPatch, state: str) -> None:
     monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
@@ -142,14 +152,82 @@ def test_key_never_in_any_response(client: TestClient, seeded: Path, monkeypatch
         paths.config_toml().write_text("[sync]\nenabled = true\n")
     elif state == "login_required":
         monkeypatch.delenv("SEEN_TEAM_API_KEY")
+    elif state == "ok":
+        serve(monkeypatch, 200, {"projects": PROJECTS, "overview": OVERVIEW, "members": MEMBERS})
     else:
         status = {"unauthorized": 401, "forbidden": 403, "unreachable": 500}.get(state, 200)
-        reply(monkeypatch, status, b"junk" if state == "bad_response" else {"detail": KEY + URL})
+        serve(monkeypatch, status, b"junk" if state == "bad_response" else json.dumps({"detail": KEY + URL}).encode())
     for url in ("/api/team/projects", "/api/team/projects/p1/overview", "/api/team/projects/p1/members"):
         r = client.get(url, headers=H)
-        assert r.json()["state"] == (state if state != "ok" else r.json()["state"])
+        assert r.status_code == 200 and r.json()["state"] == state, (url, r.text)
         assert KEY not in r.text and URL not in r.text
         assert not {"authorization", "set-cookie"} & {k.lower() for k in r.headers}
+
+
+@pytest.mark.parametrize("pid", ["abc%0A", "a" * 64 + "%0A", "a..b", "..x", "x.."])
+@pytest.mark.parametrize("tail", ["overview", "members"])
+def test_newline_and_dotdot_pids_are_422(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch, pid: str, tail: str) -> None:
+    seen = reply(monkeypatch, 200, {})
+    assert client.get(f"/api/team/projects/{pid}/{tail}", headers=H).status_code == 422 and not seen
+
+
+def test_pid_helper_rejects_dot_ids() -> None:
+    from fastapi import HTTPException
+
+    from seen_local.team_api import _pid
+
+    for bad in (".", "..", "a..b", "abc\n", ""):
+        with pytest.raises(HTTPException) as e:
+            _pid(bad)
+        assert e.value.status_code == 422
+    assert _pid("a:b") == "a%3Ab"
+
+
+def _ov(**tiles: Any) -> dict[str, Any]:
+    o = json.loads(json.dumps(OVERVIEW))
+    o["tiles"].update(tiles)
+    return o
+
+
+@pytest.mark.parametrize("raw", [
+    b'[{"id":"p","name":"p","changes":1,"last_change_at":null,"cost_7d":%s}]' % v for v in (b"NaN", b"Infinity", b"-Infinity", b"1e999")])
+def test_nonfinite_projects_cost_is_bad_response(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch, raw: bytes) -> None:
+    reply(monkeypatch, 200, raw)
+    r = client.get("/api/team/projects", headers=H)
+    assert r.status_code == 200 and r.json()["state"] == "bad_response"
+
+
+@pytest.mark.parametrize("v", ["NaN", "Infinity", "1e999"])
+def test_nonfinite_overview_floats_are_bad_response(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch, v: str) -> None:
+    base = json.dumps(OVERVIEW)
+    for old in ('"cost_usd": 0.5, "policy_missed"', '"claude-code": 0.5', '"tok_out": 9, "cost_usd": 0.5'):
+        assert old in base
+        reply(monkeypatch, 200, base.replace(old, old.replace("0.5", v)).encode())
+        r = client.get("/api/team/projects/p1/overview", headers=H)
+        assert r.status_code == 200 and r.json()["state"] == "bad_response", old
+
+
+@pytest.mark.parametrize("path,body", [
+    ("overview", lambda: _ov(changes="5")), ("overview", lambda: _ov(changes=True)), ("overview", lambda: _ov(cost_usd="1.5")),
+    ("overview", lambda: {**OVERVIEW, "range": "7"}), ("overview", lambda: {k: v for k, v in OVERVIEW.items() if k != "tiles"}),
+    ("overview", lambda: {**OVERVIEW, "top_skills": [{"skill_id": None, "runs": 1}]}),
+    ("members", lambda: [{**MEMBERS[0], "key_expired": 1}]), ("members", lambda: [{**MEMBERS[0], "changes": "4"}]),
+    ("members", lambda: [{k: v for k, v in MEMBERS[0].items() if k != "user_id"}]),
+    ("members", lambda: [{**MEMBERS[0], "user_id": None}]),
+    ("members", lambda: [{**MEMBERS[0], "user_id": 5}]),
+])
+def test_wrong_typed_values_are_bad_response(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch, path: str, body: Any) -> None:
+    reply(monkeypatch, 200, body())
+    assert client.get(f"/api/team/projects/p1/{path}", headers=H).json()["state"] == "bad_response"
+
+
+def test_projects_wrong_types_and_int_money_ok(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    reply(monkeypatch, 200, [{**PROJECTS[0], "cost_7d": 2}])
+    j = client.get("/api/team/projects", headers=H).json()
+    assert j["state"] == "ok" and j["projects"][0]["cost_7d"] == 2
+    for bad in ({"changes": "3"}, {"cost_7d": "1.5"}, {"name": None}, {"changes": True}):
+        reply(monkeypatch, 200, [{**PROJECTS[0], **bad}])
+        assert client.get("/api/team/projects", headers=H).json()["state"] == "bad_response", bad
 
 
 def test_post_is_rejected(client: TestClient, setup: Any) -> None:
