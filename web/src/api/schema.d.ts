@@ -328,6 +328,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/team/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_api_team_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_team_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Session */
+        get: operations["session_api_team_session_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1081,6 +1132,31 @@ export interface components {
             hash_short: string;
             /** Runs */
             runs: number;
+        };
+        /** TeamLoginOut */
+        TeamLoginOut: {
+            /** Url */
+            url: string | null;
+        };
+        /** TeamLogoutOut */
+        TeamLogoutOut: {
+            /**
+             * State
+             * @constant
+             */
+            state: "signed_out";
+        };
+        /** TeamSession */
+        TeamSession: {
+            /** Email */
+            email: string | null;
+            /** Role */
+            role: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "signed_in" | "signed_out" | "not_configured";
         };
         /** Tiles */
         Tiles: {
@@ -1937,6 +2013,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_team_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamLoginOut"];
+                };
+            };
+        };
+    };
+    logout_api_team_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamLogoutOut"];
+                };
+            };
+        };
+    };
+    session_api_team_session_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamSession"];
                 };
             };
         };

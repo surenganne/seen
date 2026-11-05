@@ -181,13 +181,37 @@ def login(open_browser: Callable[[str], bool] = webbrowser.open, timeout_s: int 
         raise LoginError("Sign-in failed unexpectedly") from None
 
 
-def _login(open_browser: Callable[[str], bool], timeout_s: int) -> dict[str, str]:
-    server = sync.server_url()
+def fetch_config(server: str) -> dict[str, str]:
+    """The IdP settings from {server}/auth/config, scheme-checked. Fixed errors only."""
     status, cfg = _call(server + "/auth/config")
     if status != 200 or not all(isinstance(cfg.get(k), str) and cfg[k] for k in ("authorization_endpoint", "token_endpoint", "client_id")):
         raise LoginError("Could not read the sign-in settings from the team server")
     _check_url(cfg["authorization_endpoint"])
     _check_url(cfg["token_endpoint"])
+    return cfg
+
+
+def complete(server: str, cfg: dict[str, str], code: str, verifier: str, nonce: str, redirect: str) -> dict[str, str]:
+    """Trade the code at the IdP (verifier, no secret), check the id_token nonce, post it to the team server, save the key."""
+    form = urllib.parse.urlencode({"grant_type": "authorization_code", "code": code, "redirect_uri": redirect,
+                                   "client_id": cfg["client_id"], "code_verifier": verifier}).encode()
+    status, tok = _call(cfg["token_endpoint"], form, {"Content-Type": "application/x-www-form-urlencoded"})
+    id_token = tok.get("id_token")
+    if status != 200 or not isinstance(id_token, str):
+        raise LoginError("The identity provider refused the sign-in")
+    if not hmac.compare_digest(_nonce_of(id_token).encode(), nonce.encode()):
+        raise LoginError("Sign-in nonce did not match; sign-in cancelled")
+    status, ex = _call(server + "/auth/exchange", json.dumps({"id_token": id_token, "nonce": nonce}).encode(),
+                       {"Content-Type": "application/json"})
+    if status != 200 or not ex.get("key"):
+        raise LoginError(f"The team server refused the sign-in (status {status})")
+    save_key(str(ex["key"]))
+    return {"email": str(ex.get("email", "")), "role": str(ex.get("role", "")), "expires_at": str(ex.get("expires_at", ""))}
+
+
+def _login(open_browser: Callable[[str], bool], timeout_s: int) -> dict[str, str]:
+    server = sync.server_url()
+    cfg = fetch_config(server)
     verifier, challenge = pkce_pair()
     state, nonce = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
     srv = listen()
@@ -214,17 +238,4 @@ def _login(open_browser: Callable[[str], bool], timeout_s: int) -> dict[str, str
         raise LoginError("The identity provider returned an error; sign-in cancelled")
     if not cb.get("code"):
         raise LoginError("The identity provider returned no code")
-    form = urllib.parse.urlencode({"grant_type": "authorization_code", "code": cb["code"], "redirect_uri": redirect,
-                                   "client_id": cfg["client_id"], "code_verifier": verifier}).encode()
-    status, tok = _call(cfg["token_endpoint"], form, {"Content-Type": "application/x-www-form-urlencoded"})
-    id_token = tok.get("id_token")
-    if status != 200 or not isinstance(id_token, str):
-        raise LoginError("The identity provider refused the sign-in")
-    if not hmac.compare_digest(_nonce_of(id_token).encode(), nonce.encode()):
-        raise LoginError("Sign-in nonce did not match; sign-in cancelled")
-    status, ex = _call(server + "/auth/exchange", json.dumps({"id_token": id_token, "nonce": nonce}).encode(),
-                       {"Content-Type": "application/json"})
-    if status != 200 or not ex.get("key"):
-        raise LoginError(f"The team server refused the sign-in (status {status})")
-    save_key(str(ex["key"]))
-    return {"email": str(ex.get("email", "")), "role": str(ex.get("role", "")), "expires_at": str(ex.get("expires_at", ""))}
+    return complete(server, cfg, cb["code"], verifier, nonce, redirect)

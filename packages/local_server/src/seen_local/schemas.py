@@ -430,6 +430,20 @@ class Ok(BaseModel):
     detail: dict[str, Any] = {}
 
 
+class TeamSession(BaseModel):
+    state: Literal["signed_in", "signed_out", "not_configured"]
+    email: str | None
+    role: str | None
+
+
+class TeamLoginOut(BaseModel):
+    url: str | None  # null when no team server is configured or its sign-in settings cannot be read
+
+
+class TeamLogoutOut(BaseModel):
+    state: Literal["signed_out"]
+
+
 class PiiRow(PiiFindingOut):
     change_id: str | None
     started_at: str | None

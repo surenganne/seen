@@ -169,8 +169,12 @@ def test_docker_sync_snapshots_the_real_home_and_refuses_without_a_ledger(repo: 
     r = cli.invoke(app, ["docker-sync", "--dest", str(dest)])
     assert r.exit_code == 2 and not dest.exists()
     recorded(repo, tmp_path)
+    from seen_core import paths
+
+    (paths.home() / "team_key").write_text("SENTINEL-TEAM-KEY\n")
     assert "Snapshot" in invoke("docker-sync", "--dest", str(dest))
     assert (dest / "current" / "ledger.db").exists() and not (dest / "current" / "secret.key").exists()
+    assert not (dest / "current" / "team_key").exists()  # the container must never hold the team key
 
 
 def test_purge_reports_first_and_erases_only_with_yes(repo: Path, tmp_path: Path) -> None:
