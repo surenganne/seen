@@ -20,3 +20,7 @@
 ## Audit event catalogue
 
 Plan section 11A, plus `pii.allowlisted` (counts of values or paths a repo allowlist suppressed). `turn.start` carries `prompt_hmac` (keyed), not a plain SHA-256.
+
+## Team server additions (SSO)
+
+`team_users` holds one row per SSO identity (`sub`, email, role, active). API keys carry an `origin` (`manual` or `sso`); a key minted at sign-in is `sso` and is shown once, stored hashed. `GET /api/projects/{pid}/members` (lead or admin) lists who has synced to a project: `user_id`, `email` when SSO, `last_synced_at`, `changes`, `key_expired`. The local `~/.seen/team_key` (0600) holds the signed-in key and is never synced.
