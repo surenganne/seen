@@ -77,6 +77,7 @@ contributor accepts the workspace trust dialog:
 seen report --days 7          # what changed, what it cost, which skills ran
 seen serve --open             # the dashboard on your real data (needs a web build once: see Dashboard)
 seen skills scan | list
+seen team login | logout | whoami   # sign in to the team server with your identity provider
 seen import --dry-run         # past sessions from Claude Code transcripts (before the plugin was installed)
 seen audit verify
 seen purge --before 2026-01-01      # report what would be erased; add --yes to erase (DPDP)
@@ -187,7 +188,7 @@ Issues and pull requests: <https://github.com/surenganne/seen>.
   checks every page in both themes on desktop and phone sizes in CI, and Playwright covers the skip link, keyboard
   access to table rows, per-page titles and reflow at 320px. Automated checks catch only part of what matters, so
   screen-reader use and 200% zoom are manual checks (docs/TESTING.md Part 16).
-- **The team server** is a Phase 5 skeleton: no SSO, schema changes outside Alembic, and no scheduled retention.
+- **The team server** is a Phase 5 skeleton: optional OIDC sign-in (ADR 0018), schema changes outside Alembic, and no scheduled retention.
   Sync is off by default and sends only the metadata you switch on; per-person detail stays private to that person.
 - **Network.** Hooks never touch it. `seen doctor` and `seen upgrade` make one anonymous request to GitHub to look
   for a newer release; set `SEEN_NO_UPDATE_CHECK=1` to stop it.

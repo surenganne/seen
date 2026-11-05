@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr
+
+from .team import TeamState
 
 
 class SessionOut(BaseModel):
@@ -430,6 +432,21 @@ class Ok(BaseModel):
     detail: dict[str, Any] = {}
 
 
+class TeamSession(BaseModel):
+    state: Literal["signed_in", "signed_out", "not_configured"]
+    email: str | None
+    role: str | None
+
+
+class TeamLoginOut(BaseModel):
+    url: str | None  # null when sign-in cannot start; reason says why (fixed values, never server text)
+    reason: Literal["not_configured", "unavailable"] | None = None
+
+
+class TeamLogoutOut(BaseModel):
+    state: Literal["signed_out"]
+
+
 class PiiRow(PiiFindingOut):
     change_id: str | None
     started_at: str | None
@@ -445,3 +462,88 @@ class DenySnippet(BaseModel):
     rules: list[str]
     snippet: str
     note: str
+
+
+# Team bodies are untrusted: strict types, and money accepts JSON ints but never NaN/Infinity.
+Money = Annotated[float, Field(strict=True, allow_inf_nan=False)]
+
+
+class TeamProjectOut(BaseModel):
+    id: StrictStr
+    name: StrictStr
+    changes: StrictInt
+    last_change_at: StrictStr | None
+    cost_7d: Money
+
+
+class TeamProjects(BaseModel):
+    state: TeamState
+    reason: StrictStr | None
+    projects: list[TeamProjectOut] = []
+
+
+class TeamTiles(BaseModel):
+    changes: StrictInt
+    lines_added: StrictInt
+    lines_removed: StrictInt
+    policy_missed: StrictInt
+    pii_changes: StrictInt
+    cost_usd: Money
+
+
+class TeamCostDay(BaseModel):
+    date: StrictStr
+    by_tool: dict[str, Money]
+
+
+class TeamSkillRuns(BaseModel):
+    skill_id: StrictStr
+    runs: StrictInt
+
+
+class TeamModelRow(BaseModel):
+    model: StrictStr
+    changes: StrictInt
+    tok_out: StrictInt
+    cost_usd: Money
+
+
+class TeamPiiType(BaseModel):
+    type: StrictStr
+    count: StrictInt
+
+
+class TeamOverviewData(BaseModel):
+    """The team server's overview body; unknown fields are dropped."""
+
+    range: StrictInt
+    tiles: TeamTiles
+    cost_by_day: list[TeamCostDay] = []
+    top_skills: list[TeamSkillRuns] = []
+    by_model: list[TeamModelRow] = []
+    pii_by_type: list[TeamPiiType] = []
+
+
+class TeamOverviewOut(BaseModel):
+    state: TeamState
+    reason: StrictStr | None
+    range: StrictInt | None = None
+    tiles: TeamTiles | None = None
+    cost_by_day: list[TeamCostDay] = []
+    top_skills: list[TeamSkillRuns] = []
+    by_model: list[TeamModelRow] = []
+    pii_by_type: list[TeamPiiType] = []
+
+
+class TeamMemberOut(BaseModel):
+    user_id: StrictStr
+    email: StrictStr | None = None
+    last_synced_at: StrictStr | None
+    changes: StrictInt
+    key_expired: StrictBool
+
+
+class TeamMembers(BaseModel):
+    state: TeamState
+    reason: StrictStr | None
+    members: list[TeamMemberOut] = []

@@ -132,6 +132,30 @@ def test_serve_starts_and_answers(tmp_path: Path) -> None:
         p.wait(5)
 
 
+def test_serve_turns_the_access_log_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The OIDC callback carries a code and state in its query: uvicorn's access log must not record them."""
+    import uvicorn
+
+    kw: dict = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **k: kw.update(k))
+    assert cli.invoke(app, ["serve"]).exit_code == 0
+    assert kw["access_log"] is False
+
+
+@pytest.mark.parametrize(("args", "remote"), [([], False), (["--host", "localhost"], False), (["--allow-remote"], True),
+                                               (["--allow-remote", "--host", "0.0.0.0"], True)])
+def test_serve_marks_the_dashboard_remote_when_it_can_be_reached_from_elsewhere(monkeypatch: pytest.MonkeyPatch, args: list[str], remote: bool) -> None:
+    import uvicorn
+
+    import seen_local.app as local_app
+
+    seen: dict = {}
+    monkeypatch.setattr(local_app, "create_app", lambda dist=None, remote=False: seen.update(remote=remote))
+    monkeypatch.setattr(uvicorn, "run", lambda app, **k: None)
+    assert cli.invoke(app, ["serve", *args]).exit_code == 0
+    assert seen["remote"] is remote
+
+
 def test_serve_refuses_non_loopback_without_flag() -> None:
     r = cli.invoke(app, ["serve", "--host", "0.0.0.0"])
     assert r.exit_code == 2 and "--allow-remote" in r.output
@@ -169,8 +193,12 @@ def test_docker_sync_snapshots_the_real_home_and_refuses_without_a_ledger(repo: 
     r = cli.invoke(app, ["docker-sync", "--dest", str(dest)])
     assert r.exit_code == 2 and not dest.exists()
     recorded(repo, tmp_path)
+    from seen_core import paths
+
+    (paths.home() / "team_key").write_text("SENTINEL-TEAM-KEY\n")
     assert "Snapshot" in invoke("docker-sync", "--dest", str(dest))
     assert (dest / "current" / "ledger.db").exists() and not (dest / "current" / "secret.key").exists()
+    assert not (dest / "current" / "team_key").exists()  # the container must never hold the team key
 
 
 def test_purge_reports_first_and_erases_only_with_yes(repo: Path, tmp_path: Path) -> None:

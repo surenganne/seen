@@ -14,7 +14,7 @@ services:
     volumes:
       - seen-team-pg:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
-    ports: ["127.0.0.1:47823:5432"]
+    ports: ["127.0.0.1:${SEEN_TEAM_PG_PORT:-47823}:5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U seen -d seen_team"]
       interval: 5s
@@ -27,6 +27,13 @@ services:
       SEEN_TEAM_DATABASE_URL: postgresql+psycopg://seen:${SEEN_TEAM_DB_PASSWORD:?run deploy/init-env.sh first}@postgres:5432/seen_team
       SEEN_TEAM_BOOTSTRAP_KEY: ${SEEN_TEAM_BOOTSTRAP_KEY:?run deploy/init-env.sh first}
       APP_ENV: production
+      # SSO (empty = off). Set in deploy/.env; see docs/adr/0018-team-sso.md.
+      SEEN_OIDC_ISSUER: ${SEEN_OIDC_ISSUER:-}
+      SEEN_OIDC_CLIENT_ID: ${SEEN_OIDC_CLIENT_ID:-}
+      SEEN_OIDC_ALLOWED_DOMAINS: ${SEEN_OIDC_ALLOWED_DOMAINS:-}
+      SEEN_TEAM_ADMINS: ${SEEN_TEAM_ADMINS:-}
+      SEEN_TEAM_BOOTSTRAP_DISABLE: ${SEEN_TEAM_BOOTSTRAP_DISABLE:-}
+      SEEN_TEAM_PROXY_HOPS: ${SEEN_TEAM_PROXY_HOPS:-}
     ports: ["127.0.0.1:47824:47824"]
     depends_on: { postgres: { condition: service_healthy } }
     restart: unless-stopped

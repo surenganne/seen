@@ -20,3 +20,9 @@
 ## Audit event catalogue
 
 Plan section 11A, plus `pii.allowlisted` (counts of values or paths a repo allowlist suppressed). `turn.start` carries `prompt_hmac` (keyed), not a plain SHA-256.
+
+Team sign-in from the local dashboard adds three events (actor kind `user`): `team.login_started` (outcome `ok` or `failed`, no detail), `team.login` (outcome `ok` or `failed`, no detail) and `team.logout` (outcome `ok`, detail `result`: `revoked`, `already_invalid`, `local` or `none`). They carry no email, code, token or key. They are not in the sync allowlist (`AUDIT_DETAIL`), so when audit events sync only their type, outcome and hash fields leave the machine and the `result` detail is dropped. Nothing validates a closed list of event types.
+
+## Team server additions (SSO)
+
+`team_users` holds one row per SSO identity (`sub`, email, role, active). API keys carry an `origin` (`manual` or `sso`); a key minted at sign-in is `sso` and is shown once, stored hashed. `GET /api/projects/{pid}/members` (lead or admin) lists the project's members: `user_id`, `email` when SSO, `last_synced_at`, `changes`, `key_expired`. It also lists manual member keys that never synced (shown as "Never synced"). `team_used_tokens` holds `sha256(id_token)` and an expiry for every id_token already exchanged, so one token mints at most one key; rows are pruned after the token's expiry. The local `~/.seen/team_key` (0600) holds the signed-in key and is never synced.
