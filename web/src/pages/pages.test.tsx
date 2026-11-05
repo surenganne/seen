@@ -173,4 +173,85 @@ describe("Team page", () => {
     expect(screen.queryByTestId("team-signin")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  const two = [
+    { id: "tp1", name: "alpha", changes: 1, cost_7d: 0, last_change_at: null },
+    { id: "tp2", name: "beta", changes: 2, cost_7d: 0, last_change_at: null },
+  ];
+  const ov = (changes: number) => ({ state: "ok", reason: null, range: 7, tiles: { changes, cost_usd: 1, lines_added: 1, lines_removed: 1, pii_changes: 0, policy_missed: 0 }, cost_by_day: [], top_skills: [], by_model: [], pii_by_type: [] });
+
+  it("a project switch drops the old project's tiles and shows its own members", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    state.team[P] = { state: "ok", reason: null, projects: two };
+    state.team["/api/team/projects/tp1/overview"] = ov(111);
+    state.team["/api/team/projects/tp2/overview"] = async () => { await gate; return ov(222); };
+    state.team["/api/team/projects/tp1/members"] = { state: "ok", reason: null, members: [member("from-alpha", null)] };
+    state.team["/api/team/projects/tp2/members"] = { state: "ok", reason: null, members: [member("from-beta", null)] };
+    mount(byName("Team"));
+    expect(await screen.findByText("111")).toBeInTheDocument();
+    expect(await screen.findByText("from-alpha")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "beta" }));
+    await waitFor(() => expect(screen.queryByText("111")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("team-tile")).not.toBeInTheDocument();
+    expect(await screen.findByText("from-beta")).toBeInTheDocument();
+    expect(screen.queryByText("from-alpha")).not.toBeInTheDocument();
+    release();
+    expect(await screen.findByText("222")).toBeInTheDocument();
+  });
+
+  describe("sign-in redirect", () => {
+    const run = async (url: string) => {
+      const assign = vi.fn();
+      vi.stubGlobal("location", { ...window.location, href: "http://localhost/team", assign });
+      state.team["/api/team/session"] = { state: "signed_out", email: null, role: null };
+      state.team[P] = { state: "login_required", reason: "Sign in.", projects: [] };
+      state.team["/api/team/login"] = { url, reason: null };
+      mount(byName("Team"));
+      fireEvent.click(await screen.findByTestId("team-signin"));
+      return assign;
+    };
+    afterEach(() => { vi.unstubAllGlobals(); });
+    it.each(["javascript:alert(1)", "data:text/html,x"])("never navigates to %s", async (u) => {
+      const assign = await run(u);
+      expect(await screen.findByText("Sign-in is unavailable right now. Try again later.")).toBeInTheDocument();
+      expect(assign).not.toHaveBeenCalled();
+    });
+    it("navigates to an https URL", async () => {
+      const assign = await run("https://sso.example.test/start");
+      await waitFor(() => expect(assign).toHaveBeenCalledWith("https://sso.example.test/start"));
+    });
+  });
+
+  describe("member status edges", () => {
+    const NOW = Date.parse("2026-11-05T12:00:00Z");
+    const badge = async (at: string | null) => {
+      vi.useFakeTimers({ toFake: ["Date"], now: NOW });
+      state.team[M] = { state: "ok", reason: null, members: [member("a", at)] };
+      mount(byName("Team"));
+      return (await screen.findByTestId("team-member-row")).textContent ?? "";
+    };
+    it("exactly 24 h is Synced", async () => { expect(await badge(new Date(NOW - 24 * 3_600_000).toISOString())).toContain("Synced"); });
+    it("24 h and 1 ms is Stale", async () => { expect(await badge(new Date(NOW - 24 * 3_600_000 - 1).toISOString())).toContain("Stale"); });
+    it("a future time is Synced", async () => { expect(await badge(new Date(NOW + 3_600_000).toISOString())).toContain("Synced"); });
+    it("an invalid time is Unknown, never Invalid Date", async () => {
+      const t = await badge("not-a-date");
+      expect(t).toContain("Unknown");
+      expect(t).not.toContain("Invalid");
+    });
+  });
+
+  it("sign out asks for the session and the projects again", async () => {
+    mount(byName("Team"));
+    fireEvent.click(await screen.findByTestId("team-signout"));
+    const n = (path: string) => state.calls.filter((c) => c === path).length;
+    const before = [n("/api/team/session"), n(P)];
+    await waitFor(() => { expect(n("/api/team/session")).toBeGreaterThan(before[0] ?? 0); expect(n(P)).toBeGreaterThan(before[1] ?? 0); });
+  });
+
+  it("a non-ok members state with no reason shows a fixed line", async () => {
+    state.team[M] = { state: "unreachable", reason: null, members: [] };
+    mount(byName("Team"));
+    expect(await screen.findByText("Members could not be loaded.")).toBeInTheDocument();
+  });
 });

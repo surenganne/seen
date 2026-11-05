@@ -12,10 +12,22 @@ import { useRange } from "../lib/nav";
 const STALE_AFTER_H = 24;
 const LOGIN_REASON = { not_configured: "Team server is not configured.", unavailable: "Sign-in is unavailable right now. Try again later." } as const;
 
+/** Only web URLs: a javascript: or data: URL from the server must never be navigated to. */
+function safeUrl(u: string): string | null {
+  try {
+    const p = new URL(u, window.location.href);
+    return p.protocol === "https:" || p.protocol === "http:" ? u : null;
+  } catch {
+    return null;
+  }
+}
+
 function Status({ m }: { m: S["TeamMemberOut"] }) {
   if (m.key_expired) return <Badge tone="critical">Key expired</Badge>;
   if (!m.last_synced_at) return <Badge tone="neutral">Never synced</Badge>;
-  const hours = (Date.now() - new Date(m.last_synced_at).getTime()) / 3_600_000;
+  const at = Date.parse(m.last_synced_at);
+  if (Number.isNaN(at)) return <Badge tone="neutral">Unknown</Badge>;
+  const hours = (Date.now() - at) / 3_600_000; // a future time counts as fresh
   return hours <= STALE_AFTER_H ? <Badge tone="good">Synced</Badge> : <Badge tone="warning">Stale</Badge>;
 }
 
@@ -26,7 +38,7 @@ function Members({ pid }: { pid: string }) {
       {isLoading ? <div style={{ padding: "1rem" }}><Loading what="Loading members" rows={2} /></div>
         : error || !m ? <ErrorBox error={error} />
         : m.state === "forbidden" ? <p className="muted small" style={{ padding: "0.6rem 1rem" }}>Only leads and admins can see who has synced.</p>
-        : m.state !== "ok" ? <p className="muted small" style={{ padding: "0.6rem 1rem" }}>{m.reason}</p>
+        : m.state !== "ok" ? <p className="muted small" style={{ padding: "0.6rem 1rem" }}>{m.reason || "Members could not be loaded."}</p>
         : (
           <div className="table-wrap" tabIndex={0} role="region" aria-label="Last synced">
             <table className="data">
@@ -35,7 +47,7 @@ function Members({ pid }: { pid: string }) {
                 {m.members.map((x) => (
                   <tr key={x.user_id} data-testid="team-member-row">
                     <td className="mono">{x.email ?? x.user_id}</td>
-                    <td title={x.last_synced_at ?? undefined}>{when(x.last_synced_at)}</td>
+                    <td title={x.last_synced_at ?? undefined}>{Number.isNaN(Date.parse(x.last_synced_at ?? "")) ? "—" : when(x.last_synced_at)}</td>
                     <td className="num">{int(x.changes)}</td>
                     <td><Status m={x} /></td>
                   </tr>
@@ -51,7 +63,7 @@ function Members({ pid }: { pid: string }) {
   );
 }
 
-function Detail({ pid }: { pid: string }) {
+function OverviewBlock({ pid }: { pid: string }) {
   const [range] = useRange();
   const { data: o, error, isLoading } = useTeamOverview(pid, range);
   if (isLoading) return <Loading what="Loading project" />;
@@ -59,7 +71,7 @@ function Detail({ pid }: { pid: string }) {
   const t = o.tiles;
   return (
     <>
-      {o.state !== "ok" || !t ? <Note tone="warning" testId="team-state">{o.reason ?? "The team server did not return this project."}</Note> : (
+      {o.state !== "ok" || !t ? <Note tone="warning" testId="team-state">{o.reason || "The team server did not return this project."}</Note> : (
         <>
           <div className="strip" role="group" aria-label="Team summary">
             {([["Changes", int(t.changes)], ["Cost", money(t.cost_usd)], ["Lines added", int(t.lines_added)], ["Lines removed", int(t.lines_removed)],
@@ -89,10 +101,11 @@ function Detail({ pid }: { pid: string }) {
           </Card>
         </>
       )}
-      <Members pid={pid} />
     </>
   );
 }
+
+const Detail = ({ pid }: { pid: string }) => <><OverviewBlock pid={pid} /><Members pid={pid} /></>;
 
 function SessionBar({ showSignIn }: { showSignIn: boolean }) {
   const qc = useQueryClient();
@@ -103,8 +116,9 @@ function SessionBar({ showSignIn }: { showSignIn: boolean }) {
   const login = useMutation({
     mutationFn: teamLogin,
     onSuccess: (r) => {
-      if (r.url) window.location.assign(r.url);
-      else setMsg(LOGIN_REASON[r.reason ?? "unavailable"]);
+      const to = r.url ? safeUrl(r.url) : null;
+      if (to) window.location.assign(to);
+      else setMsg(LOGIN_REASON[r.url ? "unavailable" : r.reason ?? "unavailable"]);
     },
     onError: () => setMsg(LOGIN_REASON.unavailable),
   });
@@ -142,7 +156,7 @@ export function Team() {
           {p.reason && <>{p.reason} </>}Set <span className="mono">sync.server</span> in the Seen config and put the team key in the environment variable named by the key setting. The key is never shown here.
         </Empty></div>
       ) : p.state !== "ok" ? (
-        <Note tone="warning" testId="team-state">{p.reason ?? "The team server did not answer."}</Note>
+        <Note tone="warning" testId="team-state">{p.reason || "The team server did not answer."}</Note>
       ) : p.projects.length === 0 ? (
         <Note tone="info">No projects are visible to this account. Leads and admins see every project; members see only their own.</Note>
       ) : (

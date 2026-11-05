@@ -117,7 +117,7 @@ export const useTeamOverview = (pid: string, range: Range) =>
     queryKey: ["team", "overview", pid, range],
     enabled: !!pid,
     queryFn: () => unwrap(api.GET("/api/team/projects/{pid}/overview", { params: { path: { pid }, query: { range } } })),
-    placeholderData: keepPreviousData,
+    // no keepPreviousData: a switch must never show the old project's figures under the new name
   });
 
 export const useTeamMembers = (pid: string) =>

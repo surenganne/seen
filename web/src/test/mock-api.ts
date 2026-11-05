@@ -41,7 +41,8 @@ export async function mockFetch(input: RequestInfo | URL): Promise<Response> {
   state.calls.push(url.pathname);
   const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   if (url.pathname.startsWith("/api/team/") && state.mode !== "down") {
-    const body = state.team[url.pathname] ?? TEAM[url.pathname];
+    const found = state.team[url.pathname] ?? TEAM[url.pathname];
+    const body = typeof found === "function" ? await (found as () => Promise<unknown>)() : found; // a function lets a test delay or compute the answer
     if (body === undefined) return json(404, { detail: `no team mock for ${url.pathname}` });
     if (state.mode === "empty" && url.pathname === "/api/team/projects") return json(200, { state: "ok", reason: null, projects: [] });
     return json(200, body);
