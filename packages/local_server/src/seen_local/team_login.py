@@ -133,6 +133,8 @@ def register(app: FastAPI, remote: bool = False) -> None:
 
     @app.post("/api/team/logout", response_model=S.TeamLogoutOut)
     def logout() -> S.TeamLogoutOut:
+        if remote:  # a network peer must not be able to revoke the owner's key; nothing is touched
+            return S.TeamLogoutOut(state="signed_out")
         try:
             result = teamauth.logout()
         except Exception:  # noqa: BLE001

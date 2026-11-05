@@ -1,4 +1,4 @@
-"""OIDC id_token validation for the team server (Entra ID). Standalone: wired into the app later.
+"""OIDC id_token validation for the team server (Entra ID).
 
 Never log or echo a token, code or verifier: every failure is OidcError("invalid token").
 """
@@ -71,8 +71,10 @@ class OidcConfig:
     def from_env(cls) -> OidcConfig | None:
         issuer = os.environ.get("SEEN_OIDC_ISSUER", "").strip()
         client_id = os.environ.get("SEEN_OIDC_CLIENT_ID", "").strip()
-        if not issuer or not client_id:
+        if not issuer and not client_id:
             return None
+        if not issuer or not client_id:
+            raise OidcConfigError("SEEN_OIDC_ISSUER and SEEN_OIDC_CLIENT_ID must be set together")
         _check_issuer(issuer)
         raw = os.environ.get("SEEN_OIDC_ALLOWED_DOMAINS", "")
         domains = frozenset(d.strip().lower() for d in raw.split(",") if d.strip())

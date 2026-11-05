@@ -203,7 +203,8 @@ def test_from_env(monkeypatch: pytest.MonkeyPatch):
         monkeypatch.delenv(k, raising=False)
     assert OidcConfig.from_env() is None
     monkeypatch.setenv("SEEN_OIDC_ISSUER", ISS)
-    assert OidcConfig.from_env() is None
+    with pytest.raises(OidcConfigError):  # half a config fails closed and loud, never "SSO silently off"
+        OidcConfig.from_env()
     monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", CID)
     monkeypatch.setenv("SEEN_OIDC_ALLOWED_DOMAINS", " example.com, example.org ,")
     cfg = OidcConfig.from_env()
@@ -372,3 +373,10 @@ def test_non_ascii_email_rejected_before_casefolding(email: str):
 
 def test_identity_carries_token_expiry():
     assert check(tok()).exp > time.time()
+
+
+def test_client_id_without_issuer_also_refuses(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("SEEN_OIDC_ISSUER", raising=False)
+    monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", CID)
+    with pytest.raises(OidcConfigError):
+        OidcConfig.from_env()

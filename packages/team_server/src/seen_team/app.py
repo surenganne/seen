@@ -10,6 +10,7 @@ import hmac
 import json
 import os
 import secrets
+import threading
 import time
 from collections import Counter, defaultdict, deque
 from collections.abc import Callable
@@ -188,7 +189,7 @@ SSO_KEY_DAYS = 30
 def create_app(url: str | None = None, reset: bool = False, oidc_validate: Callable[[str, str], Identity] | None = None) -> FastAPI:
     url = url or os.environ.get("SEEN_TEAM_DATABASE_URL") or "sqlite:///seen-team.db"
     hops = proxy_hops()
-    cfg = OidcConfig.from_env()  # raises OidcConfigError on a partial or unsafe config: startup stops
+    cfg = OidcConfig.from_env()  # raises OidcConfigError on a half-set (issuer without client id or the reverse) or unsafe config: startup stops
     if oidc_validate is None and cfg is not None:
         fetcher = make_jwks_fetcher(cfg.issuer)  # one fetcher (and cache) for the process
         oidc_cfg = cfg
@@ -203,7 +204,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         if bootstrap_off and oidc_validate is None:
             raise SystemExit("Production with SEEN_TEAM_BOOTSTRAP_DISABLE=1 (or true/yes) needs SEEN_OIDC_ISSUER and SEEN_OIDC_CLIENT_ID: no way to sign in.")
         if not bootstrap_off and len(boot) < 32:
-            raise SystemExit("SEEN_TEAM_BOOTSTRAP_KEY must be set to 32+ random characters in production.")
+            raise SystemExit("SEEN_TEAM_BOOTSTRAP_KEY must be set to 32+ random characters in production, or set SEEN_TEAM_BOOTSTRAP_DISABLE=1 when SSO is the only sign-in.")
     disco: dict[str, Any] = {"at": 0.0, "doc": None}
     engine = sa.create_engine(url, pool_pre_ping=True)
     if reset:
@@ -214,6 +215,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     fails: dict[str, deque[float]] = defaultdict(deque)
     hits: dict[str, deque[float]] = defaultdict(deque)  # every attempt, successes included
     calls = [0]
+    limiter_lock = threading.Lock()
     prod = os.environ.get("APP_ENV") == "production"  # no unauthenticated API map in production
     app = FastAPI(title="Seen team server", version="0.1.0", docs_url=None if prod else "/docs",
                   redoc_url=None if prod else "/redoc", openapi_url=None if prod else "/openapi.json")
@@ -255,18 +257,19 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
 
     def throttle(request: Request) -> deque[float]:
         """Per-IP limiter shared by auth and the pre-auth exchange. Returns the failure queue: append to it on a failed attempt."""
-        calls[0] += 1
-        if calls[0] % SWEEP_EVERY == 0 or len(hits) > MAX_TRACKED_IPS:
-            sweep()
-        ip = client_ip(request, hops)
-        q, h = fails[ip], hits[ip]
-        for dq in (q, h):
-            while dq and dq[0] < time.monotonic() - WINDOW_S:
-                dq.popleft()
-        if len(q) >= MAX_FAILS or len(h) >= MAX_REQUESTS:  # locked: even a correct key waits, so the lockout is not an oracle
-            raise HTTPException(429, "too many requests; retry later")
-        h.append(time.monotonic())
-        return q
+        with limiter_lock:  # ponytail: one global lock; sync routes run in a thread pool and sweep() walks the tables
+            calls[0] += 1
+            if calls[0] % SWEEP_EVERY == 0 or len(hits) > MAX_TRACKED_IPS:
+                sweep()
+            ip = client_ip(request, hops)
+            q, h = fails[ip], hits[ip]
+            for dq in (q, h):
+                while dq and dq[0] < time.monotonic() - WINDOW_S:
+                    dq.popleft()
+            if len(q) >= MAX_FAILS or len(h) >= MAX_REQUESTS:  # locked: even a correct key waits, so the lockout is not an oracle
+                raise HTTPException(429, "too many requests; retry later")
+            h.append(time.monotonic())
+            return q
 
     def auth(request: Request, s: Db, authorization: str = Header(default="")) -> TeamApiKey:
         q = throttle(request)
