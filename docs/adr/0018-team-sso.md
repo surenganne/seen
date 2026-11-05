@@ -1,6 +1,6 @@
 # 18: Team server sign-in with OIDC (SSO)
 
-Status: accepted for v1, 2026-11-05. Items under "Open decisions for the owner" are not decided.
+Status: accepted for v1, 2026-11-05. Items under "Open decisions" carry a v1 ruling (defaults, reversible). Items 3 and 8 still need the owner (legal, real tenant).
 
 **Flow.** OIDC authorization code with PKCE (S256) as a public client. The redirect is loopback, there is no client
 secret, and the implicit flow is not used (tokens never travel in a URL fragment, and a stolen code is useless
@@ -64,7 +64,17 @@ Dependency audit (2026-11-05): `pip-audit` on the production export (`uv export 
 finds nothing and `npm audit --omit=dev` finds 0. The one advisory in `uv.lock`, certifi 2026.7.22 (PYSEC-2026-4320,
 fix 2026.10.18), is in the dev/test dependencies only and is not in the production export; keep bumping it.
 
-## Open decisions for the owner
+## Open decisions
+
+**v1 rulings (2026-11-05, controller, reversible; owner may overturn).**
+- 1 Scoping: keep org-wide leads/admins. Reason: small team, no project-to-group mapping from the IdP yet. Revisit with Entra group claims.
+- 2 Key storage: keep the 0600 file. Reason: works on every OS, same trust level as `~/.seen` ledger. Keychain is a later option.
+- 4 Manual-key installs: documented limit; fix is admin re-bind or a fresh install id. No auto-bind, because the manual `user_id` is client-chosen.
+- 5 Resolved in code (see below).
+- 6 Production guard: a bootstrap-only production install still starts, with the 32-character key minimum. OIDC is not forced, so existing deployments keep working.
+- 7 Members `last_synced_at`: account-wide in v1.
+- Compose `/snap` mount stays read-write: the container dashboard writes settings and approvals there by design.
+- Still owner-only: 3 (plaintext email at rest, DPDP) and 8 (admin by `email` claim; check against a real Entra tenant first).
 
 1. **Project scoping.** In v1 leads and admins are org-wide, SSO members can push any project, and SSO members see no
    project aggregates in the dashboard. Cost if wrong: over-broad access inside the tenant.
