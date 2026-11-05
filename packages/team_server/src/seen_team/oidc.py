@@ -14,7 +14,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import jwt
@@ -83,10 +83,12 @@ class OidcConfig:
 class Identity:
     sub: str
     email: str
+    exp: int = field(default=0, compare=False)  # the token's expiry (epoch s); 0 when the validator does not know it
 
 
 def _domain_ok(email: object, allowed: frozenset[str]) -> str | None:
-    if not isinstance(email, str) or email.count("@") != 1:
+    # ASCII only, checked BEFORE lowercasing: U+212A (Kelvin) and similar fold to ASCII and would pass for another address.
+    if not isinstance(email, str) or not email.isascii() or email.count("@") != 1:
         return None
     local, domain = email.lower().split("@")
     return f"{local}@{domain}" if local and domain in allowed else None
@@ -131,7 +133,8 @@ def validate_id_token(token: str, nonce: str, cfg: OidcConfig, jwks: Callable[[b
         sub = claims["sub"]
         if email is None or not isinstance(sub, str) or not sub:
             raise OidcError(_FAIL)
-        return Identity(sub, email)
+        exp = claims.get("exp")
+        return Identity(sub, email, int(exp) if isinstance(exp, (int, float)) else 0)
     except OidcError:
         raise
     except Exception:  # noqa: BLE001 - any failure, including fetcher errors, maps to the fixed string

@@ -23,7 +23,7 @@ ISS = f"https://login.microsoftonline.com/{TENANT}/v2.0"
 CID = "client-1"
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 OTHER = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-CFG = OidcConfig(ISS, CID, frozenset({"minfytech.com"}))
+CFG = OidcConfig(ISS, CID, frozenset({"example.com"}))
 
 
 def jwk(key: Any, kid: str = "k1") -> dict:
@@ -48,7 +48,7 @@ json_null = object()
 def tok(key: Any = KEY, kid: str = "k1", alg: str = "RS256", **over: Any) -> str:
     now = int(time.time())
     claims = {"iss": ISS, "aud": CID, "sub": "sub-1", "iat": now, "exp": now + 600,
-              "nonce": "n1", "email": "a@minfytech.com", "tid": TENANT, **over}
+              "nonce": "n1", "email": "a@example.com", "tid": TENANT, **over}
     claims = {k: (None if v is json_null else v) for k, v in claims.items() if v is not None}
     return jwt.encode(claims, key, algorithm=alg, headers={"kid": kid})
 
@@ -64,18 +64,18 @@ def bad(token: str, **kw: Any) -> None:
 
 
 def test_valid_token():
-    assert check(tok()) == Identity("sub-1", "a@minfytech.com")
+    assert check(tok()) == Identity("sub-1", "a@example.com")
 
 
 def test_email_normalised_lowercase():
-    assert check(tok(email="A@MinfyTech.com")).email == "a@minfytech.com"
+    assert check(tok(email="A@Example.COM")).email == "a@example.com"
 
 
 def test_rejects_alg_none_and_hs256_confusion():
     bad(tok(key=None, alg="none"))
     now = int(time.time())
     hs = jwt.encode({"iss": ISS, "aud": CID, "sub": "s", "iat": now, "exp": now + 60, "nonce": "n1",
-                     "email": "a@minfytech.com"}, "x" * 40, algorithm="HS256", headers={"kid": "k1"})
+                     "email": "a@example.com"}, "x" * 40, algorithm="HS256", headers={"kid": "k1"})
     bad(hs)
 
 
@@ -111,8 +111,8 @@ def test_nonce_mismatch():
 
 
 @pytest.mark.parametrize("email", [
-    "a@evil-minfytech.com", "a@minfytech.com.evil.io", "a@@minfytech.com", "a@x@minfytech.com",
-    "minfytech.com", "a@", "a@sub.minfytech.com", "", 5,
+    "a@evil-example.com", "a@example.com.evil.io", "a@@example.com", "a@x@example.com",
+    "example.com", "a@", "a@sub.example.com", "", 5,
 ])
 def test_email_domain_exact_match_rejects(email):
     bad(tok(email=email))
@@ -128,12 +128,12 @@ def test_unverified_email_rejected_when_claim_present():
     bad(tok(email_verified="true"))
     bad(tok(email_verified=1))
     bad(tok(email_verified=json_null))
-    assert check(tok(email_verified=True)).email == "a@minfytech.com"
+    assert check(tok(email_verified=True)).email == "a@example.com"
 
 
 def test_email_verified_absent_accepted_for_pinned_issuer():
     assert "email_verified" not in jwt.decode(tok(), options={"verify_signature": False})
-    assert check(tok()).email == "a@minfytech.com"
+    assert check(tok()).email == "a@example.com"
 
 
 def test_tid_mismatch_rejected_and_match_accepted():
@@ -205,9 +205,9 @@ def test_from_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("SEEN_OIDC_ISSUER", ISS)
     assert OidcConfig.from_env() is None
     monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", CID)
-    monkeypatch.setenv("SEEN_OIDC_ALLOWED_DOMAINS", " MinfyTech.com, example.org ,")
+    monkeypatch.setenv("SEEN_OIDC_ALLOWED_DOMAINS", " example.com, example.org ,")
     cfg = OidcConfig.from_env()
-    assert cfg == OidcConfig(ISS, CID, frozenset({"minfytech.com", "example.org"}))
+    assert cfg == OidcConfig(ISS, CID, frozenset({"example.com", "example.org"}))
 
 
 def test_no_allowed_domains_rejects_everyone():
@@ -360,3 +360,15 @@ def test_entra_issuer_requires_tid():
     bad(tok(tid=None))  # absent: None drops the claim
     bad(tok(tid="99999999-2222-3333-4444-555555555555"))
     assert check(tok(tid=TENANT)).sub == "sub-1"
+
+
+@pytest.mark.parametrize("email", ["Kim@example.com", "kim@Kexample.com", "kim@example.comK", "kım@example.com"])
+def test_non_ascii_email_rejected_before_casefolding(email: str):
+    """Real validator path: U+212A lowercases to ASCII 'k', so the check must run before .lower()."""
+    cfg = OidcConfig(ISS, CID, frozenset({"example.com", "kexample.com"}))
+    with pytest.raises(OidcError):
+        validate_id_token(tok(email=email), "n1", cfg, jwks_of(jwk(KEY)))
+
+
+def test_identity_carries_token_expiry():
+    assert check(tok()).exp > time.time()

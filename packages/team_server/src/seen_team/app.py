@@ -24,14 +24,26 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base, TeamApiKey, TeamAuditHead, TeamBatch, TeamChange, TeamInstall, TeamProject, TeamUser
-from .oidc import Identity, OidcConfig, _get_json, make_jwks_fetcher, validate_id_token
+from .models import (
+    Base,
+    TeamApiKey,
+    TeamAuditHead,
+    TeamBatch,
+    TeamChange,
+    TeamInstall,
+    TeamProject,
+    TeamUsedToken,
+    TeamUser,
+)
+from .oidc import _LEEWAY_S, Identity, OidcConfig, _get_json, make_jwks_fetcher, validate_id_token
 
 DEFAULT_PORT = 47824
 SECURITY_HEADERS = {"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
                     "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'", "Permissions-Policy": "camera=(), microphone=()"}
 MAX_FAILS, WINDOW_S = 8, 60
 MAX_REQUESTS = 600  # per client per window, successes included
+MAX_TRACKED_IPS = 10_000  # limiter table cap; oldest clients are evicted first
+SWEEP_EVERY = 256  # requests between idle-entry sweeps
 MAX_BODY = 2 * 1024 * 1024
 
 
@@ -46,10 +58,17 @@ def _add_missing_key_columns(engine: sa.Engine) -> None:
             c.execute(sa.text("ALTER TABLE team_api_keys ADD COLUMN origin VARCHAR(16) NOT NULL DEFAULT 'manual'"))
 
 
-def client_ip(request: Request) -> str:
+def proxy_hops() -> int:
+    """SEEN_TEAM_PROXY_HOPS, parsed once at startup: a bad value stops the server rather than failing every request."""
+    raw = os.environ.get("SEEN_TEAM_PROXY_HOPS", "").strip()
+    if raw and not (raw.isascii() and raw.isdigit()):
+        raise SystemExit("SEEN_TEAM_PROXY_HOPS must be a whole number of trusted proxies (0 or more).")
+    return int(raw or 0)
+
+
+def client_ip(request: Request, hops: int) -> str:
     """The address to throttle. Behind N trusted proxies (SEEN_TEAM_PROXY_HOPS) take the entry the Nth proxy appended;
     otherwise the socket peer. X-Forwarded-For is never trusted unless told how many hops to trust."""
-    hops = int(os.environ.get("SEEN_TEAM_PROXY_HOPS") or 0)
     if hops > 0:
         parts = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
         if len(parts) >= hops:
@@ -168,6 +187,7 @@ SSO_KEY_DAYS = 30
 
 def create_app(url: str | None = None, reset: bool = False, oidc_validate: Callable[[str, str], Identity] | None = None) -> FastAPI:
     url = url or os.environ.get("SEEN_TEAM_DATABASE_URL") or "sqlite:///seen-team.db"
+    hops = proxy_hops()
     cfg = OidcConfig.from_env()  # raises OidcConfigError on a partial or unsafe config: startup stops
     if oidc_validate is None and cfg is not None:
         fetcher = make_jwks_fetcher(cfg.issuer)  # one fetcher (and cache) for the process
@@ -178,6 +198,8 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     bootstrap_off = os.environ.get("SEEN_TEAM_BOOTSTRAP_DISABLE", "").strip().lower() in ("1", "true", "yes")
     boot = "" if bootstrap_off else os.environ.get("SEEN_TEAM_BOOTSTRAP_KEY", "")
     if os.environ.get("APP_ENV") == "production":
+        if cfg is not None and not cfg.issuer.startswith("https://"):
+            raise SystemExit("SEEN_OIDC_ISSUER must be https in production.")
         if bootstrap_off and oidc_validate is None:
             raise SystemExit("Production with SEEN_TEAM_BOOTSTRAP_DISABLE=1 (or true/yes) needs SEEN_OIDC_ISSUER and SEEN_OIDC_CLIENT_ID: no way to sign in.")
         if not bootstrap_off and len(boot) < 32:
@@ -191,9 +213,11 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     Sess = sessionmaker(engine, expire_on_commit=False)
     fails: dict[str, deque[float]] = defaultdict(deque)
     hits: dict[str, deque[float]] = defaultdict(deque)  # every attempt, successes included
+    calls = [0]
     prod = os.environ.get("APP_ENV") == "production"  # no unauthenticated API map in production
     app = FastAPI(title="Seen team server", version="0.1.0", docs_url=None if prod else "/docs",
                   redoc_url=None if prod else "/redoc", openapi_url=None if prod else "/openapi.json")
+    app.state.limiter_tables = (fails, hits)
 
     @app.middleware("http")
     async def headers(request: Request, call_next):  # type: ignore[no-untyped-def]
@@ -216,9 +240,25 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
 
     Db = Annotated[Session, Depends(db)]
 
+    def sweep() -> None:
+        """Drop clients idle for a whole window; if still over the cap evict the least recently seen first.
+        ponytail: an evicted client gets a fresh budget (only reachable with thousands of distinct addresses)."""
+        cutoff = time.monotonic() - WINDOW_S
+        for ip in [i for i, h in hits.items() if not h or h[-1] < cutoff]:
+            hits.pop(ip, None)
+            fails.pop(ip, None)
+        for ip in sorted(hits, key=lambda i: hits[i][-1])[: max(0, len(hits) - MAX_TRACKED_IPS * 9 // 10)] if len(hits) > MAX_TRACKED_IPS else []:
+            hits.pop(ip, None)
+            fails.pop(ip, None)
+        for ip in [i for i in fails if i not in hits]:
+            fails.pop(ip, None)
+
     def throttle(request: Request) -> deque[float]:
         """Per-IP limiter shared by auth and the pre-auth exchange. Returns the failure queue: append to it on a failed attempt."""
-        ip = client_ip(request)
+        calls[0] += 1
+        if calls[0] % SWEEP_EVERY == 0 or len(hits) > MAX_TRACKED_IPS:
+            sweep()
+        ip = client_ip(request, hops)
         q, h = fails[ip], hits[ip]
         for dq in (q, h):
             while dq and dq[0] < time.monotonic() - WINDOW_S:
@@ -295,6 +335,13 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
             if not u.active:
                 raise ValueError
             u.email, u.last_login = email, t
+            # One id_token mints at most one key. Rows live until the token's exp + leeway (no exp known: now + 2 h).
+            until = (ident.exp + _LEEWAY_S) if ident.exp else time.time() + 7200
+            s.execute(sa.delete(TeamUsedToken).where(TeamUsedToken.token_hash.in_(
+                sa.select(TeamUsedToken.token_hash).where(TeamUsedToken.expires_at < t).limit(200).scalar_subquery())))
+            s.add(TeamUsedToken(token_hash=hashlib.sha256(body.id_token.encode()).hexdigest(),
+                                expires_at=datetime.fromtimestamp(until, UTC).isoformat(timespec="seconds").replace("+00:00", "Z")))
+            s.flush()  # a replay violates the primary key: same fixed 401 below
             token = "seen_" + secrets.token_urlsafe(32)
             exp = (datetime.now(UTC) + timedelta(days=SSO_KEY_DAYS)).isoformat(timespec="seconds").replace("+00:00", "Z")
             s.add(TeamApiKey(id=secrets.token_hex(8), key_hash=hashlib.sha256(token.encode()).hexdigest(), project_id=None, role=u.role,
@@ -404,6 +451,9 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         if u.role == "admin" and u.active and not (role == "admin" and active) and not other_active_admin(s, sub):
             raise HTTPException(409, "cannot remove the last active admin")
         u.role, u.active = role, active
+        if not active:  # every live key bound to this id dies, whatever its origin; reactivating does not bring them back
+            for row in s.scalars(sa.select(TeamApiKey).where(TeamApiKey.user_id == sub, TeamApiKey.revoked_at.is_(None))):
+                row.revoked_at = now()
         s.commit()
         return {"sub": u.sub, "email": u.email, "role": u.role, "active": u.active, "last_login": u.last_login}
 

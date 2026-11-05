@@ -77,3 +77,11 @@ class TeamBatch(Base):
     accepted: Mapped[int] = mapped_column(Integer)
     response: Mapped[str] = mapped_column(Text)
     received_at: Mapped[str] = mapped_column(String(40))
+
+
+class TeamUsedToken(Base):
+    """sha256 of an id_token already exchanged: one id_token mints at most one key. Pruned once past its exp."""
+
+    __tablename__ = "team_used_tokens"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    expires_at: Mapped[str] = mapped_column(String(40), index=True)
