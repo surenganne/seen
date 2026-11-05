@@ -368,6 +368,12 @@ uv run pytest -m pg                                     # team tests against the
 - [ ] Only metadata syncs: no prompts, diffs, file contents or PII values.
 - [ ] Wrong key: with a bad `SEEN_TEAM_API_KEY`, `seen sync` reports `1 rejected by the server (parked ...)` once and does not retry it on the next run. `seen doctor` shows the parked batch. After fixing the key, `seen sync --retry-failed` sends it.
 - [ ] Settings → sync server: `http://example.com` and `https://user:pw@host` are refused; `https://team.example.com` and `http://localhost:47824` are accepted.
+- [ ] Team page (`/team`) with no `sync.server` set (also the Docker dashboard): an explanation naming `sync.server` and the key variable, no table, no sign-in button, and no key shown anywhere.
+- [ ] Team page with a reachable team server: the project table and tiles match the server; selecting a second project replaces the tiles and the "Last synced" card (no old figures while it loads). A member who never synced shows "Never synced"; a member older than 24 h shows "Stale".
+- [ ] A member-role key sees the line "Only leads and admins can see who has synced." and the tiles still render. A server that is down shows its reason and the other pages still work.
+- [ ] SSO sign-in (needs an identity provider app registration; see ADR 0018): `seen team login` opens the browser, finishes on a loopback page, and `seen team whoami` shows your email and role. The key lives in `$SEEN_HOME/team_key` (0600) and is never printed.
+- [ ] Dashboard: with no key the Team page shows "Sign in with SSO"; it completes the sign-in and then shows "Signed in as <email> (<role>)". "Sign out" returns it to signed out.
+- [ ] Deactivate that user on the team server (`PUT /api/users`): the next `seen sync` is rejected and the Team page asks to sign in again.
 
 ---
 
