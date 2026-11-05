@@ -12,11 +12,11 @@ import { useRange } from "../lib/nav";
 const STALE_AFTER_H = 24;
 const LOGIN_REASON = { not_configured: "Team server is not configured.", unavailable: "Sign-in is unavailable right now. Try again later." } as const;
 
-/** Only web URLs: a javascript: or data: URL from the server must never be navigated to. */
+/** Only absolute web URLs: javascript:, data:, relative and protocol-relative strings from the server are never navigated to. */
 function safeUrl(u: string): string | null {
   try {
-    const p = new URL(u, window.location.href);
-    return p.protocol === "https:" || p.protocol === "http:" ? u : null;
+    const p = new URL(u); // no base: a relative or protocol-relative string throws
+    return p.protocol === "https:" || p.protocol === "http:" ? p.href : null;
   } catch {
     return null;
   }
