@@ -20,6 +20,9 @@ snapshot dashboard is not team-configured: `seen docker-sync` strips the `[sync]
 non-loopback bind is "remote": its session, projects, overview and members routes answer `not_configured` without any
 outbound call (it never reads team data on the owner's key), login returns no URL, the callback only redirects, and
 logout does nothing. The compose file should also mount the snapshot read-only (`:ro`); it does not yet.
+"Remote" is decided at startup from the flag and the bind host, so a dashboard bound to loopback but exposed through a
+reverse proxy, an SSH tunnel or a Docker port publish is not detected. The local API has no login by design: do not
+expose a loopback dashboard through a proxy, because the team routes would serve data on the owner's key.
 
 **Known limit.** A server that drip-feeds a response is not cut off by a total timeout (only per-read timeouts).
 
