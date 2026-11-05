@@ -446,6 +446,11 @@ def team_logout() -> None:
     from seen_core import teamauth
 
     r = teamauth.logout()
+    var = teamauth.env_key_var()
+    if var:  # logging out cannot unset an environment variable: say where the key still comes from
+        hint = f"The key comes from {var}; unset it to sign out."
+        typer.echo(hint if r == "none" else f"Forgot the stored key (result: {r}). {hint}")
+        return
     typer.echo({"revoked": "Signed out. The key was revoked on the server.",
                 "already_invalid": "Signed out. The key was already invalid on the server.",
                 "local": "Signed out locally. Could not revoke the key on the server; it expires within 30 days.",

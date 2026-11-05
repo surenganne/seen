@@ -151,8 +151,6 @@ def server_and_key() -> tuple[str, str]:
     return url, key
 
 
-_server = server_and_key
-
 
 def parked_auth_statuses() -> set[int]:
     """Which of 401/403 refused a parked batch (401 = expired or revoked key, 403 = access)."""
@@ -196,7 +194,7 @@ def _http(url: str, headers: dict[str, str], body: bytes) -> tuple[int, dict[str
 
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (scheme checked in _server)
+        with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (scheme checked in server_url)
             return r.status, json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
         return e.code, {}
