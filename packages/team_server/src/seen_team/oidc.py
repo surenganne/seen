@@ -121,11 +121,11 @@ def validate_id_token(token: str, nonce: str, cfg: OidcConfig, jwks: Callable[[b
         got = claims.get("nonce")
         if not nonce or not isinstance(got, str) or not hmac.compare_digest(got.encode(), nonce.encode()):
             raise OidcError(_FAIL)
-        # An absent email_verified is accepted only because the issuer is tenant-pinned (from_env + tid check).
+        # An absent email_verified is accepted only because the issuer is tenant-pinned (from_env + required tid check).
         if "email_verified" in claims and claims["email_verified"] is not True:
             raise OidcError(_FAIL)
         tenant = _issuer_tenant(cfg.issuer)
-        if "tid" in claims and tenant is not None and str(claims["tid"]).lower() != tenant:
+        if tenant is not None and ("tid" not in claims or str(claims["tid"]).lower() != tenant):
             raise OidcError(_FAIL)
         email = _domain_ok(claims.get("email"), cfg.allowed_domains)
         sub = claims["sub"]

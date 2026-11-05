@@ -135,3 +135,42 @@ def test_sso_member_with_expired_key_keeps_last_sync(sso: TestClient, team_url: 
     sql(team_url, "UPDATE team_api_keys SET expires_at='2020-01-01T00:00:00Z'")
     m = members(sso, admin(sso))[0]
     assert m["key_expired"] is True and m["last_synced_at"] is not None
+
+
+def test_manual_lead_never_sees_other_projects_members(team: TestClient) -> None:
+    make_key(team, "pA", "member", "u_a")
+    make_key(team, "pB", "member", "u_b")
+    push(team, make_key(team, "pB", "member", "u_b"), "u_b", "c1", "i1", pid="pB")
+    lead = bearer(make_key(team, "pA", "lead"))
+    assert [m["user_id"] for m in members(team, lead, "pA")] == ["u_a"]
+    assert team.get("/api/projects/pB/members", headers=lead).status_code == 403
+
+
+def test_one_live_and_one_expired_key_is_not_expired(team: TestClient, team_url: str) -> None:
+    make_key(team, "p1", "member", "u_a")
+    sql(team_url, "UPDATE team_api_keys SET expires_at='2020-01-01T00:00:00Z'")
+    assert members(team, admin(team))[0]["key_expired"] is True
+    make_key(team, "p1", "member", "u_a")
+    assert members(team, admin(team))[0]["key_expired"] is False
+
+
+def test_revoked_only_manual_key_is_not_listed(team: TestClient) -> None:
+    make_key(team, "p1", "member", "u_a")
+    kid = team.get("/api/keys", headers=admin(team)).json()[0]["id"]
+    assert team.delete(f"/api/keys/{kid}", headers=admin(team)).status_code == 200
+    assert members(team, admin(team)) == []
+
+
+def test_manual_key_of_a_deactivated_user_is_not_listed(sso: TestClient) -> None:  # noqa: F811
+    push(sso, login(sso)["key"], "x", "c1", "i1")
+    make_key(sso, "p1", "member", "sub-ann")  # a manual key colliding with the SSO sub
+    sso.put("/api/users/sub-ann", json={"active": False}, headers=admin(sso))
+    assert members(sso, admin(sso)) == []
+    make_key(sso, "p1", "member", "sub-bob")
+    login(sso, "t-bob")
+    sso.put("/api/users/sub-bob", json={"active": False}, headers=admin(sso))
+    assert members(sso, admin(sso)) == []
+
+
+def test_sso_member_is_forbidden(sso: TestClient) -> None:  # noqa: F811
+    assert sso.get("/api/projects/p1/members", headers=bearer(login(sso)["key"])).status_code == 403
