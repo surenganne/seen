@@ -437,7 +437,8 @@ class TeamSession(BaseModel):
 
 
 class TeamLoginOut(BaseModel):
-    url: str | None  # null when no team server is configured or its sign-in settings cannot be read
+    url: str | None  # null when sign-in cannot start; reason says why (fixed values, never server text)
+    reason: Literal["not_configured", "unavailable"] | None = None
 
 
 class TeamLogoutOut(BaseModel):

@@ -219,3 +219,16 @@ def test_env_key_wins_over_file(configured: Fake, monkeypatch: pytest.MonkeyPatc
 def test_no_key_error_mentions_login(configured: Fake) -> None:
     with pytest.raises(sync.SyncError, match="seen team login"):
         sync.server_and_key()
+
+
+def test_complete_never_leaks_an_unexpected_error(configured: Fake, monkeypatch: pytest.MonkeyPatch) -> None:
+    def bad_save(key: str) -> None:
+        raise RuntimeError(f"disk said {key} {SENTINEL_TOKEN}")
+
+    monkeypatch.setattr(teamauth, "save_key", bad_save)
+    cfg = teamauth.fetch_config(configured.url)
+    configured.nonce = "n1"
+    with pytest.raises(teamauth.LoginError) as e:
+        teamauth.complete(configured.url, cfg, "c", "v", "n1", "http://127.0.0.1:1/cb")
+    assert str(e.value) == "Sign-in failed unexpectedly" and e.value.__cause__ is None and e.value.__suppress_context__
+    assert SENTINEL_KEY not in repr(e.value) and SENTINEL_TOKEN not in repr(e.value)
