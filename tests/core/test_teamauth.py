@@ -241,8 +241,8 @@ def test_complete_never_leaks_an_unexpected_error(configured: Fake, monkeypatch:
 
 
 def test_callback_page_for_a_wrong_state_is_neutral() -> None:
-    import urllib.request
     import threading
+    import urllib.request
 
     srv = teamauth.listen("good-state")
     threading.Thread(target=srv.serve_forever, daemon=True).start()
