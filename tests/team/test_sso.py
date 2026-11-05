@@ -1,5 +1,8 @@
 """SSO-1: exchange an IdP identity for a team key; users, roles, deactivation."""
 
+import itertools
+import threading
+
 import pytest
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
@@ -17,6 +20,7 @@ TOKENS = {
 
 
 def fake(token: str, nonce: str) -> Identity:
+    token = token.split("#")[0]  # "#n" makes a distinct id_token for the same person: each real token is single-use
     if token == "boom":
         raise RuntimeError("secret internals")
     if token not in TOKENS or nonce != "n1":
@@ -37,8 +41,11 @@ def bearer(key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {key}"}
 
 
+_seq = itertools.count()
+
+
 def login(c: TestClient, tok: str = "t-ann") -> dict:
-    r = c.post("/auth/exchange", json={"id_token": tok, "nonce": "n1"})
+    r = c.post("/auth/exchange", json={"id_token": f"{tok}#{next(_seq)}", "nonce": "n1"})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -362,3 +369,99 @@ def test_erase_refuses_the_last_active_admin(sso: TestClient) -> None:
     assert r.status_code == 409 and r.json()["detail"] == "cannot remove the last active admin"
     assert login(sso, "t-other")["role"] == "admin"
     assert sso.delete("/api/users/sub-boss", headers=bearer(login(sso, "t-other")["key"])).status_code == 200
+
+
+def _sso_key_count(c: TestClient) -> int:
+    return sum(1 for k in c.get("/api/keys", headers=admin(c)).json() if k["origin"] == "sso")
+
+
+def test_id_token_replay_mints_one_key(sso: TestClient) -> None:
+    body = {"id_token": "t-ann#replay", "nonce": "n1"}
+    assert sso.post("/auth/exchange", json=body).status_code == 200
+    r = sso.post("/auth/exchange", json=body)
+    assert r.status_code == 401 and r.json() == {"detail": "sign-in failed"}
+    assert _sso_key_count(sso) == 1
+    assert sso.post("/auth/exchange", json={"id_token": "t-ann#other", "nonce": "n1"}).status_code == 200  # a new token is fine
+    assert _sso_key_count(sso) == 2
+
+
+def test_id_token_replay_counts_as_a_failure_for_the_limiter(sso: TestClient) -> None:
+    body = {"id_token": "t-ann#r", "nonce": "n1"}
+    assert sso.post("/auth/exchange", json=body).status_code == 200
+    codes = [sso.post("/auth/exchange", json=body).status_code for _ in range(10)]
+    assert codes[:8] == [401] * 8 and codes[-1] == 429
+
+
+def test_used_tokens_expire_and_are_pruned(sso: TestClient, team_url: str) -> None:
+    e = sa.create_engine(team_url)
+    with e.begin() as c:
+        c.execute(sa.text("insert into team_used_tokens (token_hash, expires_at) values ('old', '2000-01-01T00:00:00Z')"))
+        c.execute(sa.text("insert into team_used_tokens (token_hash, expires_at) values ('live', '2999-01-01T00:00:00Z')"))
+    login(sso)
+    with e.begin() as c:
+        left = {r[0] for r in c.execute(sa.text("select token_hash from team_used_tokens"))}
+    assert "old" not in left and "live" in left and len(left) == 2  # the live row and the token just exchanged
+
+
+def _race(c: TestClient, i: int) -> list[int]:
+    gate, out = threading.Barrier(2), []
+
+    def go() -> None:
+        gate.wait()
+        out.append(c.post("/auth/exchange", json={"id_token": f"t-bob#race{i}", "nonce": "n1"}).status_code)
+
+    ts = [threading.Thread(target=go) for _ in range(2)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    return sorted(out)
+
+
+def test_concurrent_double_submit_mints_at_most_one_key(sso: TestClient) -> None:
+    for i in range(5):
+        out = _race(sso, i)
+        assert out[0] == 200 and out.count(200) == 1, out
+    assert _sso_key_count(sso) == 5
+
+
+def _manual_key_for(c: TestClient, sub: str) -> str:
+    return c.post("/api/keys", json={"project_id": "p1", "role": "member", "user_id": sub}, headers=admin(c)).json()["key"]
+
+
+def test_deactivate_revokes_manual_keys_bound_to_the_same_user_id(sso: TestClient) -> None:
+    login(sso)
+    manual = _manual_key_for(sso, "sub-ann")
+    assert _push(sso, manual, user="sub-ann").status_code == 200
+    assert sso.put("/api/users/sub-ann", json={"active": False}, headers=admin(sso)).status_code == 200
+    assert _push(sso, manual, user="sub-ann", idem="i2", cid="c2").status_code == 401  # at once
+    assert sso.put("/api/users/sub-ann", json={"active": True}, headers=admin(sso)).status_code == 200
+    assert _push(sso, manual, user="sub-ann", idem="i3", cid="c3").status_code == 401  # reactivation does not un-revoke
+    assert sso.post("/auth/exchange", json={"id_token": "t-ann#again", "nonce": "n1"}).status_code == 200  # a new login does
+
+
+def test_role_change_alone_does_not_revoke_manual_keys(sso: TestClient) -> None:
+    login(sso)
+    manual = _manual_key_for(sso, "sub-ann")
+    sso.put("/api/users/sub-ann", json={"role": "lead"}, headers=admin(sso))
+    assert _push(sso, manual, user="sub-ann").status_code == 200
+
+
+def test_erase_revokes_manual_keys_bound_to_the_same_user_id(sso: TestClient) -> None:
+    login(sso)
+    manual = _manual_key_for(sso, "sub-ann")
+    assert sso.delete("/api/users/sub-ann", headers=admin(sso)).json()["keys_revoked"] == 2
+    assert _push(sso, manual, user="sub-ann").status_code == 401
+
+
+def test_production_refuses_a_plain_http_issuer(team_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_team.app import create_app
+
+    monkeypatch.setenv("SEEN_TEAM_BOOTSTRAP_KEY", BOOT)
+    monkeypatch.setenv("SEEN_OIDC_ISSUER", "http://localhost:9/t1/v2.0")
+    monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", "cid")
+    monkeypatch.setenv("SEEN_OIDC_ALLOWED_DOMAINS", "example.com")
+    monkeypatch.setenv("APP_ENV", "test")
+    create_app(team_url, reset=True)  # dev and tests may use a loopback http IdP
+    monkeypatch.setenv("APP_ENV", "production")
+    with pytest.raises(SystemExit) as e:
+        create_app(team_url, reset=True)
+    assert str(e.value) == "SEEN_OIDC_ISSUER must be https in production."

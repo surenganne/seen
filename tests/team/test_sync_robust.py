@@ -129,3 +129,41 @@ def test_behind_a_proxy_clients_are_throttled_separately(team_url: str, monkeypa
     assert c.get("/api/projects", headers={"Authorization": "Bearer nope", "X-Forwarded-For": "203.0.113.9"}).status_code == 429
     ok = c.get("/api/projects", headers={"Authorization": f"Bearer {BOOT}", "X-Forwarded-For": "198.51.100.7"})
     assert ok.status_code == 200  # a different client is not locked out
+
+
+@pytest.mark.parametrize("bad", ["x", "-1", "1.5", "1e2", "٣"])
+def test_bad_proxy_hops_refuses_to_start(team_url: str, monkeypatch: pytest.MonkeyPatch, bad: str) -> None:
+    from seen_team.app import create_app
+
+    monkeypatch.setenv("SEEN_TEAM_PROXY_HOPS", bad)
+    with pytest.raises(SystemExit) as e:
+        create_app(team_url, reset=True)
+    assert str(e.value) == "SEEN_TEAM_PROXY_HOPS must be a whole number of trusted proxies (0 or more)."
+
+
+@pytest.mark.parametrize("ok", ["", " ", "0", "2"])
+def test_good_proxy_hops_starts(team_url: str, monkeypatch: pytest.MonkeyPatch, ok: str) -> None:
+    from seen_team.app import create_app
+
+    monkeypatch.setenv("SEEN_TEAM_PROXY_HOPS", ok)
+    create_app(team_url, reset=True)
+
+
+def test_limiter_tables_drop_idle_clients_and_stay_capped(team_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_team import app as team_app
+    from tests.team.conftest import BOOT
+
+    monkeypatch.setenv("SEEN_TEAM_BOOTSTRAP_KEY", BOOT)
+    monkeypatch.setenv("SEEN_TEAM_PROXY_HOPS", "1")
+    monkeypatch.setattr(team_app, "MAX_TRACKED_IPS", 50)
+    monkeypatch.setattr(team_app, "SWEEP_EVERY", 10)
+    app = team_app.create_app(team_url, reset=True)
+    c = TestClient(app, base_url="http://localhost")
+    fails, hits = app.state.limiter_tables
+    for i in range(300):  # many distinct clients behind the proxy
+        c.get("/api/projects", headers={"Authorization": "Bearer nope", "X-Forwarded-For": f"203.0.113.{i % 250}.{i}"})
+    assert len(hits) <= 50 + 10 and len(fails) <= 50 + 10  # capped between sweeps
+    monkeypatch.setattr(team_app, "WINDOW_S", 0)  # everything seen so far is now idle
+    for i in range(10):
+        c.get("/api/projects", headers={"Authorization": "Bearer nope", "X-Forwarded-For": f"198.51.100.{i}"})
+    assert len(hits) <= 10 and len(fails) <= 10
