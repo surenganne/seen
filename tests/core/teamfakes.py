@@ -32,6 +32,10 @@ class Fake:
         self.token_calls: list[dict[str, str]] = []
         self.me_status = 200
         self.nonce = ""
+        self.challenge = ""
+        self.token_body: Any = None  # override the token endpoint response
+        self.delete_status = 204
+        self.deletes = 0
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -56,12 +60,23 @@ class Fake:
                 else:
                     self._send(404, {})
 
+            def do_DELETE(self) -> None:
+                if self.path == "/auth/me":
+                    outer.deletes += 1
+                    ok = outer.delete_status == 204 and self.headers.get("Authorization") == f"Bearer {SENTINEL_KEY}"
+                    self.send_response(204 if ok else outer.delete_status if outer.delete_status != 204 else 401)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                else:
+                    self._send(404, {})
+
             def do_POST(self) -> None:
                 n = int(self.headers.get("Content-Length") or 0)
                 raw = self.rfile.read(n).decode()
                 if self.path == "/idp/token":
                     outer.token_calls.append(dict(urllib.parse.parse_qsl(raw)))
-                    self._send(200, {"id_token": make_id_token(outer.nonce_override or outer.nonce), "access_token": "idp-at"})
+                    self._send(200, outer.token_body if outer.token_body is not None else
+                               {"id_token": make_id_token(outer.nonce_override or outer.nonce), "access_token": "idp-at"})
                 elif self.path == "/auth/exchange":
                     body = json.loads(raw)
                     outer.exchange_calls.append(body)
@@ -84,6 +99,7 @@ class Fake:
         def open_browser(url: str) -> bool:
             q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(url).query))
             self.nonce = q["nonce"]
+            self.challenge = q["code_challenge"]
             cb = q["redirect_uri"] + "?" + urllib.parse.urlencode({"code": "the-code", "state": state_override or q["state"]}) + extra
             threading.Thread(target=lambda: urllib.request.urlopen(cb, timeout=10).read(), daemon=True).start()
             return True

@@ -154,11 +154,11 @@ def server_and_key() -> tuple[str, str]:
 _server = server_and_key
 
 
-def auth_rejected() -> bool:
-    """True when a parked batch was refused with 401/403 (expired or revoked key)."""
+def parked_auth_statuses() -> set[int]:
+    """Which of 401/403 refused a parked batch (401 = expired or revoked key, 403 = access)."""
     with ledger_session() as db:
-        return db.scalar(select(Outbox.id).where(Outbox.dead_at.is_not(None), Outbox.sent_at.is_(None),
-                                                 Outbox.last_status.in_((401, 403))).limit(1)) is not None
+        return set(db.scalars(select(Outbox.last_status).where(Outbox.dead_at.is_not(None), Outbox.sent_at.is_(None),
+                                                               Outbox.last_status.in_((401, 403))).distinct()))
 
 
 def enqueue() -> dict[str, Any] | None:

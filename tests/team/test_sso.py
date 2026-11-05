@@ -334,3 +334,23 @@ def test_simultaneous_first_login_is_not_a_401(sso: TestClient, team_url: str) -
     finally:
         event.remove(TeamUser, "before_insert", racer)
     assert fired
+
+
+def test_delete_me_revokes_only_the_calling_sso_key(sso: TestClient) -> None:
+    a1, a2 = login(sso)["key"], login(sso)["key"]
+    b = login(sso, "t-bob")["key"]
+    assert sso.delete("/auth/me", headers=bearer(a1)).status_code == 204
+    assert sso.get("/auth/me", headers=bearer(a1)).status_code == 401
+    assert sso.delete("/auth/me", headers=bearer(a1)).status_code == 401  # already dead: same as any wrong key
+    assert sso.get("/auth/me", headers=bearer(a2)).status_code == 200
+    assert sso.get("/auth/me", headers=bearer(b)).status_code == 200
+
+
+def test_delete_me_refuses_manual_and_bootstrap_keys(sso: TestClient) -> None:
+    from tests.team.conftest import make_key
+
+    m = make_key(sso, "p1", "member")
+    r = sso.delete("/auth/me", headers=bearer(m))
+    assert r.status_code == 403 and "revoke" in r.text
+    assert sso.get("/auth/me", headers=bearer(m)).status_code == 200
+    assert sso.delete("/auth/me", headers=admin(sso)).status_code == 403

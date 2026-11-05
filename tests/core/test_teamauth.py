@@ -63,14 +63,75 @@ def test_login_happy_path(configured: Fake) -> None:
     assert teamauth.load_key() == SENTINEL_KEY
     t = configured.token_calls[0]
     assert t["grant_type"] == "authorization_code" and t["code"] == "the-code" and "client_secret" not in t
-    assert hashlib.sha256(t["code_verifier"].encode()).digest()
+    s256 = base64.urlsafe_b64encode(hashlib.sha256(t["code_verifier"].encode()).digest()).rstrip(b"=").decode()
+    assert s256 == configured.challenge
     assert set(configured.exchange_calls[0]) == {"id_token", "nonce"}  # nothing else goes to the team server
 
 
 def test_login_rejects_state_mismatch(configured: Fake) -> None:
     with pytest.raises(teamauth.LoginError):
-        teamauth.login(open_browser=configured.browser(state_override="evil"), timeout_s=10)
-    assert configured.token_calls == [] and teamauth.load_key() is None
+        teamauth.login(open_browser=configured.browser(state_override="evil"), timeout_s=1)
+    assert configured.token_calls == [] and configured.exchange_calls == [] and teamauth.load_key() is None
+
+
+def test_wrong_state_does_not_end_login_a_later_right_one_does(configured: Fake) -> None:
+    import threading
+    import urllib.request
+
+    def browser(url: str) -> bool:
+        q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(url).query))
+        configured.nonce, configured.challenge = q["nonce"], q["code_challenge"]
+
+        def hit() -> None:
+            urllib.request.urlopen(q["redirect_uri"] + "?code=x&state=evil", timeout=10).read()
+            urllib.request.urlopen(q["redirect_uri"] + "?code=the-code&state=" + q["state"], timeout=10).read()
+
+        threading.Thread(target=hit, daemon=True).start()
+        return True
+
+    assert teamauth.login(open_browser=browser, timeout_s=10)["email"] == "dev@example.com"
+    assert [c["code"] for c in configured.token_calls] == ["the-code"]
+
+
+def test_login_prints_url_to_stderr_when_browser_cannot_open(configured: Fake, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(teamauth.LoginError):
+        teamauth.login(open_browser=lambda url: False, timeout_s=1)
+    assert "/idp/authorize?" in capsys.readouterr().err
+
+
+def test_non_dict_token_response_is_a_clean_login_error(configured: Fake) -> None:
+    configured.token_body = [SENTINEL_TOKEN]
+    with pytest.raises(teamauth.LoginError) as e:
+        teamauth.login(open_browser=configured.browser(), timeout_s=10)
+    assert SENTINEL_TOKEN not in str(e.value)
+
+
+def test_logout_revokes_then_clears(configured: Fake) -> None:
+    teamauth.save_key(SENTINEL_KEY)
+    assert teamauth.logout() == "revoked"
+    assert configured.deletes == 1 and teamauth.load_key() is None
+
+
+def test_logout_clears_even_when_server_refuses_or_is_missing(configured: Fake, seen_home: Path) -> None:
+    teamauth.save_key(SENTINEL_KEY)
+    configured.delete_status = 403
+    assert teamauth.logout() == "local"
+    assert teamauth.load_key() is None
+    teamauth.save_key(SENTINEL_KEY)
+    paths.config_toml().write_text("[sync]\n")  # no server configured
+    assert teamauth.logout() == "local" and teamauth.load_key() is None
+    assert teamauth.logout() == "none"
+
+
+def test_whoami_uses_env_key_first_and_reports_unreachable(configured: Fake, monkeypatch: pytest.MonkeyPatch, seen_home: Path) -> None:
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", SENTINEL_KEY)
+    assert teamauth.whoami() == {"email": "dev@example.com", "role": "member"}
+    monkeypatch.delenv("SEEN_TEAM_API_KEY")
+    assert teamauth.whoami() is None
+    teamauth.save_key(SENTINEL_KEY)
+    configured.close()
+    with pytest.raises(teamauth.LoginError, match="reach"):
+        teamauth.whoami()
 
 
 def test_login_rejects_nonce_mismatch(configured: Fake) -> None:
