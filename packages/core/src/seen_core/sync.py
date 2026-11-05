@@ -123,8 +123,8 @@ def install_id() -> str:
     return v
 
 
-def _server() -> tuple[str, str]:
-    import os
+def server_url() -> str:
+    """The team server base URL from config, with the scheme checks. The key is not needed."""
     from urllib.parse import urlparse
 
     s = config.load()["sync"]
@@ -134,10 +134,31 @@ def _server() -> tuple[str, str]:
         raise SyncError("Set [sync] server = \"https://...\" in ~/.seen/config.toml")
     if u.scheme == "http" and u.hostname not in ("localhost", "127.0.0.1", "::1"):
         raise SyncError("Refusing to send the API key over plain http; use https (http is allowed for localhost only)")
-    key = os.environ.get(str(s.get("api_key_env") or "SEEN_TEAM_API_KEY"), "")
+    return url
+
+
+def server_and_key() -> tuple[str, str]:
+    """Server URL and key. Key order: the env var named by api_key_env, then the `seen team login` key file."""
+    import os
+
+    from . import teamauth
+
+    url = server_url()
+    name = str(config.load()["sync"].get("api_key_env") or "SEEN_TEAM_API_KEY")
+    key = os.environ.get(name, "") or teamauth.load_key() or ""
     if not key:
-        raise SyncError(f"Set the API key in the {s.get('api_key_env') or 'SEEN_TEAM_API_KEY'} environment variable (never in config)")
+        raise SyncError(f"No team key: set the {name} environment variable or run `seen team login`")
     return url, key
+
+
+_server = server_and_key
+
+
+def auth_rejected() -> bool:
+    """True when a parked batch was refused with 401/403 (expired or revoked key)."""
+    with ledger_session() as db:
+        return db.scalar(select(Outbox.id).where(Outbox.dead_at.is_not(None), Outbox.sent_at.is_(None),
+                                                 Outbox.last_status.in_((401, 403))).limit(1)) is not None
 
 
 def enqueue() -> dict[str, Any] | None:
@@ -190,7 +211,7 @@ def push(transport: Transport | None = None, now_offset_s: float = 0, retry_dead
     import json
     from urllib.parse import urlparse
 
-    url, key = _server()
+    url, key = server_and_key()
     if retry_dead:
         with ledger_session() as db:
             for o in db.scalars(select(Outbox).where(Outbox.dead_at.is_not(None), Outbox.sent_at.is_(None))):

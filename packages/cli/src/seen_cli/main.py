@@ -21,6 +21,8 @@ from seen_core.project import resolve_project
 app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
 skills_app = typer.Typer(help="Skill inventory and approvals", no_args_is_help=True)
 app.add_typer(skills_app, name="skills")
+team_app = typer.Typer(help="Team server sign-in", no_args_is_help=True)
+app.add_typer(team_app, name="team")
 
 POLICIES_TEMPLATE = """# Required-skill rules. Each rule: when a change touches `paths`, `require_skill` must run.
 # mode: report (record only) | enforce (block Stop once until the skill runs)
@@ -411,9 +413,51 @@ def sync_cmd(retry_failed: bool = typer.Option(False, "--retry-failed", help="Se
         typer.echo(str(e), err=True)
         raise typer.Exit(2) from None
     a = sync.anchor()
+    if sync.auth_rejected():
+        typer.echo("The team server rejected the key. Run `seen team login`, then `seen sync --retry-failed`.", err=True)
     typer.echo(f"sent {r['sent']} batch(es), {r['failed']} failed (will retry with backoff)"
                + (f", {r['dead']} rejected by the server (parked; fix the key or server, then `seen sync --retry-failed`)" if r["dead"] else "")
                + (f"; audit anchored through seq {a['seq']}" if a else ""))
+
+
+@team_app.command("login")
+def team_login(timeout: int = typer.Option(300, help="Seconds to wait for the browser sign-in")) -> None:
+    """Sign in to the team server through your identity provider (opens a browser)."""
+    from seen_core import sync, teamauth
+
+    try:
+        sync.server_url()
+        typer.echo("Opening your browser to sign in...")
+        r = teamauth.login(timeout_s=timeout)
+    except (sync.SyncError, teamauth.LoginError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(f"Signed in as {r['email']} ({r['role']}), key valid until {r['expires_at']}.")
+
+
+@team_app.command("logout")
+def team_logout() -> None:
+    """Forget the team key on this machine."""
+    from seen_core import teamauth
+
+    teamauth.clear_key()
+    typer.echo("Signed out. The local team key was removed.")
+
+
+@team_app.command("whoami")
+def team_whoami() -> None:
+    """Show who the stored team key belongs to."""
+    from seen_core import sync, teamauth
+
+    try:
+        w = teamauth.whoami()
+    except sync.SyncError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from None
+    if not w:
+        typer.echo("Not signed in, or the key expired. Run `seen team login`.", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"{w['email']} ({w['role']})")
 
 
 if __name__ == "__main__":
