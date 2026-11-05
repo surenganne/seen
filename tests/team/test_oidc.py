@@ -9,9 +9,17 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
-from seen_team.oidc import Identity, OidcConfig, OidcError, make_jwks_fetcher, validate_id_token
+from seen_team.oidc import (
+    Identity,
+    OidcConfig,
+    OidcConfigError,
+    OidcError,
+    make_jwks_fetcher,
+    validate_id_token,
+)
 
-ISS = "https://login.microsoftonline.com/tenant-1/v2.0"
+TENANT = "11111111-2222-3333-4444-555555555555"
+ISS = f"https://login.microsoftonline.com/{TENANT}/v2.0"
 CID = "client-1"
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 OTHER = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -34,11 +42,14 @@ def jwks_of(*keys: dict):
     return f
 
 
+json_null = object()
+
+
 def tok(key: Any = KEY, kid: str = "k1", alg: str = "RS256", **over: Any) -> str:
     now = int(time.time())
     claims = {"iss": ISS, "aud": CID, "sub": "sub-1", "iat": now, "exp": now + 600,
               "nonce": "n1", "email": "a@exampleorg.com", **over}
-    claims = {k: v for k, v in claims.items() if v is not None}
+    claims = {k: (None if v is json_null else v) for k, v in claims.items() if v is not None}
     return jwt.encode(claims, key, algorithm=alg, headers={"kid": kid})
 
 
@@ -113,7 +124,50 @@ def test_email_missing_rejected():
 
 def test_unverified_email_rejected_when_claim_present():
     bad(tok(email_verified=False))
+    bad(tok(email_verified="false"))
+    bad(tok(email_verified="true"))
+    bad(tok(email_verified=1))
+    bad(tok(email_verified=json_null))
     assert check(tok(email_verified=True)).email == "a@exampleorg.com"
+
+
+def test_email_verified_absent_accepted_for_pinned_issuer():
+    assert "email_verified" not in jwt.decode(tok(), options={"verify_signature": False})
+    assert check(tok()).email == "a@exampleorg.com"
+
+
+def test_tid_mismatch_rejected_and_match_accepted():
+    bad(tok(tid="99999999-2222-3333-4444-555555555555"))
+    assert check(tok(tid=TENANT.upper())).sub == "sub-1"
+
+
+@pytest.mark.parametrize("seg", ["common", "organizations", "consumers"])
+def test_tenantless_issuer_is_config_error(seg: str, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", CID)
+    monkeypatch.setenv("SEEN_OIDC_ISSUER", f"https://login.microsoftonline.com/{seg}/v2.0")
+    with pytest.raises(OidcConfigError):
+        OidcConfig.from_env()
+    monkeypatch.setenv("SEEN_OIDC_ISSUER", f"https://idp.example.com/{seg}/v2.0")
+    with pytest.raises(OidcConfigError):
+        OidcConfig.from_env()
+
+
+@pytest.mark.parametrize("iss", [
+    "http://login.microsoftonline.com/" + TENANT + "/v2.0",
+    "https://login.microsoftonline.com/not-a-guid/v2.0",
+    "https://login.microsoftonline.com/" + TENANT,
+])
+def test_bad_entra_or_insecure_issuer_is_config_error(iss: str, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", CID)
+    monkeypatch.setenv("SEEN_OIDC_ISSUER", iss)
+    with pytest.raises(OidcConfigError):
+        OidcConfig.from_env()
+
+
+def test_localhost_http_issuer_allowed(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", CID)
+    monkeypatch.setenv("SEEN_OIDC_ISSUER", "http://localhost:9000/realm")
+    assert OidcConfig.from_env() is not None
 
 
 def test_kid_miss_refreshes_once_then_fails():
@@ -206,6 +260,33 @@ def test_fetcher_caches_and_refreshes(server: str):
     assert len(_H.hits) == n  # cached
     f(True)
     assert len(_H.hits) > n  # forced refresh
+
+
+def _junk(i: int) -> str:
+    return tok(kid=f"junk-{i}")
+
+
+def test_junk_kids_cause_at_most_one_forced_fetch(server: str):
+    now = [1000.0]
+    f = make_jwks_fetcher(server, clock=lambda: now[0])
+    for i in range(50):
+        bad(_junk(i), jwks=f)
+    keys_hits = lambda: _H.hits.count("/keys")  # noqa: E731
+    assert keys_hits() == 2  # initial load + one forced refresh
+    now[0] += 61
+    bad(_junk(99), jwks=f)
+    assert keys_hits() == 3  # window elapsed: one more forced refresh allowed
+    bad(_junk(100), jwks=f)
+    assert keys_hits() == 3
+    assert check(tok(), jwks=f).sub == "sub-1"  # a known kid still validates from cache
+
+
+def test_concurrent_cold_callers_share_one_fetch(server: str):
+    f = make_jwks_fetcher(server)
+    ts = [threading.Thread(target=f, args=(False,)) for _ in range(8)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert _H.hits.count("/keys") == 1
 
 
 def test_fetcher_failures_are_oidc_error(server: str):

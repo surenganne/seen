@@ -8,6 +8,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import re
 import threading
 import time
 import urllib.parse
@@ -22,12 +23,42 @@ _FAIL = "invalid token"
 _ALGS = ["RS256"]
 _LEEWAY_S = 60
 _JWKS_TTL_S = 3600
+_FORCED_MIN_S = 60
 _TIMEOUT_S = 10
 _MAX_BYTES = 1_000_000
 
 
 class OidcError(Exception):
     """Fixed-message failure; never carries token or response content."""
+
+
+class OidcConfigError(ValueError):
+    """Unsafe SSO configuration; the app must refuse to start rather than run unpinned."""
+
+
+_ENTRA_HOST = "login.microsoftonline.com"
+_TENANTLESS = {"common", "organizations", "consumers"}
+_GUID = re.compile(r"^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
+_V2_PATH = re.compile(r"^/([^/]+)/v2\.0$")
+
+
+def _check_issuer(issuer: str) -> None:
+    u = urllib.parse.urlsplit(issuer)
+    local = u.scheme == "http" and u.hostname in ("localhost", "127.0.0.1")
+    if (u.scheme != "https" and not local) or not u.hostname:
+        raise OidcConfigError("SEEN_OIDC_ISSUER must be https")
+    if _TENANTLESS & {seg.lower() for seg in u.path.split("/")}:
+        raise OidcConfigError("SEEN_OIDC_ISSUER must be tenant-specific")
+    if u.hostname == _ENTRA_HOST:
+        m = _V2_PATH.match(u.path)
+        if not m or not _GUID.match(m.group(1)):
+            raise OidcConfigError("SEEN_OIDC_ISSUER must be https://login.microsoftonline.com/<tenant-guid>/v2.0")
+
+
+def _issuer_tenant(issuer: str) -> str | None:
+    u = urllib.parse.urlsplit(issuer)
+    m = _V2_PATH.match(u.path)
+    return m.group(1).lower() if m and u.hostname == _ENTRA_HOST else None
 
 
 @dataclass(frozen=True)
@@ -42,6 +73,7 @@ class OidcConfig:
         client_id = os.environ.get("SEEN_OIDC_CLIENT_ID", "").strip()
         if not issuer or not client_id:
             return None
+        _check_issuer(issuer)
         raw = os.environ.get("SEEN_OIDC_ALLOWED_DOMAINS", "")
         domains = frozenset(d.strip().lower() for d in raw.split(",") if d.strip())
         return cls(issuer, client_id, domains)
@@ -89,7 +121,11 @@ def validate_id_token(token: str, nonce: str, cfg: OidcConfig, jwks: Callable[[b
         got = claims.get("nonce")
         if not nonce or not isinstance(got, str) or not hmac.compare_digest(got.encode(), nonce.encode()):
             raise OidcError(_FAIL)
-        if claims.get("email_verified", True) is False:
+        # An absent email_verified is accepted only because the issuer is tenant-pinned (from_env + tid check).
+        if "email_verified" in claims and claims["email_verified"] is not True:
+            raise OidcError(_FAIL)
+        tenant = _issuer_tenant(cfg.issuer)
+        if "tid" in claims and tenant is not None and str(claims["tid"]).lower() != tenant:
             raise OidcError(_FAIL)
         email = _domain_ok(claims.get("email"), cfg.allowed_domains)
         sub = claims["sub"]
@@ -123,21 +159,48 @@ def _get_json(url: str) -> dict[str, Any]:
     return data
 
 
-def make_jwks_fetcher(issuer: str) -> Callable[[bool], dict[str, Any]]:
-    """Real JWKS source: discovery document -> jwks_uri, cached for an hour; refresh=True bypasses the cache."""
+def make_jwks_fetcher(
+    issuer: str, clock: Callable[[], float] = time.monotonic
+) -> Callable[[bool], dict[str, Any]]:
+    """Real JWKS source: discovery -> jwks_uri, cached 1 h. refresh=True is rate-limited to one fetch per 60 s.
+
+    State is guarded by a short lock; the network fetch runs outside it and is single-flight.
+    """
     lock = threading.Lock()
-    cache: list[Any] = [0.0, {}]
+    st: dict[str, Any] = {"at": 0.0, "keys": None, "forced": None, "inflight": None}
 
     def fetch(refresh: bool) -> dict[str, Any]:
         with lock:
-            if not refresh and cache[1] and time.monotonic() - cache[0] < _JWKS_TTL_S:
-                return dict(cache[1])
-            try:
-                disc = _get_json(issuer.rstrip("/") + "/.well-known/openid-configuration")
-                keys = _get_json(str(disc.get("jwks_uri", "")))
-            except Exception:  # noqa: BLE001
-                raise OidcError(_FAIL) from None
-            cache[0], cache[1] = time.monotonic(), keys
-            return dict(keys)
+            now, keys = clock(), st["keys"]
+            if keys is not None:
+                if not refresh and now - st["at"] < _JWKS_TTL_S:
+                    return dict(keys)
+                if refresh and st["forced"] is not None and now - st["forced"] < _FORCED_MIN_S:
+                    return dict(keys)  # throttled: a junk kid cannot force a network call
+            if refresh:
+                st["forced"] = now
+            ev: threading.Event | None = st["inflight"]
+            leader = ev is None
+            if leader:
+                ev = st["inflight"] = threading.Event()
+        assert ev is not None
+        if not leader:
+            ev.wait(_TIMEOUT_S * 2 + 1)
+            with lock:
+                if st["keys"] is None:
+                    raise OidcError(_FAIL)
+                return dict(st["keys"])
+        try:
+            disc = _get_json(issuer.rstrip("/") + "/.well-known/openid-configuration")
+            fresh = _get_json(str(disc.get("jwks_uri", "")))
+            with lock:
+                st["keys"], st["at"] = fresh, clock()
+            return dict(fresh)
+        except Exception:  # noqa: BLE001
+            raise OidcError(_FAIL) from None
+        finally:
+            with lock:
+                st["inflight"] = None
+            ev.set()
 
     return fetch
