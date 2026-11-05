@@ -110,9 +110,18 @@ def _call(url: str, data: bytes | None = None, headers: dict[str, str] | None = 
         return 0, {}
 
 
+def _env_name() -> str:
+    return str(config.load()["sync"].get("api_key_env") or "SEEN_TEAM_API_KEY")
+
+
+def env_key_var() -> str | None:
+    """The NAME of the environment variable that currently supplies a team key, if any (never its value)."""
+    name = _env_name()
+    return name if os.environ.get(name) else None
+
+
 def _current_key() -> str | None:
-    name = str(config.load()["sync"].get("api_key_env") or "SEEN_TEAM_API_KEY")
-    return os.environ.get(name) or load_key()
+    return os.environ.get(_env_name()) or load_key()
 
 
 def whoami() -> dict[str, str] | None:

@@ -101,3 +101,15 @@ def test_sync_hint_depends_on_status(configured: Fake, status: int, want: str, n
         db.commit()
     r = cli.invoke(app, ["sync"])
     assert want in r.output and not_want not in r.output
+
+
+def test_logout_says_when_the_key_comes_from_the_environment(configured: Fake, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", SENTINEL_KEY)
+    hint = "The key comes from SEEN_TEAM_API_KEY; unset it to sign out."
+    r = cli.invoke(app, ["team", "logout"])  # no file key: the old message alone would say "Not signed in."
+    assert hint in r.output and "Not signed in" not in r.output and SENTINEL_KEY not in r.output
+    teamauth.save_key("file-key-1")  # a file key is still forgotten, and the hint still appears
+    r = cli.invoke(app, ["team", "logout"])
+    assert hint in r.output and teamauth.load_key() is None
+    monkeypatch.delenv("SEEN_TEAM_API_KEY")
+    assert hint not in cli.invoke(app, ["team", "logout"]).output

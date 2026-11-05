@@ -9,6 +9,8 @@ import shutil
 import sqlite3
 import time
 import tomllib
+from datetime import date, datetime
+from datetime import time as dtime
 from pathlib import Path
 
 DBS = ("ledger.db", "audit.db")
@@ -25,20 +27,32 @@ def _backup(src: Path, dst: Path) -> None:
         s.close()
 
 
-def _toml(d: dict[str, object], prefix: str = "") -> str:
-    """Minimal TOML writer for config.toml (scalars, lists of scalars, nested tables); JSON string escapes are valid TOML."""
-    def val(v: object) -> str:
-        if isinstance(v, bool):
-            return "true" if v else "false"
-        if isinstance(v, list):
-            return "[" + ", ".join(val(x) for x in v) + "]"
-        return json.dumps(v) if isinstance(v, str) else repr(v)
+def _val(v: object) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, datetime | date | dtime):
+        return v.isoformat()  # TOML-native date and time values
+    if isinstance(v, list):
+        return "[" + ", ".join(_val(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{" + ", ".join(f"{json.dumps(k)} = {_val(x)}" for k, x in v.items()) + "}"
+    return json.dumps(v) if isinstance(v, str) else repr(v)
 
-    out = "".join(f"{json.dumps(k)} = {val(v)}\n" for k, v in d.items() if not isinstance(v, dict))
+
+def _toml(d: dict[str, object], prefix: str = "") -> str:
+    """Minimal TOML writer for config.toml (scalars, dates, arrays, tables, arrays of tables). JSON string escapes are valid TOML."""
+    def is_aot(v: object) -> bool:
+        return isinstance(v, list) and bool(v) and all(isinstance(x, dict) for x in v)
+
+    out = "".join(f"{json.dumps(k)} = {_val(v)}\n" for k, v in d.items() if not isinstance(v, dict) and not is_aot(v))
     for k, v in d.items():
+        name = f"{prefix}.{json.dumps(k)}" if prefix else json.dumps(k)
         if isinstance(v, dict):
-            name = f"{prefix}.{json.dumps(k)}" if prefix else json.dumps(k)
             out += f"\n[{name}]\n" + _toml(v, name)
+        elif is_aot(v):
+            assert isinstance(v, list)
+            for item in v:
+                out += f"\n[[{name}]]\n" + _toml(item, name)
     return out
 
 
