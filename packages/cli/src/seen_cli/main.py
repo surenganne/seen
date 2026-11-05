@@ -18,7 +18,7 @@ from seen_core.db.models import Change, ChangeFile, Project, Session, SkillInvoc
 from seen_core.identity import user_id
 from seen_core.project import resolve_project
 
-app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
+app = typer.Typer(pretty_exceptions_show_locals=False, help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
 skills_app = typer.Typer(help="Skill inventory and approvals", no_args_is_help=True)
 app.add_typer(skills_app, name="skills")
 team_app = typer.Typer(help="Team server sign-in", no_args_is_help=True)
@@ -413,8 +413,11 @@ def sync_cmd(retry_failed: bool = typer.Option(False, "--retry-failed", help="Se
         typer.echo(str(e), err=True)
         raise typer.Exit(2) from None
     a = sync.anchor()
-    if sync.auth_rejected():
+    refused = sync.parked_auth_statuses()
+    if 401 in refused:
         typer.echo("The team server rejected the key. Run `seen team login`, then `seen sync --retry-failed`.", err=True)
+    elif 403 in refused:
+        typer.echo("The server refused these changes; fix access, then `seen sync --retry-failed`.", err=True)
     typer.echo(f"sent {r['sent']} batch(es), {r['failed']} failed (will retry with backoff)"
                + (f", {r['dead']} rejected by the server (parked; fix the key or server, then `seen sync --retry-failed`)" if r["dead"] else "")
                + (f"; audit anchored through seq {a['seq']}" if a else ""))
@@ -440,8 +443,10 @@ def team_logout() -> None:
     """Forget the team key on this machine."""
     from seen_core import teamauth
 
-    teamauth.clear_key()
-    typer.echo("Signed out. The local team key was removed.")
+    r = teamauth.logout()
+    typer.echo({"revoked": "Signed out. The key was revoked on the server.",
+                "local": "Signed out locally. Could not revoke the key on the server; it expires within 30 days.",
+                "none": "Not signed in."}[r])
 
 
 @team_app.command("whoami")
@@ -451,7 +456,7 @@ def team_whoami() -> None:
 
     try:
         w = teamauth.whoami()
-    except sync.SyncError as e:
+    except (sync.SyncError, teamauth.LoginError) as e:
         typer.echo(str(e), err=True)
         raise typer.Exit(1) from None
     if not w:

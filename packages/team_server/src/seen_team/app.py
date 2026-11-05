@@ -19,7 +19,7 @@ from typing import Annotated, Any, Literal
 import sqlalchemy as sa
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -327,6 +327,16 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     def me(k: Key, s: Db) -> dict[str, str | None]:
         u = s.get(TeamUser, k.user_id) if k.origin == "sso" else None
         return {"email": u.email if u else None, "role": k.role}
+
+    @app.delete("/auth/me", status_code=204)
+    def sign_out(k: Key, s: Db) -> Response:
+        """Revoke the calling SSO key (client logout). Manual and bootstrap keys are managed by an admin."""
+        row = s.get(TeamApiKey, k.id) if k.origin == "sso" else None
+        if row is None:
+            raise HTTPException(403, "this key cannot be revoked here; ask an admin")
+        row.revoked_at = row.revoked_at or now()
+        s.commit()
+        return Response(status_code=204)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(_: Request, e: RequestValidationError) -> JSONResponse:
