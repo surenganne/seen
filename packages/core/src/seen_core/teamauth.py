@@ -80,7 +80,12 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_opener = urllib.request.build_opener(_NoRedirect)
+MAX_BYTES = 1024 * 1024  # largest IdP / team server reply we will read
+
+
+def _open_url(req: urllib.request.Request, timeout: float) -> Any:
+    """Built per call so the environment is read when used, not when this module was imported."""
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect).open(req, timeout=timeout)
 
 
 def _check_url(url: str) -> str:
@@ -93,8 +98,11 @@ def _check_url(url: str) -> str:
 def _call(url: str, data: bytes | None = None, headers: dict[str, str] | None = None, timeout: float = 15) -> tuple[int, dict[str, Any]]:
     req = urllib.request.Request(_check_url(url), data=data, headers=headers or {}, method="POST" if data is not None else "GET")
     try:
-        with _opener.open(req, timeout=timeout) as r:  # noqa: S310 (scheme checked above)
-            body = json.loads(r.read() or b"{}")
+        with _open_url(req, timeout) as r:  # noqa: S310 (scheme checked above)
+            raw = r.read(MAX_BYTES + 1)  # stop at the cap: a hostile or broken server cannot make us buffer more
+            if len(raw) > MAX_BYTES:
+                return 0, {}
+            body = json.loads(raw or b"{}")
             return r.status, body if isinstance(body, dict) else {}
     except urllib.error.HTTPError as e:
         return e.code, {}
@@ -130,7 +138,7 @@ def logout() -> str:
     revoked = invalid = False
     try:
         req = urllib.request.Request(_check_url(sync.server_url() + "/auth/me"), headers={"Authorization": f"Bearer {key}"}, method="DELETE")
-        with _opener.open(req, timeout=5) as r:  # noqa: S310 (scheme checked above)
+        with _open_url(req, 5) as r:  # noqa: S310 (scheme checked above)
             revoked = r.status == 204
     except urllib.error.HTTPError as e:
         invalid = e.code == 401

@@ -52,3 +52,31 @@ def test_missing_ledger_refuses_and_publishes_nothing(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
         snapshot.snapshot(src, dest)
     assert not dest.exists() or not list(dest.iterdir())
+
+
+@pytest.mark.parametrize("sync_text", [
+    '[sync]\nenabled = true\nserver = "https://team.example"\n',
+    'sync = { enabled = true, server = "https://team.example" }\n',
+    'sync.server = "https://team.example"\nsync.enabled = true\n',
+    '[sync]\nserver = "https://team.example"\n[sync.extra]\nk = "v"\n',
+])
+def test_snapshot_config_drops_the_sync_table_and_keeps_the_rest(tmp_path: Path, sync_text: str) -> None:
+    import tomllib
+
+    src, dest = paths.home(), tmp_path / "snap"
+    fill(src)
+    (src / "config.toml").write_text('top = "kept"\n[pricing]\nlevel = 2\nnames = ["a", "b"]\nok = true\n' + sync_text
+                                     if sync_text.startswith("[") else sync_text + 'top = "kept"\n[pricing]\nlevel = 2\nnames = ["a", "b"]\nok = true\n')
+    snap = snapshot.snapshot(src, dest)
+    text = (snap / "config.toml").read_text()
+    cfg = tomllib.loads(text)
+    assert "sync" not in cfg and "team.example" not in text and "server" not in text
+    assert cfg["top"] == "kept" and cfg["pricing"] == {"level": 2, "names": ["a", "b"], "ok": True}
+
+
+def test_snapshot_does_not_copy_an_unparsable_config(tmp_path: Path) -> None:
+    src, dest = paths.home(), tmp_path / "snap"
+    fill(src)
+    (src / "config.toml").write_text('[sync\nserver = "https://team.example"\n')
+    snap = snapshot.snapshot(src, dest)
+    assert not (snap / "config.toml").exists()  # fail closed: the copy never holds what we could not strip
