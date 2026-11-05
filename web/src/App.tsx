@@ -9,6 +9,7 @@ const ChangeDetail = lazy(() => import("./pages/ChangeDetail").then((m) => ({ de
 const Changes = lazy(() => import("./pages/Changes").then((m) => ({ default: m.Changes })));
 const Overview = lazy(() => import("./pages/Overview").then((m) => ({ default: m.Overview })));
 const Projects = lazy(() => import("./pages/Projects").then((m) => ({ default: m.Projects })));
+const Team = lazy(() => import("./pages/Team").then((m) => ({ default: m.Team })));
 const Timeline = lazy(() => import("./pages/Timeline").then((m) => ({ default: m.Timeline })));
 const Sessions = lazy(() => import("./pages/Sessions").then((m) => ({ default: m.Sessions })));
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
@@ -20,6 +21,7 @@ export const routes = [
     children: [
       { path: "/", element: <Navigate to="/projects" replace /> },
       { path: "/projects", element: <Projects /> },
+      { path: "/team", element: <Team /> },
       { path: "/settings", element: <Settings /> },
       { path: "/p/:pid", element: <Overview /> },
       { path: "/p/:pid/changes", element: <Changes /> },
