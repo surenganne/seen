@@ -74,7 +74,7 @@ def allowed_hosts() -> list[str]:
     return ["127.0.0.1", "localhost", "[::1]", *extra]
 
 
-def create_app(web_dist: Path | None = None) -> FastAPI:
+def create_app(web_dist: Path | None = None, remote: bool = False) -> FastAPI:
     from fastapi import Request, Response
     from fastapi.responses import JSONResponse
     from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -228,6 +228,14 @@ def create_app(web_dist: Path | None = None) -> FastAPI:
     from . import writes
 
     writes.register(app, state)
+
+    from . import team_login
+
+    team_login.register(app, remote=remote)
+
+    from . import team_api
+
+    team_api.register(app, remote=remote)
 
     if web_dist and web_dist.is_dir():
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="assets")

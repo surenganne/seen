@@ -18,9 +18,11 @@ from seen_core.db.models import Change, ChangeFile, Project, Session, SkillInvoc
 from seen_core.identity import user_id
 from seen_core.project import resolve_project
 
-app = typer.Typer(help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
+app = typer.Typer(pretty_exceptions_show_locals=False, help=f"{brand.NAME}: {brand.TAGLINE}", no_args_is_help=True, add_completion=False)
 skills_app = typer.Typer(help="Skill inventory and approvals", no_args_is_help=True)
 app.add_typer(skills_app, name="skills")
+team_app = typer.Typer(help="Team server sign-in", no_args_is_help=True)
+app.add_typer(team_app, name="team")
 
 POLICIES_TEMPLATE = """# Required-skill rules. Each rule: when a change touches `paths`, `require_skill` must run.
 # mode: report (record only) | enforce (block Stop once until the skill runs)
@@ -362,7 +364,9 @@ def serve(port: int = typer.Option(47821, help="Port (default 47821, off the com
         import webbrowser
 
         threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{port}/")).start()
-    uvicorn.run(create_app(dist), host=host, port=port, log_level="warning", server_header=False)
+    remote = allow_remote or host not in ("127.0.0.1", "localhost", "::1")
+    uvicorn.run(create_app(dist, remote=remote), host=host, port=port, log_level="warning", server_header=False,
+                access_log=False)  # the OIDC callback query holds a code and state
 
 
 audit_app = typer.Typer(help="Tamper-evident audit trail", no_args_is_help=True)
@@ -411,9 +415,62 @@ def sync_cmd(retry_failed: bool = typer.Option(False, "--retry-failed", help="Se
         typer.echo(str(e), err=True)
         raise typer.Exit(2) from None
     a = sync.anchor()
+    refused = sync.parked_auth_statuses()
+    if 401 in refused:
+        typer.echo("The team server rejected the key. Run `seen team login`, then `seen sync --retry-failed`.", err=True)
+    elif 403 in refused:
+        typer.echo("The server refused these changes; fix access, then `seen sync --retry-failed`.", err=True)
     typer.echo(f"sent {r['sent']} batch(es), {r['failed']} failed (will retry with backoff)"
                + (f", {r['dead']} rejected by the server (parked; fix the key or server, then `seen sync --retry-failed`)" if r["dead"] else "")
                + (f"; audit anchored through seq {a['seq']}" if a else ""))
+
+
+@team_app.command("login")
+def team_login(timeout: int = typer.Option(300, help="Seconds to wait for the browser sign-in")) -> None:
+    """Sign in to the team server through your identity provider (opens a browser)."""
+    from seen_core import sync, teamauth
+
+    try:
+        sync.server_url()
+        typer.echo("Opening your browser to sign in...")
+        r = teamauth.login(timeout_s=timeout)
+    except (sync.SyncError, teamauth.LoginError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(f"Signed in as {r['email']} ({r['role']}), key valid until {r['expires_at']}.")
+
+
+@team_app.command("logout")
+def team_logout() -> None:
+    """Forget the team key on this machine."""
+    from seen_core import teamauth
+
+    r = teamauth.logout()
+    var = teamauth.env_key_var()
+    if var:  # logging out cannot unset an environment variable: say where the key still comes from
+        hint = f"The key comes from {var}; unset it to sign out."
+        typer.echo(hint if r == "none" else f"Forgot the stored key (result: {r}). {hint}")
+        return
+    typer.echo({"revoked": "Signed out. The key was revoked on the server.",
+                "already_invalid": "Signed out. The key was already invalid on the server.",
+                "local": "Signed out locally. Could not revoke the key on the server; it expires within 30 days.",
+                "none": "Not signed in."}[r])
+
+
+@team_app.command("whoami")
+def team_whoami() -> None:
+    """Show who the stored team key belongs to."""
+    from seen_core import sync, teamauth
+
+    try:
+        w = teamauth.whoami()
+    except (sync.SyncError, teamauth.LoginError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(1) from None
+    if not w:
+        typer.echo("Not signed in, or the key expired. Run `seen team login`.", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"{w['email']} ({w['role']})")
 
 
 if __name__ == "__main__":

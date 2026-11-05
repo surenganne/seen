@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -159,3 +161,12 @@ def test_production_hides_api_docs(team_url: str, monkeypatch: pytest.MonkeyPatc
     c = TestClient(create_app(team_url, reset=True), base_url="http://localhost")
     for p in ("/docs", "/redoc", "/openapi.json"):
         assert c.get(p).status_code == 404, p
+
+
+@pytest.mark.parametrize("bad", ["Infinity", "-Infinity", "NaN"])
+def test_ingest_refuses_non_finite_cost(team: TestClient, bad: str) -> None:
+    key = make_key(team, "p1", "member")
+    body = json.dumps(batch()).replace('"cost_usd": 0.5', f'"cost_usd": {bad}')
+    r = team.post("/api/sync", content=body, headers={"Authorization": f"Bearer {key}", "X-Idempotency-Key": "b1",
+                                                       "Content-Type": "application/json"})
+    assert r.status_code == 422

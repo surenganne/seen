@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { APIRequestContext, Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, mockTeam, test } from "./fixtures";
 
 /** WCAG 2.2 AA is a promise in PRODUCT.md: these checks are what keeps it honest. */
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -16,7 +16,7 @@ async function ids(request: APIRequestContext): Promise<Ids> {
 const routes = (i: Ids) => [
   ["projects", "/projects"], ["settings", "/settings"], ["overview", `/p/${i.pid}`], ["changes", `/p/${i.pid}/changes`],
   ["change detail", `/p/${i.pid}/changes/${i.cid}`], ["sessions", `/p/${i.pid}/sessions`], ["timeline", `/p/${i.pid}/timeline`],
-  ["skills", `/p/${i.pid}/skills`], ["audit", `/p/${i.pid}/audit`],
+  ["skills", `/p/${i.pid}/skills`], ["audit", `/p/${i.pid}/audit`], ["team", "/team"],
 ] as const;
 
 async function settle(page: Page) {
@@ -24,7 +24,7 @@ async function settle(page: Page) {
   await expect(page.getByRole("status")).toHaveCount(0); // skeletons gone
 }
 
-const NAMES = ["projects", "settings", "overview", "changes", "change detail", "sessions", "timeline", "skills", "audit"] as const;
+const NAMES = ["projects", "settings", "overview", "changes", "change detail", "sessions", "timeline", "skills", "audit", "team"] as const;
 
 for (const scheme of ["light", "dark"] as const) {
   test.describe(`axe, ${scheme} theme`, () => {
@@ -32,6 +32,7 @@ for (const scheme of ["light", "dark"] as const) {
       test(`${name} has no WCAG 2.2 AA violations`, async ({ page, request }) => {
         await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         const r = routes(await ids(request))[i]!;
+        if (name === "team") await mockTeam(page);
         await page.goto(r[1]);
         await settle(page);
         const res = await new AxeBuilder({ page }).withTags(TAGS).analyze();

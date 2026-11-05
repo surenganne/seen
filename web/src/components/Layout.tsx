@@ -1,4 +1,4 @@
-import { Activity, Bot, ChevronRight, FileClock, FolderGit2, History, LayoutDashboard, ListChecks, Monitor, Moon, Settings as Cog, ShieldCheck, ShieldAlert, Sun } from "lucide-react";
+import { Activity, Bot, ChevronRight, FileClock, FolderGit2, History, LayoutDashboard, ListChecks, Monitor, Moon, Settings as Cog, ShieldCheck, ShieldAlert, Sun, Users } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useProjects, useVerify } from "../api/hooks";
@@ -65,7 +65,7 @@ export function Layout() {
   const current = projects?.find((p) => p.id === pid);
   const alert = (current?.alert ?? false) || verify?.ok === false;
   const section = pid ? (loc.pathname.replace(`/p/${pid}`, "").split("/")[1] ?? "") : "";
-  const where = pid ? `${cid ? "Change" : TITLES[section] ?? "Overview"} · ${current?.name ?? pid}` : loc.pathname.startsWith("/settings") ? "Settings" : "Projects";
+  const where = pid ? `${cid ? "Change" : TITLES[section] ?? "Overview"} · ${current?.name ?? pid}` : loc.pathname.startsWith("/settings") ? "Settings" : loc.pathname.startsWith("/team") ? "Team" : "Projects";
   useEffect(() => { document.title = `${where} · Seen`; }, [where]); // each page names itself for the tab, history and screen readers
   const narrow = useNarrow();  // one project switcher at a time: rail on desktop, top bar on phones
 
@@ -81,6 +81,9 @@ export function Layout() {
             {label}
           </NavLink>
         ))}
+      <NavLink to={withRange("/team", range)}>
+        <Users aria-hidden="true" />Team
+      </NavLink>
       <NavLink to={withRange("/settings", range)}>
         <Cog aria-hidden="true" />Settings
       </NavLink>
@@ -146,7 +149,7 @@ export function Layout() {
                 )}
               </>
             ) : (
-              <strong>{loc.pathname.startsWith("/settings") ? "Settings" : "Projects"}</strong>
+              <strong>{loc.pathname.startsWith("/settings") ? "Settings" : loc.pathname.startsWith("/team") ? "Team" : "Projects"}</strong>
             )}
           </div>
           <span className="spacer" />

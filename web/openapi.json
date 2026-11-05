@@ -2496,6 +2496,477 @@
         "title": "SkillVersionOut",
         "type": "object"
       },
+      "TeamCostDay": {
+        "properties": {
+          "by_tool": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "By Tool",
+            "type": "object"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "by_tool"
+        ],
+        "title": "TeamCostDay",
+        "type": "object"
+      },
+      "TeamLoginOut": {
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "not_configured",
+                  "unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "TeamLoginOut",
+        "type": "object"
+      },
+      "TeamLogoutOut": {
+        "properties": {
+          "state": {
+            "const": "signed_out",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "TeamLogoutOut",
+        "type": "object"
+      },
+      "TeamMemberOut": {
+        "properties": {
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "key_expired": {
+            "title": "Key Expired",
+            "type": "boolean"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "last_synced_at",
+          "changes",
+          "key_expired"
+        ],
+        "title": "TeamMemberOut",
+        "type": "object"
+      },
+      "TeamMembers": {
+        "properties": {
+          "members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberOut"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "not_configured",
+              "login_required",
+              "unreachable",
+              "unauthorized",
+              "forbidden",
+              "bad_response"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "reason"
+        ],
+        "title": "TeamMembers",
+        "type": "object"
+      },
+      "TeamModelRow": {
+        "properties": {
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "tok_out": {
+            "title": "Tok Out",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "changes",
+          "tok_out",
+          "cost_usd"
+        ],
+        "title": "TeamModelRow",
+        "type": "object"
+      },
+      "TeamOverviewOut": {
+        "properties": {
+          "by_model": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamModelRow"
+            },
+            "title": "By Model",
+            "type": "array"
+          },
+          "cost_by_day": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamCostDay"
+            },
+            "title": "Cost By Day",
+            "type": "array"
+          },
+          "pii_by_type": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamPiiType"
+            },
+            "title": "Pii By Type",
+            "type": "array"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "not_configured",
+              "login_required",
+              "unreachable",
+              "unauthorized",
+              "forbidden",
+              "bad_response"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "tiles": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamTiles"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "top_skills": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamSkillRuns"
+            },
+            "title": "Top Skills",
+            "type": "array"
+          }
+        },
+        "required": [
+          "state",
+          "reason"
+        ],
+        "title": "TeamOverviewOut",
+        "type": "object"
+      },
+      "TeamPiiType": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "count"
+        ],
+        "title": "TeamPiiType",
+        "type": "object"
+      },
+      "TeamProjectOut": {
+        "properties": {
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "cost_7d": {
+            "title": "Cost 7D",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_change_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Change At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "changes",
+          "last_change_at",
+          "cost_7d"
+        ],
+        "title": "TeamProjectOut",
+        "type": "object"
+      },
+      "TeamProjects": {
+        "properties": {
+          "projects": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TeamProjectOut"
+            },
+            "title": "Projects",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "not_configured",
+              "login_required",
+              "unreachable",
+              "unauthorized",
+              "forbidden",
+              "bad_response"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "reason"
+        ],
+        "title": "TeamProjects",
+        "type": "object"
+      },
+      "TeamSession": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "state": {
+            "enum": [
+              "signed_in",
+              "signed_out",
+              "not_configured"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "email",
+          "role"
+        ],
+        "title": "TeamSession",
+        "type": "object"
+      },
+      "TeamSkillRuns": {
+        "properties": {
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          },
+          "skill_id": {
+            "title": "Skill Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "skill_id",
+          "runs"
+        ],
+        "title": "TeamSkillRuns",
+        "type": "object"
+      },
+      "TeamTiles": {
+        "properties": {
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "lines_added": {
+            "title": "Lines Added",
+            "type": "integer"
+          },
+          "lines_removed": {
+            "title": "Lines Removed",
+            "type": "integer"
+          },
+          "pii_changes": {
+            "title": "Pii Changes",
+            "type": "integer"
+          },
+          "policy_missed": {
+            "title": "Policy Missed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "changes",
+          "lines_added",
+          "lines_removed",
+          "policy_missed",
+          "pii_changes",
+          "cost_usd"
+        ],
+        "title": "TeamTiles",
+        "type": "object"
+      },
       "Tiles": {
         "properties": {
           "background_changes": {
@@ -4393,6 +4864,168 @@
           }
         },
         "summary": "Skill Block"
+      }
+    },
+    "/api/team/login": {
+      "post": {
+        "operationId": "login_api_team_login_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamLoginOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Login"
+      }
+    },
+    "/api/team/logout": {
+      "post": {
+        "operationId": "logout_api_team_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamLogoutOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout"
+      }
+    },
+    "/api/team/projects": {
+      "get": {
+        "operationId": "team_projects_api_team_projects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamProjects"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Team Projects"
+      }
+    },
+    "/api/team/projects/{pid}/members": {
+      "get": {
+        "operationId": "team_members_api_team_projects__pid__members_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMembers"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Team Members"
+      }
+    },
+    "/api/team/projects/{pid}/overview": {
+      "get": {
+        "operationId": "team_overview_api_team_projects__pid__overview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pid",
+            "required": true,
+            "schema": {
+              "title": "Pid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "7, 14 or 28 days",
+            "in": "query",
+            "name": "range",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "7, 14 or 28 days",
+              "title": "Range",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOverviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Team Overview"
+      }
+    },
+    "/api/team/session": {
+      "get": {
+        "operationId": "session_api_team_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamSession"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Session"
       }
     }
   }
