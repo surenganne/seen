@@ -220,6 +220,8 @@ def test_no_allowed_domains_rejects_everyone():
 
 class _H(BaseHTTPRequestHandler):
     hits: list[str] = []
+    fail = False
+    slow = 0.0
 
     def do_GET(self) -> None:  # noqa: N802
         _H.hits.append(self.path)
@@ -230,6 +232,10 @@ class _H(BaseHTTPRequestHandler):
         if self.path.endswith("/.well-known/openid-configuration"):
             body = {"jwks_uri": f"http://localhost:{port}/keys"}
         elif self.path == "/keys":
+            time.sleep(_H.slow)
+            if _H.fail:
+                self.send_error(500)
+                return
             body = {"keys": [jwk(KEY)]}
         else:
             self.send_error(404)
@@ -246,6 +252,8 @@ class _H(BaseHTTPRequestHandler):
 @pytest.fixture
 def server():
     _H.hits = []
+    _H.fail = False
+    _H.slow = 0.0
     s = HTTPServer(("127.0.0.1", 0), _H)
     threading.Thread(target=s.serve_forever, daemon=True).start()
     yield f"http://localhost:{s.server_address[1]}"
@@ -279,6 +287,55 @@ def test_junk_kids_cause_at_most_one_forced_fetch(server: str):
     bad(_junk(100), jwks=f)
     assert keys_hits() == 3
     assert check(tok(), jwks=f).sub == "sub-1"  # a known kid still validates from cache
+
+
+def test_stale_keys_not_served_when_leader_fetch_fails(server: str):
+    now = [0.0]
+    f = make_jwks_fetcher(server, clock=lambda: now[0])
+    f(False)
+    now[0] = 3601  # past the 1 h TTL
+    _H.fail, _H.slow = True, 0.3
+    out: list[object] = []
+
+    def call() -> None:
+        try:
+            out.append(f(False))
+        except OidcError:
+            out.append("err")
+
+    ts = [threading.Thread(target=call) for _ in range(2)]
+    ts[0].start()
+    time.sleep(0.1)  # leader is mid-fetch; the second caller follows or leads, either must fail
+    ts[1].start()
+    [t.join() for t in ts]
+    assert out == ["err", "err"]
+
+
+def test_stale_keys_not_served_when_forced_refresh_throttled(server: str):
+    now = [0.0]
+    f = make_jwks_fetcher(server, clock=lambda: now[0])
+    f(False)
+    now[0] = 3590
+    _H.fail = True
+    with pytest.raises(OidcError):
+        f(True)  # failed forced refresh still starts the throttle window
+    now[0] = 3601
+    with pytest.raises(OidcError):
+        f(True)  # throttled and keys older than TTL: fail closed, no fetch
+    bad(_junk(1), jwks=f)
+    _H.fail = False
+    assert f(False)["keys"]  # a normal call may refetch
+
+
+def test_throttled_kid_miss_with_young_keys_fails_but_known_kid_validates(server: str):
+    now = [0.0]
+    f = make_jwks_fetcher(server, clock=lambda: now[0])
+    bad(_junk(1), jwks=f)  # initial load + forced refresh
+    now[0] = 10
+    n = len(_H.hits)
+    bad(_junk(2), jwks=f)
+    assert check(tok(), jwks=f).sub == "sub-1"
+    assert len(_H.hits) == n
 
 
 def test_concurrent_cold_callers_share_one_fetch(server: str):
