@@ -56,16 +56,44 @@ def test_login_url_points_at_the_idp_with_pkce(client: TestClient, configured: F
 
 
 def test_login_when_not_configured_gives_no_url(client: TestClient) -> None:
-    assert client.post("/api/team/login", headers=H).json() == {"url": None}
+    assert client.post("/api/team/login", headers=H).json() == {"url": None, "reason": "not_configured"}
+
+
+def test_login_when_server_unavailable_says_so(client: TestClient, configured: Fake) -> None:
+    configured.close()
+    assert client.post("/api/team/login", headers=H).json() == {"url": None, "reason": "unavailable"}
+
+
+def test_pending_store_is_thread_safe() -> None:
+    import threading
+    import time
+
+    from seen_local.team_login import Pending, PendingStore
+
+    store, errors = PendingStore(), []
+
+    def work(n: int) -> None:
+        try:
+            for i in range(400):
+                store.put(f"{n}-{i}", Pending("v", "n", "r", time.monotonic() + (0.0001 if i % 2 else 60)))
+                store.take(f"{n}-{i - 1}")
+                store.prune()
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    ts = [threading.Thread(target=work, args=(n,)) for n in range(8)]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert errors == [] and len(store.entries) <= 20
 
 
 def test_session_reports_not_configured_and_signed_out_without_key(client: TestClient, seeded: Path, configured: Fake,
                                                                     monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(*a: object, **k: object) -> None:
-        raise AssertionError("no server call without a key")
-
-    monkeypatch.setattr(teamauth, "_call", boom)
+    calls: list[str] = []
+    real = teamauth._call
+    monkeypatch.setattr(teamauth, "_call", lambda *a, **k: (calls.append(a[0]), real(*a, **k))[1])
     assert client.get("/api/team/session", headers=H).json() == {"state": "signed_out", "email": None, "role": None}
+    assert calls == []  # no server call without a key
 
 
 def test_session_not_configured(client: TestClient) -> None:
@@ -94,12 +122,11 @@ def test_full_login_saves_the_key_and_redirects_to_team(client: TestClient, conf
 
 def test_callback_rejects_unknown_replayed_and_expired_state(client: TestClient, configured: Fake,
                                                               monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(*a: object, **k: object) -> None:
-        raise AssertionError("no outbound call for an unknown state")
-
+    calls: list[str] = []
     real = teamauth._call
-    monkeypatch.setattr(teamauth, "_call", boom)
+    monkeypatch.setattr(teamauth, "_call", lambda *a, **k: (calls.append(a[0]), real(*a, **k))[1])
     r = cb(client, code="c", state="never-issued")
+    assert calls == []  # no outbound call for an unknown state
     assert r.status_code == 303 and r.headers["location"] == "/team" and teamauth.load_key() is None
     monkeypatch.setattr(teamauth, "_call", real)
     q = start(client, configured)

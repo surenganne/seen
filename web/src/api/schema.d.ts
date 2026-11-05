@@ -1135,6 +1135,8 @@ export interface components {
         };
         /** TeamLoginOut */
         TeamLoginOut: {
+            /** Reason */
+            reason?: ("not_configured" | "unavailable") | null;
             /** Url */
             url: string | null;
         };

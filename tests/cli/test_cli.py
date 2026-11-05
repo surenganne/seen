@@ -132,6 +132,16 @@ def test_serve_starts_and_answers(tmp_path: Path) -> None:
         p.wait(5)
 
 
+def test_serve_turns_the_access_log_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The OIDC callback carries a code and state in its query: uvicorn's access log must not record them."""
+    import uvicorn
+
+    kw: dict = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **k: kw.update(k))
+    assert cli.invoke(app, ["serve"]).exit_code == 0
+    assert kw["access_log"] is False
+
+
 def test_serve_refuses_non_loopback_without_flag() -> None:
     r = cli.invoke(app, ["serve", "--host", "0.0.0.0"])
     assert r.exit_code == 2 and "--allow-remote" in r.output

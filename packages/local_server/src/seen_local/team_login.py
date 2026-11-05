@@ -10,6 +10,7 @@ Entra: register this exact redirect URI on the app registration: http://127.0.0.
 from __future__ import annotations
 
 import secrets
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -41,21 +42,25 @@ class PendingStore:
 
     def __init__(self) -> None:
         self.entries: dict[str, Pending] = {}
+        self._lock = threading.RLock()  # sync routes run in a thread pool
 
     def put(self, state: str, p: Pending) -> None:
-        self.prune()
-        while len(self.entries) >= MAX_PENDING:
-            del self.entries[next(iter(self.entries))]
-        self.entries[state] = p
+        with self._lock:
+            self.prune()
+            while len(self.entries) >= MAX_PENDING:
+                del self.entries[next(iter(self.entries))]
+            self.entries[state] = p
 
     def take(self, state: str) -> Pending | None:
-        self.prune()
-        return self.entries.pop(state, None)
+        with self._lock:
+            self.prune()
+            return self.entries.pop(state, None)
 
     def prune(self) -> None:
-        now = time.monotonic()
-        for k in [k for k, p in self.entries.items() if p.expires <= now]:
-            del self.entries[k]
+        with self._lock:
+            now = time.monotonic()
+            for k in [k for k, p in self.entries.items() if p.expires <= now]:
+                del self.entries[k]
 
 
 def _redirect_uri(request: Request) -> str:
@@ -96,19 +101,20 @@ def register(app: FastAPI) -> None:
     @app.post("/api/team/login", response_model=S.TeamLoginOut)
     def login(request: Request) -> S.TeamLoginOut:
         srv = server()
-        try:
-            cfg = teamauth.fetch_config(srv) if srv else None
-        except Exception:  # noqa: BLE001
-            cfg = None
-        if cfg is None:
+        if srv is None:
             _audit("team.login_started", "failed")
-            return S.TeamLoginOut(url=None)
+            return S.TeamLoginOut(url=None, reason="not_configured")
+        try:
+            cfg = teamauth.fetch_config(srv)
+        except Exception:  # noqa: BLE001
+            _audit("team.login_started", "failed")
+            return S.TeamLoginOut(url=None, reason="unavailable")
         verifier, challenge = teamauth.pkce_pair()
         state, nonce = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         redirect = _redirect_uri(request)
         pending.put(state, Pending(verifier, nonce, redirect, time.monotonic() + TTL_S))
         _audit("team.login_started", "ok")
-        return S.TeamLoginOut(url=teamauth.build_login_url(cfg, state, nonce, challenge, redirect))
+        return S.TeamLoginOut(url=teamauth.build_login_url(cfg, state, nonce, challenge, redirect), reason=None)
 
     @app.get("/api/team/callback", include_in_schema=False)
     def callback(code: str = "", state: str = "") -> RedirectResponse:

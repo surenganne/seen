@@ -2498,6 +2498,21 @@
       },
       "TeamLoginOut": {
         "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "not_configured",
+                  "unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
           "url": {
             "anyOf": [
               {

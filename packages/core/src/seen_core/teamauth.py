@@ -192,6 +192,15 @@ def fetch_config(server: str) -> dict[str, str]:
 
 
 def complete(server: str, cfg: dict[str, str], code: str, verifier: str, nonce: str, redirect: str) -> dict[str, str]:
+    try:
+        return _complete(server, cfg, code, verifier, nonce, redirect)
+    except (LoginError, sync.SyncError):
+        raise
+    except Exception:  # noqa: BLE001 (a fixed message: the cause may hold tokens in its frames)
+        raise LoginError("Sign-in failed unexpectedly") from None
+
+
+def _complete(server: str, cfg: dict[str, str], code: str, verifier: str, nonce: str, redirect: str) -> dict[str, str]:
     """Trade the code at the IdP (verifier, no secret), check the id_token nonce, post it to the team server, save the key."""
     form = urllib.parse.urlencode({"grant_type": "authorization_code", "code": code, "redirect_uri": redirect,
                                    "client_id": cfg["client_id"], "code_verifier": verifier}).encode()
