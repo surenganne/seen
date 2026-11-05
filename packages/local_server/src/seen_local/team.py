@@ -23,7 +23,7 @@ REASONS: dict[TeamState, str] = {
     "unauthorized": "The team server did not accept the key. Sign in again, or check the key.",
     "forbidden": "Your team role does not allow this view.",
     "bad_response": "The team server sent a reply this dashboard could not read.",
-}  # type: ignore[assignment]  # "ok" has no reason
+}
 
 
 class TeamResult(NamedTuple):
