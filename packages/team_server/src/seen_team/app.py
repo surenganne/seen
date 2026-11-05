@@ -18,8 +18,10 @@ from typing import Annotated, Any, Literal
 
 import sqlalchemy as sa
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Base, TeamApiKey, TeamAuditHead, TeamBatch, TeamChange, TeamInstall, TeamProject, TeamUser
@@ -173,7 +175,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
 
         def oidc_validate(token: str, nonce: str) -> Identity:  # noqa: F811
             return validate_id_token(token, nonce, oidc_cfg, fetcher)
-    bootstrap_off = os.environ.get("SEEN_TEAM_BOOTSTRAP_DISABLE") == "1"
+    bootstrap_off = os.environ.get("SEEN_TEAM_BOOTSTRAP_DISABLE", "").strip().lower() in ("1", "true", "yes")
     boot = "" if bootstrap_off else os.environ.get("SEEN_TEAM_BOOTSTRAP_KEY", "")
     if os.environ.get("APP_ENV") == "production":
         if bootstrap_off and oidc_validate is None:
@@ -249,6 +251,13 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
 
     Key = Annotated[TeamApiKey, Depends(auth)]
 
+    def owns(s: Session, k: TeamApiKey, key_id: str) -> bool:
+        """The same key, or (SSO) an earlier key of the same person: a re-login mints a new key but keeps the install."""
+        if key_id == k.id:
+            return True
+        o = s.get(TeamApiKey, key_id) if k.origin == "sso" else None
+        return o is not None and o.origin == "sso" and o.user_id == k.user_id
+
     def sees(k: TeamApiKey, pid: str) -> bool:
         return k.role == "admin" or k.project_id == pid or (k.origin == "sso" and k.role == "lead")
 
@@ -268,13 +277,22 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         validate = need_oidc()
         try:
             ident = validate(body.id_token, body.nonce)
+            if not ident.email.isascii():  # casefolding tricks (U+212A -> "k") must never reach the admin comparison
+                raise ValueError
             email, t = ident.email.lower(), now()
             u = s.get(TeamUser, ident.sub)
             if u is None:
                 admins = {a.strip().lower() for a in os.environ.get("SEEN_TEAM_ADMINS", "").split(",") if a.strip()}
                 u = TeamUser(sub=ident.sub, email=email, role="admin" if email in admins else "member", active=True, first_seen=t, last_login=t)
                 s.add(u)
-            elif not u.active:
+                try:
+                    s.flush()
+                except IntegrityError:  # a simultaneous first login won the insert: continue with its row
+                    s.rollback()
+                    u = s.get(TeamUser, ident.sub)
+                    if u is None:
+                        raise
+            if not u.active:
                 raise ValueError
             u.email, u.last_login = email, t
             token = "seen_" + secrets.token_urlsafe(32)
@@ -295,9 +313,13 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
             raise HTTPException(503, "SSO is not configured")
         try:
             if disco["doc"] is None or time.monotonic() - disco["at"] > 3600:
-                disco["doc"], disco["at"] = _get_json(cfg.issuer.rstrip("/") + "/.well-known/openid-configuration"), time.monotonic()
+                raw = _get_json(cfg.issuer.rstrip("/") + "/.well-known/openid-configuration")
+                doc = {f: raw.get(f) for f in ("authorization_endpoint", "token_endpoint")}
+                if not all(isinstance(v, str) and v.startswith("https://") for v in doc.values()):
+                    raise ValueError  # never cache or serve a document we would not trust
+                disco["doc"], disco["at"] = doc, time.monotonic()
             d = disco["doc"]
-            return {"authorization_endpoint": str(d["authorization_endpoint"]), "token_endpoint": str(d["token_endpoint"]), "client_id": cfg.client_id}
+            return {"authorization_endpoint": d["authorization_endpoint"], "token_endpoint": d["token_endpoint"], "client_id": cfg.client_id}
         except Exception:  # noqa: BLE001
             raise HTTPException(503, "SSO provider unavailable") from None
 
@@ -305,6 +327,11 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     def me(k: Key, s: Db) -> dict[str, str | None]:
         u = s.get(TeamUser, k.user_id) if k.origin == "sso" else None
         return {"email": u.email if u else None, "role": k.role}
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(_: Request, e: RequestValidationError) -> JSONResponse:
+        # loc and type only: pydantic's `input`/`ctx` would echo request bodies (id_tokens included)
+        return JSONResponse({"detail": [{"loc": list(x["loc"]), "type": x["type"]} for x in e.errors()]}, status_code=422, headers=SECURITY_HEADERS)
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, e: HTTPException) -> JSONResponse:
@@ -332,7 +359,9 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     @app.get("/api/keys")
     def list_keys(k: Key, s: Db) -> list[dict[str, Any]]:
         admin_only(k)
-        return [{"id": r.id, "role": r.role, "project_id": r.project_id, "user_id": r.user_id, "created_at": r.created_at,
+        live = {u.sub: u.role for u in s.scalars(sa.select(TeamUser))}  # an SSO key's role is the user's current one
+        return [{"id": r.id, "role": live.get(r.user_id or "", r.role) if r.origin == "sso" else r.role, "origin": r.origin,
+                 "project_id": r.project_id, "user_id": r.user_id, "created_at": r.created_at,
                  "expires_at": r.expires_at, "revoked_at": r.revoked_at}
                 for r in s.scalars(sa.select(TeamApiKey).order_by(TeamApiKey.created_at))]
 
@@ -358,10 +387,11 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         u = s.get(TeamUser, sub)
         if u is None:
             raise HTTPException(404, "no such user")
-        if body.role is not None:
-            u.role = body.role
-        if body.active is not None:
-            u.active = body.active
+        role, active = body.role or u.role, u.active if body.active is None else body.active
+        if u.role == "admin" and u.active and not (role == "admin" and active) and not s.scalars(
+                sa.select(TeamUser).where(TeamUser.role == "admin", TeamUser.active.is_(True), TeamUser.sub != sub)).first():
+            raise HTTPException(409, "cannot remove the last active admin")
+        u.role, u.active = role, active
         s.commit()
         return {"sub": u.sub, "email": u.email, "role": u.role, "active": u.active, "last_login": u.last_login}
 
@@ -373,7 +403,9 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         keys = list(s.scalars(sa.select(TeamApiKey).where(TeamApiKey.user_id == user_id, TeamApiKey.revoked_at.is_(None))))
         for row in keys:
             row.revoked_at = now()
-        s.execute(sa.delete(TeamUser).where(TeamUser.sub == user_id))  # the email is personal data too
+        u = s.get(TeamUser, user_id)
+        if u is not None:  # tombstone: the email is personal data and goes, the sub stays so re-entry needs an explicit re-activation
+            u.email, u.active = "", False
         s.commit()
         return {"changes": n, "keys_revoked": len(keys)}
 
@@ -391,11 +423,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         if not sso and (k.role != "member" or not k.user_id):
             raise HTTPException(403, "only member keys (bound to a user) can send changes")
         def same_writer(key_id: str) -> bool:
-            """The same key, or (SSO) an earlier key of the same person: a re-login mints a new key but keeps the install."""
-            if key_id == k.id:
-                return True
-            o = s.get(TeamApiKey, key_id) if sso else None
-            return o is not None and o.origin == "sso" and o.user_id == k.user_id
+            return owns(s, k, key_id)
 
         prior = s.scalars(sa.select(TeamBatch).where(TeamBatch.key_id == k.id, TeamBatch.idempotency_key == x_idempotency_key)).first()
         if prior:
@@ -438,7 +466,7 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
     @app.get("/api/anchors/{install_id}")
     def anchor(install_id: str, k: Key, s: Db) -> dict[str, Any]:
         inst = s.get(TeamInstall, install_id)
-        if k.role != "admin" and (inst is None or inst.key_id != k.id):
+        if k.role != "admin" and (inst is None or not owns(s, k, inst.key_id)):
             raise HTTPException(403, "only the owning key or an admin can read this install's anchors")
         h = s.scalars(sa.select(TeamAuditHead).where(TeamAuditHead.install_id == install_id).order_by(TeamAuditHead.seq.desc())).first()
         if h is None:
