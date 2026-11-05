@@ -32,6 +32,7 @@ from typing import Any
 from . import config, paths, safeio, sync
 
 _PAGE = b"<!doctype html><meta charset=utf-8><title>Seen</title><p>Signed in. You can close this tab and return to the terminal."
+_NEUTRAL = b"<!doctype html><meta charset=utf-8><title>Seen</title><p>This sign-in link is not valid. You can close this tab."
 
 
 class LoginError(RuntimeError):
@@ -120,26 +121,30 @@ def whoami() -> dict[str, str] | None:
 
 def logout() -> str:
     """Best-effort server revoke of the stored key, then always delete the file.
-    Returns "revoked", "local" (file removed, server not told) or "none" (no key file)."""
+    Returns "revoked", "already_invalid" (server answered 401: key already expired or revoked), "local" (file removed,
+    server not told) or "none" (no key file)."""
     key = load_key()
     if not key:
         clear_key()
         return "none"
-    revoked = False
+    revoked = invalid = False
     try:
         req = urllib.request.Request(_check_url(sync.server_url() + "/auth/me"), headers={"Authorization": f"Bearer {key}"}, method="DELETE")
         with _opener.open(req, timeout=5) as r:  # noqa: S310 (scheme checked above)
             revoked = r.status == 204
+    except urllib.error.HTTPError as e:
+        invalid = e.code == 401
     except Exception:  # noqa: BLE001 (best effort; never echo the cause)
         revoked = False
     clear_key()
-    return "revoked" if revoked else "local"
+    return "revoked" if revoked else "already_invalid" if invalid else "local"
 
 
 # ---- login
 
-def listen() -> HTTPServer:
-    """One-shot listener: 127.0.0.1 only, ephemeral port. Never 0.0.0.0, never a name."""
+def listen(state: str | None = None) -> HTTPServer:
+    """One-shot listener: 127.0.0.1 only, ephemeral port. Never 0.0.0.0, never a name.
+    With `state`, only a callback carrying it gets the success page; any other gets a neutral one."""
 
     class H(BaseHTTPRequestHandler):
         timeout = 10  # a silent preconnect socket must not stall the login
@@ -149,14 +154,17 @@ def listen() -> HTTPServer:
 
         def do_GET(self) -> None:
             u = urllib.parse.urlparse(self.path)
+            page = b""
             if u.path == "/callback":
-                self.server.result = dict(urllib.parse.parse_qsl(u.query))  # type: ignore[attr-defined]
-            self.send_response(200 if u.path == "/callback" else 404)
+                q = dict(urllib.parse.parse_qsl(u.query))
+                self.server.result = q  # type: ignore[attr-defined]
+                ok = state is None or hmac.compare_digest(q.get("state", "").encode(), state.encode())
+                page = _PAGE if ok else _NEUTRAL
+            self.send_response(200 if page else 404)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(_PAGE) if u.path == "/callback" else 0))
+            self.send_header("Content-Length", str(len(page)))
             self.end_headers()
-            if u.path == "/callback":
-                self.wfile.write(_PAGE)  # fixed page: query params are never echoed
+            self.wfile.write(page)  # fixed pages: query params are never echoed
 
     srv = HTTPServer(("127.0.0.1", 0), H)
     srv.result = None  # type: ignore[attr-defined]
@@ -223,7 +231,7 @@ def _login(open_browser: Callable[[str], bool], timeout_s: int) -> dict[str, str
     cfg = fetch_config(server)
     verifier, challenge = pkce_pair()
     state, nonce = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-    srv = listen()
+    srv = listen(state)
     try:
         redirect = f"http://127.0.0.1:{srv.server_address[1]}/callback"
         url = build_login_url(cfg, state, nonce, challenge, redirect)
