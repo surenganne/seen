@@ -85,12 +85,35 @@ seen docker-sync --watch 300 --restart   # keep the Docker dashboard's copy of ~
 seen audit export --format csv --from 2026-10-01 --to 2026-10-31
 ```
 
+## Team server and SSO
+
+The team server (`deploy/docker-compose.team.yml`) is optional and receives only the metadata you switch on. People sign in
+with Microsoft Entra ID (OIDC, authorization code with PKCE, public client, no secret); the server then issues its own
+30-day API key. Set this in `deploy/.env` and restart the server:
+
+| Variable | Meaning |
+|---|---|
+| `SEEN_OIDC_ISSUER` | `https://login.microsoftonline.com/<tenant id>/v2.0`; https only in production |
+| `SEEN_OIDC_CLIENT_ID` | the app registration's client id; set it together with the issuer or startup stops |
+| `SEEN_OIDC_ALLOWED_DOMAINS` | comma-separated email domains allowed to sign in |
+| `SEEN_TEAM_ADMINS` | comma-separated emails that become admin on first sign-in |
+| `SEEN_TEAM_BOOTSTRAP_DISABLE` | `1` turns the bootstrap admin key off once SSO works |
+| `SEEN_TEAM_PROXY_HOPS` | number of trusted reverse proxies in front of the server |
+
+Register these redirect URIs in Entra: `http://127.0.0.1/callback` (command line) and
+`http://127.0.0.1:47821/api/team/callback` (dashboard). On the host, set `[sync] server` in `~/.seen/config.toml` or in
+Settings, then use **Sign in with SSO** on the Team page or `seen team login`. The dashboard in Docker never signs in
+(its snapshot has no `[sync]` section). Settings shows the SSO status, and an admin also sees the server's settings; SSO
+itself is changed on the server, not from a dashboard. Details and open decisions: [ADR 0018](docs/adr/0018-team-sso.md),
+[ADR 0019](docs/adr/0019-team-dashboard-proxy.md).
+
 ## Dashboard
 
 A local web UI over the same ledger: **Projects** and **Overview** (cost, tokens, skills, PII),
 **Changes**, **Sessions** and **Timeline** (every agent turn, by session and by day, with the files, skills and findings behind each number),
 **Skills** (versions and approvals), **Audit** (the hash-chained trail, with verify and export) and
-**Settings** (PII detection is editable; sync and retention are shown). Summaries link to the rows behind them.
+**Team** (per-project team figures and who last synced, once a team server is set; sign in with SSO from the page) and
+**Settings** (PII detection and team sync are editable; SSO status, retention and prices are shown). Summaries link to the rows behind them.
 
 The UI is a built bundle that is not packaged with the CLI, so build it once from a clone:
 
@@ -126,7 +149,7 @@ the test suites and the team server. Ports avoid the common defaults.
 | (host dashboard) | The container never opens the live ledger: SQLite WAL locking does not cross the Docker Desktop VM; see Dashboard above | |
 | `docker compose --profile test run --rm tests` | Python lint, types and unit tests | |
 | `docker compose --profile test run --rm e2e` | Playwright against a throwaway, freshly seeded test database (tmpfs) | |
-| `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (Phase 5 skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 |
+| `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (Phase 5 skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 (set `SEEN_TEAM_PG_PORT` in `deploy/.env` if that port is taken) |
 
 Development data never touches your real ledger: `seen dev-seed` only writes into an explicit scratch
 `SEEN_HOME`, every test gets its own temporary one, and the team test suite uses a separate
