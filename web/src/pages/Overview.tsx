@@ -62,8 +62,8 @@ export function Overview() {
           ? <span data-testid="background-spend">API-equivalent · plus {money(t.background_cost_usd)} in {int(t.background_changes)} background {t.background_changes === 1 ? "turn" : "turns"}</span>
           : "API-equivalent"}
           delta={<Delta now={t.cost_usd} prev={p.cost_usd} days={range} />} spark={<Spark values={day.map((d) => d.cost_usd)} />} />
-        <Tile label="Rules met" icon={Sparkles} to={rows({ policy_missed: "true" })} value={rulesMet === null ? "—" : pct(rulesMet)}
-          sub={t.policy_checks ? `${t.policy_met} of ${t.policy_checks} required-skill checks` : "no required-skill rule applied"} alert={t.policy_missed > 0} />
+        <Tile label="Rules met" icon={Sparkles} to={rows({ policy_missed: "true" })} value={rulesMet === null ? "No rule" : pct(rulesMet)}
+          sub={t.policy_checks ? `${t.policy_met} of ${t.policy_checks} required-skill checks` : "add one in .seen/policies.yaml"} alert={t.policy_missed > 0} />
         <Tile label="PII exposure" icon={ShieldAlert} to={rows({ pii: "true" })} value={int(t.pii_changes)}
           sub={t.pii_high ? `${t.pii_high} high-confidence` : "changes with structured identifiers"} alert={t.pii_high > 0}
           delta={<Delta now={t.pii_changes} prev={p.pii_changes} days={range} />} spark={<Spark values={day.map((d) => d.pii_changes)} />} />
