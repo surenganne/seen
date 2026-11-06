@@ -64,6 +64,14 @@ Dependency audit (2026-11-05): `pip-audit` on the production export (`uv export 
 finds nothing and `npm audit --omit=dev` finds 0. The one advisory in `uv.lock`, certifi 2026.7.22 (PYSEC-2026-4320,
 fix 2026.10.18), is in the dev/test dependencies only and is not in the production export; keep bumping it.
 
+**Dashboard settings (2026-11-06).** Settings has an editable Team sync form (server URL, on or off, what is sent); every
+change is an audit event and the URL is logged as a fingerprint. A dashboard in remote mode refuses sync changes with 403,
+because `sync.server` decides where the owner's key is sent. SSO has a read-only status card: the public part comes from
+`/auth/config`; a signed-in admin also sees the server's settings from `GET /api/sso` (issuer, client id, allowed domains,
+bootstrap key on or off, admin count, proxy hops; never admin addresses or keys). SSO itself stays configured through
+environment variables on the server and is not editable from a dashboard: whoever can change the issuer changes who is
+trusted to sign in.
+
 ## Open decisions
 
 **v1 rulings (2026-11-05, controller, reversible; owner may overturn).**

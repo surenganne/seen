@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, mockTeam, test } from "./fixtures";
 
 test.describe("team page", () => {
@@ -78,3 +79,40 @@ const TEAM_PROJECTS = {
   state: "ok", reason: null,
   projects: [{ id: "tp1", name: "alpha", changes: 11, cost_7d: 1.5, last_change_at: "2026-11-04T10:00:00Z" }],
 };
+
+test.describe("settings: team sync and SSO", () => {
+  test("shows SSO status and the server's settings, with no WCAG violations in both themes", async ({ page }) => {
+    await mockTeam(page);
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await page.goto("/settings");
+      const sso = page.getByTestId("sso-status");
+      await expect(sso).toContainText("login.microsoftonline.com");
+      await expect(sso).toContainText("allowed email domains");
+      await page.getByText("How to set up SSO").click();
+      await expect(sso).toContainText("http://127.0.0.1:47821/api/team/callback");
+      const res = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
+      expect(res.violations.map((v) => `${v.id}: ${v.help} ${v.nodes[0]?.target.join(" ")}`)).toEqual([]);
+    }
+  });
+
+  test.describe("refused save", () => {
+    test.use({ expectedErrors: [/status of 422/] }); // the server's refusal is the point of this test
+    test("an unsafe team server URL is refused by the server and nothing is saved", async ({ page }) => {
+    await mockTeam(page);
+    await page.goto("/settings");
+    const box = page.getByTestId("team-sync-settings");
+    await box.getByLabel("Team server URL").fill("http://example.com");
+    await box.getByRole("button", { name: "Save team sync" }).click();
+    await expect(box.getByText(/https URL/)).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId("team-sync-settings").getByLabel("Team server URL")).toHaveValue("");
+    });
+  });
+
+  test("with no team server the SSO card says so and offers no sign-in", async ({ page }) => {
+    await page.goto("/settings"); // the e2e server has no sync.server
+    await expect(page.getByTestId("sso-state")).toContainText("Team sync is not set up");
+    await expect(page.getByRole("button", { name: /sign in/i })).toHaveCount(0);
+  });
+});

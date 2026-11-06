@@ -227,7 +227,7 @@ def create_app(web_dist: Path | None = None, remote: bool = False) -> FastAPI:
 
     from . import writes
 
-    writes.register(app, state)
+    writes.register(app, state, remote=remote)
 
     from . import team_login
 

@@ -373,6 +373,9 @@ uv run pytest -m pg                                     # team tests against the
 - [ ] A member-role key sees the line "Only leads and admins can see who has synced." and the tiles still render. A server that is down shows its reason and the other pages still work.
 - [ ] SSO sign-in (needs an identity provider app registration; see ADR 0018): `seen team login` opens the browser, finishes on a loopback page, and `seen team whoami` shows your email and role. The key lives in `$SEEN_HOME/team_key` (0600) and is never printed.
 - [ ] Dashboard: with no key the Team page shows "Sign in with SSO"; it completes the sign-in and then shows "Signed in as <email> (<role>)". "Sign out" returns it to signed out.
+- [ ] Settings → Team sync (host dashboard): change the server URL, tick or untick "What is sent", Save. The change appears in the audit trail (`config.changed`, with the URL as a fingerprint, not the value). An `http://` URL that is not localhost is refused with a message.
+- [ ] Settings → Single sign-on: with the team server up, it shows "configured" (provider, client id) or "not set up on the server". Signed in as an admin it also shows issuer, allowed email domains, bootstrap key enabled or not, admin count and trusted proxies. As a member or lead it shows only the public part. No key, token or admin address appears.
+- [ ] A dashboard started with `--allow-remote`: Settings → Team sync refuses a save with "can only be changed from the dashboard on the host"; the SSO card shows "not configured" and makes no outbound call.
 - [ ] Deactivate that user on the team server (`PUT /api/users/{sub}`): the next `seen sync` is rejected and the Team page asks to sign in again.
 
 ---
