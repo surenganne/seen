@@ -1,5 +1,7 @@
 import { useSettings } from "../api/hooks";
 import { PiiSettings } from "../components/PiiSettings";
+import { SsoStatus } from "../components/SsoStatus";
+import { TeamSyncSettings } from "../components/TeamSyncSettings";
 import { Badge, Card, ErrorBox, Loading, PageHead } from "../components/ui";
 
 /** A path breaks at its slashes, never in the middle of a folder name. */
@@ -45,12 +47,10 @@ export function Settings() {
               ))}
             </ul>
           </Card>
-          <Card title="Team sync" aside={<Badge tone="neutral">{s.sync.enabled ? "on" : "off"}</Badge>}>
-            <KV obj={s.sync} />
-            <p className="muted tiny" style={{ marginTop: 8 }}>Prompts, diffs, file contents and PII values never sync.</p>
-          </Card>
+          <TeamSyncSettings sync={s.sync} />
         </div>
       </div>
+      <SsoStatus />
       <Card title="Auditing and retention">
         <KV obj={{ "skill auditing": s.skills.audit, "retention days": s.audit.retention_days }} />
       </Card>

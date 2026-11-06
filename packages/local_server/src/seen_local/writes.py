@@ -67,9 +67,12 @@ def _change_detail(section: str, key: str, old: Any, new: Any) -> dict[str, Any]
     return {"key": f"{section}.{key}", "old": old, "new": new}
 
 
-def register(app: FastAPI, state: dict[str, Any]) -> None:
+def register(app: FastAPI, state: dict[str, Any], remote: bool = False) -> None:
     @app.put("/api/settings", response_model=S.Ok)
     def put_settings(body: S.SettingsIn) -> S.Ok:
+        if remote and body.sync is not None:
+            # sync.server decides where the owner's team key is sent: a network peer must never be able to change it
+            raise HTTPException(403, "team sync settings can only be changed from the dashboard on the host")
         current = config.load()
         changes = []
         for section, values in body.model_dump(exclude_none=True).items():

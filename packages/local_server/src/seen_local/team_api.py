@@ -31,6 +31,31 @@ def _parse(r: team.TeamResult, tp: type[Any]) -> Any:
 
 def register(app: FastAPI, remote: bool = False) -> None:
     """remote: the dashboard is reachable beyond this machine; it never reads team data on the owner's key."""
+    @app.get("/api/team/sso", response_model=S.TeamSso)
+    def team_sso() -> S.TeamSso:
+        """Is SSO set up on the team server, and (for a signed-in admin) with what settings. Fixed reasons, no server text."""
+        if remote:
+            return S.TeamSso(state="not_configured", reason=team.REASONS["not_configured"])
+        pub = team.fetch_public("/auth/config")
+        if pub.state != "ok":
+            return S.TeamSso(state=pub.state, reason=team.REASONS[pub.state])
+        if pub.status == 503:
+            detail = pub.body.get("detail") if isinstance(pub.body, dict) else None
+            if detail == "SSO is not configured":
+                return S.TeamSso(state="ok", sso="off")
+            return S.TeamSso(state="ok", sso="provider_unavailable")
+        b = pub.body
+        client_id = b.get("client_id") if pub.status == 200 and isinstance(b, dict) else None
+        endpoint = b.get("authorization_endpoint") if isinstance(b, dict) else None
+        host = urllib.parse.urlparse(endpoint).hostname if isinstance(endpoint, str) else None
+        if not (isinstance(client_id, str) and 0 < len(client_id) <= 200 and host):
+            return S.TeamSso(state="bad_response", reason=team.REASONS["bad_response"])
+        out = S.TeamSso(state="ok", sso="configured", client_id=client_id, provider_host=host[:200])
+        r = team.fetch("/api/sso")  # an admin key shows the server's settings; anyone else just gets the public status
+        if r.state == "ok":
+            out.server = _parse(r, S.TeamSsoServer)
+        return out
+
     @app.get("/api/team/projects", response_model=S.TeamProjects)
     def team_projects() -> S.TeamProjects:
         if remote:

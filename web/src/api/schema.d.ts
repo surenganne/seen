@@ -430,6 +430,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/team/sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Team Sso
+         * @description Is SSO set up on the team server, and (for a signed-in admin) with what settings. Fixed reasons, no server text.
+         */
+        get: operations["team_sso_api_team_sso_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1338,6 +1358,46 @@ export interface components {
             runs: number;
             /** Skill Id */
             skill_id: string;
+        };
+        /** TeamSso */
+        TeamSso: {
+            /** Client Id */
+            client_id?: string | null;
+            /** Provider Host */
+            provider_host?: string | null;
+            /** Reason */
+            reason?: string | null;
+            server?: components["schemas"]["TeamSsoServer"] | null;
+            /** Sso */
+            sso?: ("configured" | "off" | "provider_unavailable") | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "not_configured" | "unreachable" | "bad_response";
+        };
+        /**
+         * TeamSsoServer
+         * @description What the team server says it is set to (admins only). Settings, never keys or admin addresses.
+         */
+        TeamSsoServer: {
+            /** Admin Count */
+            admin_count: number;
+            /**
+             * Allowed Domains
+             * @default []
+             */
+            allowed_domains: string[];
+            /** Bootstrap Key Enabled */
+            bootstrap_key_enabled: boolean;
+            /** Client Id */
+            client_id?: string | null;
+            /** Configured */
+            configured: boolean;
+            /** Issuer */
+            issuer?: string | null;
+            /** Proxy Hops */
+            proxy_hops: number;
         };
         /** TeamTiles */
         TeamTiles: {
@@ -2354,6 +2414,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamSession"];
+                };
+            };
+        };
+    };
+    team_sso_api_team_sso_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamSso"];
                 };
             };
         };

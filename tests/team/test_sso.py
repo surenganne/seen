@@ -475,3 +475,28 @@ def test_short_production_bootstrap_key_message_names_the_disable_switch(team_ur
     monkeypatch.delenv("SEEN_TEAM_BOOTSTRAP_DISABLE", raising=False)
     with pytest.raises(SystemExit, match="SEEN_TEAM_BOOTSTRAP_DISABLE=1 when SSO is the only sign-in"):
         create_app(team_url, reset=True)
+
+
+def test_sso_config_is_admin_only_and_shows_no_secrets(sso: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    m = login(sso)["key"]
+    assert sso.get("/api/sso", headers=bearer(m)).status_code == 403
+    assert sso.get("/api/sso").status_code == 401
+    d = sso.get("/api/sso", headers=admin(sso)).json()
+    # fake validator, no OIDC env: not configured; the bootstrap key is on; counts, never admin addresses or the key itself
+    assert d["configured"] is False and d["issuer"] is None and d["client_id"] is None and d["allowed_domains"] == []
+    assert d["bootstrap_key_enabled"] is True and d["admin_count"] == 2
+    assert BOOT not in str(d) and "example.com" not in str(d)
+
+
+def test_sso_config_reports_the_oidc_settings(team_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    from seen_team.app import create_app
+
+    monkeypatch.setenv("SEEN_TEAM_BOOTSTRAP_KEY", BOOT)
+    monkeypatch.setenv("SEEN_OIDC_ISSUER", "https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/v2.0")
+    monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", "client-123")
+    monkeypatch.setenv("SEEN_OIDC_ALLOWED_DOMAINS", "Example.com, minfytech.com")
+    c = TestClient(create_app(team_url, reset=True, oidc_validate=fake), base_url="http://localhost")
+    d = c.get("/api/sso", headers=admin(c)).json()
+    assert d["configured"] is True and d["client_id"] == "client-123"
+    assert d["issuer"].startswith("https://login.microsoftonline.com/")
+    assert d["allowed_domains"] == ["example.com", "minfytech.com"]
