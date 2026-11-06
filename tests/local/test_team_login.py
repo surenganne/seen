@@ -274,3 +274,11 @@ def test_local_dashboard_team_read_routes_still_fetch(client: TestClient, config
     for path in ("/api/team/projects", "/api/team/projects/p1/overview", "/api/team/projects/p1/members"):
         assert client.get(path, headers=H).status_code == 200
     assert len(fetched) == 3
+
+
+def test_remote_dashboard_cannot_change_team_sync_settings(remote_client: TestClient, seeded: Path) -> None:
+    # sync.server decides where the owner's key goes: a network peer must not be able to point it elsewhere
+    r = remote_client.put("/api/settings", json={"sync": {"server": "https://attacker.example", "enabled": True}}, headers=H)
+    assert r.status_code == 403
+    assert "attacker" not in paths.config_toml().read_text() if paths.config_toml().exists() else True
+    assert remote_client.put("/api/settings", json={"pii": {"mode": "report"}}, headers=H).status_code == 200  # other settings unchanged

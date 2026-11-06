@@ -440,3 +440,12 @@ table.data.fixed-cols { table-layout: fixed; }
 .grid.start { align-items: start; }
 .team-sel { display: inline-flex; align-items: center; gap: 0.35rem; }
 .team-sel svg { width: 14px; height: 14px; color: var(--accent-ink); }
+
+/* checkbox rows (team sync settings) */
+.check { display: flex; align-items: center; gap: 0.5rem; min-height: 24px; font-size: 0.875rem; cursor: pointer; }
+.check input { width: 1rem; height: 1rem; accent-color: var(--accent-strong); flex: none; }
+.checklist { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.4rem 0.75rem; }
+.field .input { max-width: 26rem; }
+details summary { cursor: pointer; font-size: 0.8125rem; color: var(--accent-ink); }
+details summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+details ol { list-style: decimal; padding-left: 1.25rem; margin: 0.5rem 0; }

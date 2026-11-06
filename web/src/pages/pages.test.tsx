@@ -127,6 +127,34 @@ describe("state is never colour alone", () => {
   });
 });
 
+describe("Settings: team sync and SSO", () => {
+  it("saves team sync settings through the settings API", async () => {
+    mount(byName("Settings"));
+    const box = await screen.findByTestId("team-sync-settings");
+    const url = box.querySelector("input.input") as HTMLInputElement;
+    fireEvent.change(url, { target: { value: "https://team.example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save team sync" }));
+    await waitFor(() => expect(state.calls.filter((c) => c === "/api/settings").length).toBeGreaterThan(1));
+  });
+  it("shows the SSO status and, for an admin, the server's settings", async () => {
+    mount(byName("Settings"));
+    const box = await screen.findByTestId("sso-status");
+    expect(box).toHaveTextContent("login.microsoftonline.com");
+    expect(box).toHaveTextContent("example.test");
+    expect(box).toHaveTextContent("bootstrap admin key");
+  });
+  it("says SSO is not set up on the server when it is off", async () => {
+    state.team["/api/team/sso"] = { state: "ok", reason: null, sso: "off", client_id: null, provider_host: null, server: null };
+    mount(byName("Settings"));
+    expect(await screen.findByText("not set up on the server")).toBeInTheDocument();
+  });
+  it("shows the fixed reason when the team server is not configured", async () => {
+    state.team["/api/team/sso"] = { state: "not_configured", reason: "Team sync is not set up.", sso: null, client_id: null, provider_host: null, server: null };
+    mount(byName("Settings"));
+    expect(await screen.findByTestId("sso-state")).toHaveTextContent("Team sync is not set up.");
+  });
+});
+
 describe("Team page", () => {
   const P = "/api/team/projects", M = `/api/team/projects/${TEAM_PID}/members`;
   const member = (id: string, at: string | null, expired = false) => ({ user_id: id, email: null, last_synced_at: at, changes: 1, key_expired: expired });

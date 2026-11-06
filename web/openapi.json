@@ -2937,6 +2937,149 @@
         "title": "TeamSkillRuns",
         "type": "object"
       },
+      "TeamSso": {
+        "properties": {
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "provider_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Host"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamSsoServer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sso": {
+            "anyOf": [
+              {
+                "enum": [
+                  "configured",
+                  "off",
+                  "provider_unavailable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sso"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "not_configured",
+              "unreachable",
+              "bad_response"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "TeamSso",
+        "type": "object"
+      },
+      "TeamSsoServer": {
+        "description": "What the team server says it is set to (admins only). Settings, never keys or admin addresses.",
+        "properties": {
+          "admin_count": {
+            "minimum": 0.0,
+            "title": "Admin Count",
+            "type": "integer"
+          },
+          "allowed_domains": {
+            "default": [],
+            "items": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "bootstrap_key_enabled": {
+            "title": "Bootstrap Key Enabled",
+            "type": "boolean"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "proxy_hops": {
+            "minimum": 0.0,
+            "title": "Proxy Hops",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "configured",
+          "bootstrap_key_enabled",
+          "admin_count",
+          "proxy_hops"
+        ],
+        "title": "TeamSsoServer",
+        "type": "object"
+      },
       "TeamTiles": {
         "properties": {
           "changes": {
@@ -5034,6 +5177,25 @@
           }
         },
         "summary": "Session"
+      }
+    },
+    "/api/team/sso": {
+      "get": {
+        "description": "Is SSO set up on the team server, and (for a signed-in admin) with what settings. Fixed reasons, no server text.",
+        "operationId": "team_sso_api_team_sso_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamSso"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Team Sso"
       }
     }
   }

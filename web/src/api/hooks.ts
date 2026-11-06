@@ -110,6 +110,8 @@ export function useWrite<TArgs, TOut>(fn: (a: TArgs) => Promise<TOut>) {
 
 export const useTeamSession = () => useQuery({ queryKey: ["team", "session"], queryFn: () => unwrap(api.GET("/api/team/session")) });
 
+export const useTeamSso = () => useQuery({ queryKey: ["team", "sso"], queryFn: () => unwrap(api.GET("/api/team/sso")) });
+
 export const useTeamProjects = () => useQuery({ queryKey: ["team", "projects"], queryFn: () => unwrap(api.GET("/api/team/projects")) });
 
 export const useTeamOverview = (pid: string, range: Range) =>

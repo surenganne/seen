@@ -234,3 +234,67 @@ def test_post_is_rejected(client: TestClient, setup: Any) -> None:
     for url in ("/api/team/projects", "/api/team/projects/p1/overview", "/api/team/projects/p1/members"):
         assert client.post(url, headers=H).status_code == 403  # missing X-Seen-Request
         assert client.post(url, headers={**H, "X-Seen-Request": "1"}).status_code == 405
+
+
+# ---- SSO status -------------------------------------------------------------------------------------------------
+
+def route(monkeypatch: pytest.MonkeyPatch, table: dict[str, tuple[int, Any]]) -> list[Any]:
+    seen: list[Any] = []
+
+    def fake(req: Any) -> tuple[int, bytes]:
+        seen.append(req)
+        status, body = table.get(req.full_url.removeprefix(URL), (0, b""))
+        return status, body if isinstance(body, bytes) else json.dumps(body).encode()
+
+    monkeypatch.setattr(team, "_open", fake)
+    return seen
+
+
+CFG = {"authorization_endpoint": "https://login.microsoftonline.com/t/oauth2/v2.0/authorize", "token_endpoint": "https://x/t", "client_id": "cid-1"}
+SERVER = {"configured": True, "issuer": "https://login.microsoftonline.com/t/v2.0", "client_id": "cid-1", "allowed_domains": ["example.com"],
+          "bootstrap_key_enabled": False, "admin_count": 2, "proxy_hops": 1, "secret": "x"}
+
+
+def test_sso_status_configured_without_a_key_sends_no_key(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SEEN_TEAM_API_KEY")
+    seen = route(monkeypatch, {"/auth/config": (200, CFG)})
+    j = client.get("/api/team/sso", headers=H).json()
+    assert j["state"] == "ok" and j["sso"] == "configured" and j["client_id"] == "cid-1" and j["provider_host"] == "login.microsoftonline.com"
+    assert j["server"] is None and "authorization_endpoint" not in str(j)
+    assert all("Authorization" not in r.headers and "authorization" not in {k.lower() for k in r.headers} for r in seen[:1])
+
+
+def test_sso_status_admin_sees_server_settings(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    route(monkeypatch, {"/auth/config": (200, CFG), "/api/sso": (200, SERVER)})
+    j = client.get("/api/team/sso", headers=H).json()
+    assert j["server"] == {k: v for k, v in SERVER.items() if k != "secret"}
+
+
+def test_sso_status_non_admin_gets_only_the_public_part(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    route(monkeypatch, {"/auth/config": (200, CFG), "/api/sso": (403, b"")})
+    j = client.get("/api/team/sso", headers=H).json()
+    assert j["sso"] == "configured" and j["server"] is None and KEY not in str(j)
+
+
+@pytest.mark.parametrize(("status", "body", "expect"), [
+    (503, {"detail": "SSO is not configured"}, "off"),
+    (503, {"detail": "SSO provider unavailable"}, "provider_unavailable"),
+    (503, b"<html>", "provider_unavailable"),
+])
+def test_sso_status_off_and_unavailable(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch, status: int, body: Any, expect: str) -> None:
+    route(monkeypatch, {"/auth/config": (status, body)})
+    j = client.get("/api/team/sso", headers=H).json()
+    assert j["state"] == "ok" and j["sso"] == expect
+
+
+def test_sso_status_failures_use_fixed_reasons(client: TestClient, setup: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    route(monkeypatch, {})  # no answer: unreachable
+    j = client.get("/api/team/sso", headers=H).json()
+    assert j["state"] == "unreachable" and j["reason"] == team.REASONS["unreachable"] and j["sso"] is None
+    route(monkeypatch, {"/auth/config": (200, {"client_id": "c", "authorization_endpoint": 5})})
+    assert client.get("/api/team/sso", headers=H).json()["state"] == "bad_response"
+
+
+def test_sso_status_not_configured_makes_no_call(client: TestClient, seeded: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = route(monkeypatch, {})
+    assert client.get("/api/team/sso", headers=H).json()["state"] == "not_configured" and seen == []
