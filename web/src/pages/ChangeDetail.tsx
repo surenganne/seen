@@ -52,7 +52,7 @@ export function ChangeDetail() {
         </div>
       )}
 
-      <div className="grid split">
+      <div className="grid split start">
         <Card title="Files" flush aside={<span className="hint">{c.files.length} {c.files.length === 1 ? "file" : "files"}</span>}>
           {c.files.length === 0 ? <Empty icon={FileCode2} title="No file changes in this turn" /> : (
             <ul className="rows" data-testid="change-files">

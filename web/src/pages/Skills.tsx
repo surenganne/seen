@@ -1,4 +1,4 @@
-import { Bot, Search, Sparkles, X } from "lucide-react";
+import { Bot, Check, Search, Sparkles, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { usePolicies, useSkill, useSkills } from "../api/hooks";
 import { ChangesTable } from "../components/ChangesTable";
@@ -45,7 +45,7 @@ function Installed({ pid }: { pid: string }) {
           <option value="">Any status</option>
           {["approved", "changed", "unreviewed", "blocked"].map((k) => <option key={k} value={k}>{k}</option>)}
         </select>
-        <button type="button" className="chip" aria-pressed={!!f.unused} onClick={() => set("unused", f.unused ? undefined : "true")}>Never used</button>
+        <button type="button" className="chip" aria-pressed={!!f.unused} onClick={() => set("unused", f.unused ? undefined : "true")}>{f.unused && <Check aria-hidden="true" />}Never used</button>
       </div>
       {isLoading && <Loading what="Loading skills" />}
       {error && <ErrorBox error={error} />}

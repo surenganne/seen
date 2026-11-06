@@ -402,7 +402,7 @@ pre.snippet { margin: 0; padding: 0.75rem; overflow-x: auto; font-family: var(--
   .shell { grid-template-columns: minmax(0, 1fr); background: none; }
   .rail { display: none; }
   .mobile-only { display: flex; }
-  .mobile-nav { display: flex; gap: 0.25rem; overflow-x: auto; padding: 0.5rem 0.75rem; background: var(--rail); }
+  .mobile-nav { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem 0.75rem; background: var(--rail); } /* every link visible: no sideways scroll to find Audit or Settings */
   .mobile-nav a { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.6rem; border-radius: var(--radius-sm); color: var(--rail-ink-2); white-space: nowrap; font-size: 0.8125rem; }
   .mobile-nav a svg { width: 14px; height: 14px; }
   .mobile-nav a.active { background: var(--rail-active); color: var(--rail-ink); }
@@ -434,3 +434,9 @@ table.data.fixed-cols { table-layout: fixed; }
 @media (min-width: 1181px) { .strip.strip-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .subhead { margin: 0; padding: 0.6rem 1rem 0.2rem; font-size: 0.75rem; font-weight: 500; color: var(--ink-3); border-top: 1px solid var(--border); }
 .nowrap { white-space: nowrap; }
+
+/* phones: the arrow and percentage carry the trend; the comparison window is in the page description and the screen-reader text */
+@media (max-width: 560px) { .delta .muted { display: none; } }
+.grid.start { align-items: start; }
+.team-sel { display: inline-flex; align-items: center; gap: 0.35rem; }
+.team-sel svg { width: 14px; height: 14px; color: var(--accent-ink); }
