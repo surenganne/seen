@@ -10,7 +10,8 @@ RUN npm run build
 
 FROM python:3.12.15-slim-bookworm AS base
 COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /usr/local/bin/uv
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+# upgrade first: the base image lags Debian's security fixes, and CI's image scan fails on a fixed HIGH finding
+RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY pyproject.toml uv.lock ./

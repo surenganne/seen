@@ -61,6 +61,32 @@ def _open(req: urllib.request.Request) -> tuple[int, bytes]:
         return 0, b""
 
 
+MAX_DEPTH = 64
+
+
+def _too_deep(raw: bytes) -> bool:
+    """True when brackets nest deeper than MAX_DEPTH. Checked before parsing: how far json recurses before it gives up
+    depends on the Python version, and a hostile server must not be able to pick the outcome."""
+    depth, in_str, esc = 0, False, False
+    for ch in raw:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == 0x5C:
+                esc = True
+            elif ch == 0x22:
+                in_str = False
+        elif ch == 0x22:
+            in_str = True
+        elif ch in (0x5B, 0x7B):
+            depth += 1
+            if depth > MAX_DEPTH:
+                return True
+        elif ch in (0x5D, 0x7D):
+            depth -= 1
+    return False
+
+
 def _fail(state: TeamState) -> TeamResult:
     return TeamResult(state, REASONS[state], None)
 
@@ -98,6 +124,8 @@ def fetch(path: str, query: dict[str, int] | None = None) -> TeamResult:
     if status != 200:
         return _fail("unreachable")
     if len(raw) > MAX_BYTES:
+        return _fail("bad_response")
+    if _too_deep(raw):
         return _fail("bad_response")
     try:
         body = json.loads(raw)
