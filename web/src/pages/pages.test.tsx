@@ -117,6 +117,16 @@ describe("quiet normal states and clear reasons", () => {
   });
 });
 
+describe("state is never colour alone", () => {
+  it("Skills 'Never used' shows a tick once switched on", async () => {
+    mount(byName("Skills"));
+    const chip = await screen.findByRole("button", { name: "Never used" });
+    expect(chip.querySelector("svg")).toBeNull();
+    fireEvent.click(chip);
+    expect((await screen.findByRole("button", { name: "Never used" })).querySelector("svg")).not.toBeNull();
+  });
+});
+
 describe("Team page", () => {
   const P = "/api/team/projects", M = `/api/team/projects/${TEAM_PID}/members`;
   const member = (id: string, at: string | null, expired = false) => ({ user_id: id, email: null, last_synced_at: at, changes: 1, key_expired: expired });

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { LogIn, LogOut, Users } from "lucide-react";
+import { Check, LogIn, LogOut, Users } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { S } from "../api/client";
@@ -168,7 +168,7 @@ export function Team() {
                 <tbody>
                   {p.projects.map((x) => (
                     <tr key={x.id} data-testid="team-project-row" aria-selected={x.id === pid} onClick={() => select(x.id)}>
-                      <td><RowButton onClick={() => select(x.id)}>{x.name}</RowButton></td>
+                      <td><span className="team-sel">{x.id === pid && <Check aria-hidden="true" />}<RowButton onClick={() => select(x.id)}>{x.name}</RowButton></span></td>
                       <td className="num">{int(x.changes)}</td>
                       <td className="num">{money(x.cost_7d)}</td>
                       <td>{when(x.last_change_at)}</td>
