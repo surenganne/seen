@@ -315,3 +315,14 @@ def test_env_key_whitespace_is_stripped(seen_home: Path, calls: list[Any], monke
     assert calls[-1].get_header("Authorization") == f"Bearer {KEY}"
     monkeypatch.setenv("SEEN_TEAM_API_KEY", " \n")
     assert team.fetch("/api/x").state == "unauthorized"
+
+
+def test_nesting_depth_is_judged_before_parsing(seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg()
+    monkeypatch.setenv("SEEN_TEAM_API_KEY", KEY)
+    reply(monkeypatch, 200, b"[" * 65 + b"]" * 65)  # one past the cap: refused whatever the Python version can parse
+    assert team.fetch("/api/x").state == "bad_response"
+    reply(monkeypatch, 200, b'{"a": ["[[[[", {"b": []}]}')  # brackets inside strings do not count
+    assert team.fetch("/api/x").state == "ok"
+    reply(monkeypatch, 200, b"[" * 64 + b"]" * 64)
+    assert team.fetch("/api/x").state == "ok"

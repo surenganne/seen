@@ -1,10 +1,32 @@
 import os
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 BOOT = "boot-" + "k" * 40
+
+
+@pytest.fixture(autouse=True)
+def _dispose_engines(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Every create_app opens its own connection pool. Without this the Postgres suite keeps hundreds of them alive until
+    garbage collection and the server answers "too many clients already"."""
+    import sqlalchemy as sa
+
+    made: list[sa.Engine] = []
+    real = sa.create_engine
+
+    def tracked(*a: Any, **k: Any) -> sa.Engine:
+        e = real(*a, **k)
+        made.append(e)
+        return e
+
+    monkeypatch.setattr(sa, "create_engine", tracked)
+    yield
+    for e in made:
+        e.dispose()
 
 
 @pytest.fixture
