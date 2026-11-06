@@ -163,6 +163,7 @@ export function Overview() {
                   </li>
                 ))}
               </ul>
+              <h3 className="subhead">By approval status</h3>
               <ul className="rows flush-in" data-testid="skill-status">
                 {["approved", "unreviewed", "changed", "blocked"].filter((k) => o.skill_status[k]).map((k) => (
                   <li key={k}><SkillStatus status={k} /><span className="mono tiny muted">{o.skill_status[k]} {o.skill_status[k] === 1 ? "run" : "runs"}</span></li>

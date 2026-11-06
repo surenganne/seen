@@ -37,7 +37,12 @@ export function Projects() {
               <div><div className="label">Cost, 7 days</div><div className="value mono">{money(p.cost_7d)}</div></div>
               <div><div className="label">Last change</div><div className="value mono small">{when(p.last_change_at)}</div></div>
             </div>
-            {p.alert && <Badge tone="critical">Needs attention</Badge>}
+            {p.alert && (
+              <div className="project-alert">
+                <Badge tone="critical">Needs attention</Badge>
+                {p.alert_reasons.length > 0 && <span className="muted tiny">{p.alert_reasons.join(" · ")}</span>}
+              </div>
+            )}
           </Link>
         ))}
       </div>

@@ -91,6 +91,32 @@ describe("page details", () => {
   });
 });
 
+describe("quiet normal states and clear reasons", () => {
+  it("Projects says what needs attention, not only that something does", async () => {
+    mount(byName("Projects"));
+    const cards = await screen.findAllByTestId("project-card");
+    for (const c of cards) {
+      if (c.textContent?.includes("Needs attention")) expect(c.querySelector(".project-alert .muted")?.textContent ?? "").toMatch(/\S/);
+    }
+  });
+  it("Audit shows a normal outcome as quiet text and explains seq gaps", async () => {
+    mount(byName("Audit"));
+    await screen.findAllByTestId("audit-row");
+    expect(document.querySelector(".outcome-ok")).not.toBeNull();
+    expect(document.querySelector(".badge.good")).toBeNull(); // no green pill per row
+    expect(screen.getByTestId("seq-note")).toHaveTextContent(/other projects/i);
+  });
+  it("Overview names the approval-status list", async () => {
+    mount(byName("Overview"));
+    expect(await screen.findByRole("heading", { name: "By approval status" })).toBeInTheDocument();
+  });
+  it("Changes uses fixed columns in each session table", async () => {
+    mount(byName("Changes"));
+    await screen.findAllByTestId("change-row");
+    for (const t of screen.getAllByTestId("changes-table")) expect(t).toHaveClass("fixed-cols");
+  });
+});
+
 describe("Team page", () => {
   const P = "/api/team/projects", M = `/api/team/projects/${TEAM_PID}/members`;
   const member = (id: string, at: string | null, expired = false) => ({ user_id: id, email: null, last_synced_at: at, changes: 1, key_expired: expired });
