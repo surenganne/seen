@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Team SSO** (ADR 0018): sign in to the team server with Microsoft Entra ID (OIDC with PKCE, public client). The server
+  validates the ID token (RS256, pinned tenant issuer, audience, nonce, `tid`, verified email, domain allowlist, single
+  use) and issues its own 30-day API key, stored hashed. New: `seen team login | logout | whoami`, `POST /auth/exchange`,
+  `GET /auth/config`, `GET|DELETE /auth/me`, `GET|PUT /api/users`, `GET /api/sso`, users with roles, key `origin`,
+  revoke on deactivate or erase, last-admin guard, production start-up guards and a per-IP throttle. The key file is
+  `~/.seen/team_key` (0600), never synced and never in the Docker snapshot. OWASP review:
+  `docs/security/team-sso-owasp-2026-11-05.pdf`.
+- **Team page** (ADR 0019): per-project team figures and a "Last synced" card per member, read through the local API so
+  the key never reaches the browser; sign in and out from the page. A dashboard in remote mode makes no team calls.
+- **Settings:** team sync is editable (server URL, on or off, what is sent; audited, the URL logged as a fingerprint;
+  refused on a remote dashboard), plus a read-only SSO status card (an admin also sees the server's settings).
+- **UI polish:** the Projects alert says why; Audit shows a normal outcome as quiet text and explains skipped seq numbers;
+  Changes columns line up across sessions; the Team summary fits one row; Overview panels share a height; Sessions hide
+  an all-zero column; Settings shows "not set", breaks paths at slashes and ticks selected chips; the mobile nav wraps.
+- **CI:** the team client rejects JSON nested deeper than 64 levels before parsing; team tests dispose their database
+  pools; images run `apt-get upgrade` so fixed HIGH findings do not fail the scan.
+
 - **Overview is a dashboard:** five tiles with the change against the previous period and a trend line, an Activity chart
   (requests per day, file-changing vs talk-only), Spend by model with token and cache figures, where the work happened,
   commit outcomes, a weekday-by-hour rhythm, per-rule compliance, skills by approval status and PII by type. The API

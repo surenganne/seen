@@ -40,7 +40,7 @@ figures. Hierarchy comes from size and weight steps, not extra typefaces. No all
 ## Layout
 
 - **Shell**: navy rail (240px) with the mark, project switcher, nav and the audit-chain footer; a topbar
-  with breadcrumbs, date range (7/14/28 days) and theme. Under 860px the rail becomes a scrolling nav strip
+  with breadcrumbs, date range (7/14/28 days) and theme. Under 860px the rail becomes a nav strip that wraps onto rows (every link stays visible)
   and the project switcher moves to the topbar (only one is ever rendered).
 - **Page**: `PageHead` (title, one-line description that says what the page proves, actions on the right),
   then panels.
