@@ -1,4 +1,4 @@
-import { Anchor, FileClock, Search, X } from "lucide-react";
+import { Anchor, Check, FileClock, Search, X } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { S } from "../api/client";
@@ -67,13 +67,18 @@ export function Audit() {
                       <td className="mono"><RowButton onClick={() => setOpen(e)}>{e.type}</RowButton></td>
                       <td className="path">{e.subject ?? ""}</td>
                       <td className="mono tiny muted">{e.actor_kind}:{short(e.actor_id, 10)}</td>
-                      <td>{e.outcome === "ok" ? <Badge tone="good">ok</Badge> : e.outcome === "blocked" ? <Badge tone="warning">blocked</Badge> : <Badge tone="critical">{e.outcome}</Badge>}</td>
+                      <td>{e.outcome === "ok" ? <span className="outcome-ok"><Check aria-hidden="true" />ok</span> : e.outcome === "blocked" ? <Badge tone="warning">blocked</Badge> : <Badge tone="critical">{e.outcome}</Badge>}</td>
                       <td className="mono tiny muted">{short(e.hash, 10)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+          )}
+          {data.items.length > 0 && (
+            <p className="tiny muted" style={{ padding: "0.6rem 1rem 0", margin: 0 }} data-testid="seq-note">
+              Seq numbers skip events from other projects and events outside these filters. The hash chain covers all of them.
+            </p>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 1rem", borderTop: "1px solid var(--border)" }}>
             <button type="button" className="btn sm" disabled={f.page <= 1} onClick={() => set("page", String(f.page - 1))}>← Newer</button>

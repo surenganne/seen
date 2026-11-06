@@ -10,6 +10,13 @@ def test_projects(client: TestClient) -> None:
     assert p["name"] == "payments-api" and p["changes"] > 0 and p["root_path"].startswith(("~", "/"))
 
 
+def test_project_alert_carries_its_reasons(client: TestClient) -> None:
+    for p in client.get("/api/projects").json():
+        # the card says why, so a flag is never a bare alarm; no flag means no reasons
+        assert bool(p["alert_reasons"]) == p["alert"]
+        assert all(isinstance(x, str) and x for x in p["alert_reasons"])
+
+
 def test_overview_ranges(client: TestClient) -> None:
     o7 = client.get(f"/api/projects/{PID}/overview?range=7").json()
     o28 = client.get(f"/api/projects/{PID}/overview?range=28").json()

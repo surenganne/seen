@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { useState } from "react";
 import { api, unwrap } from "../api/client";
 import { useWrite } from "../api/hooks";
@@ -45,7 +46,7 @@ export function PiiSettings({ pii }: { pii: Record<string, unknown> }) {
         <fieldset className="field">
           <legend className="label">Types</legend>
           <div className="checks">
-            {TYPES.map((t) => <button key={t} type="button" className="chip" aria-pressed={types.includes(t)} onClick={() => toggle(t)}>{t}</button>)}
+            {TYPES.map((t) => <button key={t} type="button" className="chip" aria-pressed={types.includes(t)} onClick={() => toggle(t)}>{types.includes(t) && <Check aria-hidden="true" />}{t}</button>)}
           </div>
         </fieldset>
         <div className="checks">

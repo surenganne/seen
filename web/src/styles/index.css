@@ -190,6 +190,7 @@ table.data { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
 .data tbody tr.clickable { cursor: pointer; transition: background-color 120ms var(--ease); }
 .data tbody tr.clickable:hover { background: var(--surface-2); }
 .data tbody tr[aria-selected="true"] { background: var(--accent-soft); }
+.data th.num { font-family: inherit; }
 .data .num { text-align: right; white-space: nowrap; font-family: var(--font-mono); font-size: 0.8125rem; }
 .data .when { white-space: nowrap; color: var(--ink-3); font-family: var(--font-mono); font-size: 0.75rem; }
 .data .title { font-weight: 500; color: var(--ink); }
@@ -322,7 +323,7 @@ pre.snippet { margin: 0; padding: 0.75rem; overflow-x: auto; font-family: var(--
 }
 
 /* ---------- overview dashboard ---------- */
-.grid.top { align-items: start; }
+.grid.top { align-items: stretch; } /* panels in a row share one height, so no ragged gaps under the short ones */
 .stat .value .unit { font-size: 0.8125rem; font-weight: 500; color: var(--ink-3); }
 .stat .value { white-space: nowrap; }
 .stat-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.5rem; }
@@ -416,3 +417,20 @@ pre.snippet { margin: 0; padding: 0.75rem; overflow-x: auto; font-family: var(--
   .project .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .project > .badge { align-self: flex-start; }
+.project-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; }
+
+/* a normal audit outcome is quiet text with a tick; only blocked or failed outcomes get a coloured badge */
+.outcome-ok { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--ink-2); font-size: 0.8125rem; }
+.outcome-ok svg { width: 13px; height: 13px; color: var(--good); }
+
+/* per-session tables stack on one page: fixed columns keep Lines, Cost and Checks at the same x in every group */
+table.data.fixed-cols { table-layout: fixed; }
+.fixed-cols .c-when { width: 7.5rem; }
+.fixed-cols .c-lines { width: 7rem; }
+.fixed-cols .c-cost { width: 5.5rem; }
+.fixed-cols .c-checks { width: 11rem; }
+
+/* Team shows six tiles: one row on wide screens, the 3/2-column rules above take over at 1180px and below */
+@media (min-width: 1181px) { .strip.strip-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.subhead { margin: 0; padding: 0.6rem 1rem 0.2rem; font-size: 0.75rem; font-weight: 500; color: var(--ink-3); border-top: 1px solid var(--border); }
+.nowrap { white-space: nowrap; }

@@ -125,7 +125,7 @@ def project_out(db: DB, p: Project) -> S.ProjectOut:
     return S.ProjectOut(id=p.id, name=p.name, remote=p.remote, root_path=_redact(p.root_path), changes=len(rows),
                         last_change_at=rows[0].c.started_at if rows else None,
                         cost_7d=round(sum(r.c.cost_usd or 0 for r in rows if (r.c.started_at or "") >= last7), 4),
-                        alert=alert(rows).on)
+                        alert=(a := alert(rows)).on, alert_reasons=a.reasons)
 
 
 def _redact(p: str | None) -> str | None:
