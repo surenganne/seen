@@ -444,6 +444,15 @@ def create_app(url: str | None = None, reset: bool = False, oidc_validate: Calla
         return [{"sub": u.sub, "email": u.email, "role": u.role, "active": u.active, "last_login": u.last_login}
                 for u in s.scalars(sa.select(TeamUser).order_by(TeamUser.email))]
 
+    @app.get("/api/sso")
+    def sso_config(k: Key) -> dict[str, Any]:
+        """What this server is set to, for admins. Settings only: no admin addresses (a count), no keys."""
+        admin_only(k)
+        admins = {x for x in os.environ.get("SEEN_TEAM_ADMINS", "").split(",") if x.strip()}
+        return {"configured": cfg is not None, "issuer": cfg.issuer if cfg else None, "client_id": cfg.client_id if cfg else None,
+                "allowed_domains": sorted(cfg.allowed_domains) if cfg else [], "bootstrap_key_enabled": not bootstrap_off,
+                "admin_count": len(admins), "proxy_hops": hops}
+
     @app.put("/api/users/{sub}")
     def update_user(sub: str, body: UserPatch, k: Key, s: Db) -> dict[str, Any]:
         admin_only(k)

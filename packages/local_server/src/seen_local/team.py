@@ -51,8 +51,12 @@ def _open(req: urllib.request.Request) -> tuple[int, bytes]:
         with _opener().open(req, timeout=TIMEOUT) as r:  # noqa: S310 (scheme checked by sync.server_url)
             return r.status, r.read(MAX_BYTES + 1)
     except urllib.error.HTTPError as e:
+        try:
+            body = e.read(1025)  # a short error body: the public SSO probe tells "off" from "provider down" by it
+        except OSError:
+            body = b""
         e.close()
-        return e.code, b""
+        return e.code, body
     except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError):
         return 0, b""
 
@@ -102,3 +106,35 @@ def fetch(path: str, query: dict[str, int] | None = None) -> TeamResult:
     if not isinstance(body, dict | list):
         return _fail("bad_response")
     return TeamResult("ok", None, body)
+
+
+class PublicResult(NamedTuple):
+    state: Literal["ok", "not_configured", "unreachable", "bad_response"]
+    status: int
+    body: Any
+
+
+def fetch_public(path: str) -> PublicResult:
+    """An unauthenticated GET of one fixed pre-auth path on the team server. No key is read or sent."""
+    if path not in ("/auth/config",):
+        return PublicResult("bad_response", 0, None)
+    try:
+        url = sync.server_url()
+    except Exception as e:  # noqa: BLE001 (SyncError, bad TOML, anything)
+        log.warning("team fetch failed: %s", type(e).__name__)
+        return PublicResult("not_configured", 0, None)
+    req = urllib.request.Request(url + path, headers={"Accept": "application/json"}, method="GET")
+    try:
+        status, raw = _open(req)
+    except Exception as e:  # noqa: BLE001
+        log.warning("team fetch failed: %s", type(e).__name__)
+        status, raw = 0, b""
+    if status == 0 or status == 429 or status >= 500 and status != 503:
+        return PublicResult("unreachable", status, None)
+    if len(raw) > MAX_BYTES:
+        return PublicResult("bad_response", status, None)
+    try:
+        body = json.loads(raw) if raw else None
+    except (ValueError, RecursionError):
+        body = None
+    return PublicResult("ok", status, body)

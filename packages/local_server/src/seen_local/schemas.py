@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 
 from .team import TeamState
 
@@ -442,6 +442,27 @@ class TeamSession(BaseModel):
 class TeamLoginOut(BaseModel):
     url: str | None  # null when sign-in cannot start; reason says why (fixed values, never server text)
     reason: Literal["not_configured", "unavailable"] | None = None
+
+
+class TeamSsoServer(BaseModel):
+    """What the team server says it is set to (admins only). Settings, never keys or admin addresses."""
+    model_config = ConfigDict(strict=True)
+    configured: bool
+    issuer: str | None = Field(default=None, max_length=300)
+    client_id: str | None = Field(default=None, max_length=200)
+    allowed_domains: list[Annotated[str, Field(max_length=100)]] = Field(default=[], max_length=50)
+    bootstrap_key_enabled: bool
+    admin_count: int = Field(ge=0)
+    proxy_hops: int = Field(ge=0)
+
+
+class TeamSso(BaseModel):
+    state: Literal["ok", "not_configured", "unreachable", "bad_response"]
+    reason: str | None = None
+    sso: Literal["configured", "off", "provider_unavailable"] | None = None
+    client_id: str | None = None
+    provider_host: str | None = None
+    server: TeamSsoServer | None = None  # only for an admin who is signed in
 
 
 class TeamLogoutOut(BaseModel):

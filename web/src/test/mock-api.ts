@@ -18,6 +18,11 @@ const TEAM: Record<string, unknown> = {
   "/api/team/session": { state: "signed_in", email: "lead@example.test", role: "lead" },
   "/api/team/login": { url: "https://sso.example.test/start", reason: null },
   "/api/team/logout": { state: "signed_out" },
+  "/api/team/sso": {
+    state: "ok", reason: null, sso: "configured", client_id: "cid-1", provider_host: "login.microsoftonline.com",
+    server: { configured: true, issuer: "https://login.microsoftonline.com/t/v2.0", client_id: "cid-1", allowed_domains: ["example.test"],
+      bootstrap_key_enabled: false, admin_count: 2, proxy_hops: 1 },
+  },
   "/api/team/projects": {
     state: "ok", reason: null,
     projects: [{ id: TEAM_PID, name: "payments-api", changes: 42, cost_7d: 12.5, last_change_at: "2026-11-04T10:00:00Z" }],
