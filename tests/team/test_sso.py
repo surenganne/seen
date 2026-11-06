@@ -331,9 +331,9 @@ def test_simultaneous_first_login_is_not_a_401(sso: TestClient, team_url: str) -
     def racer(mapper, conn, target):  # type: ignore[no-untyped-def]
         if not fired:  # another request wins the insert just before ours
             fired.append(1)
-            with e2.begin() as c:
-                c.execute(sa.text("insert into team_users (sub,email,role,active,first_seen,last_login) values "
-                                  "('sub-ann','ann@example.com','member',1,'t','t')"))
+            with e2.begin() as c:  # through the table object: raw SQL with active = 1 is not valid on Postgres booleans
+                c.execute(sa.insert(TeamUser.__table__).values(sub="sub-ann", email="ann@example.com", role="member", active=True,
+                                                               first_seen="t", last_login="t"))
 
     event.listen(TeamUser, "before_insert", racer)
     try:
