@@ -20,6 +20,7 @@ export function Sessions() {
   const page = Math.max(1, Number(sp.get("page") || 1));
   const kind: SessionKind = (["yours", "background", "all"] as const).find((k) => k === sp.get("kind")) ?? "yours";
   const { data, error, isLoading } = useSessions(pid, page, kind);
+  const showCalls = data?.items.some((x) => x.tool_calls > 0) ?? false; // a column of zeros says nothing
   const goPage = (n: number) => setSp((p) => { p.set("page", String(n)); return p; }, { replace: true });
   const goKind = (k: SessionKind) => setSp((p) => { p.set("kind", k); p.delete("page"); p.delete("session"); return p; }, { replace: true });
   return (
@@ -47,18 +48,18 @@ export function Sessions() {
           ) : (
             <div className="table-wrap" tabIndex={0} role="region" aria-label="Sessions">
               <table className="data" data-testid="sessions-table">
-                <thead><tr><th>Session</th><th>Status</th><th>Started</th><th>Last activity</th><th>Model</th><th className="num">Turns</th><th className="num">Tool calls</th><th className="num">Files</th><th className="num">Cost</th></tr></thead>
+                <thead><tr><th>Session</th><th>Status</th><th>Started</th><th>Last activity</th><th>Model</th><th className="num">Turns</th>{showCalls && <th className="num">Tool calls</th>}<th className="num">Files</th><th className="num">Cost</th></tr></thead>
                 <tbody>
                   {data.items.map((s) => (
                     <tr key={s.id} className="clickable" onClick={() => select(s.id)}
                       aria-selected={open === s.id} data-testid="session-row" data-status={s.status}>
-                      <td className="mono"><RowButton onClick={() => select(s.id)}>{short(s.id, 8)}</RowButton><div className="meta">{s.tool}{s.tool_version ? ` ${s.tool_version}` : ""}</div></td>
+                      <td className="mono"><RowButton onClick={() => select(s.id)}>{short(s.id, 8)}</RowButton><div className="meta nowrap">{s.tool}{s.tool_version ? ` ${s.tool_version}` : ""}</div></td>
                       <td><span className="checks">{STATUS[s.status]}{s.source === "imported" && <span className="tag" title="Recorded afterwards from the Claude Code transcript">imported</span>}{s.background && <span className="tag" title={`Started by a plugin through the Agent SDK (entrypoint ${s.entrypoint})`}>background</span>}</span></td>
                       <td className="when">{when(s.started_at)}</td>
                       <td className="when">{when(s.last_event_at)}</td>
                       <td className="mono small">{s.models.join(", ") || "—"}</td>
                       <td className="num">{s.turns}</td>
-                      <td className="num">{int(s.tool_calls)}</td>
+                      {showCalls && <td className="num">{int(s.tool_calls)}</td>}
                       <td className="num">{s.files}</td>
                       <td className="num">{money(s.cost_usd)}</td>
                     </tr>

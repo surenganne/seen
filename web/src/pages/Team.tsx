@@ -73,7 +73,7 @@ function OverviewBlock({ pid }: { pid: string }) {
     <>
       {o.state !== "ok" || !t ? <Note tone="warning" testId="team-state">{o.reason || "The team server did not return this project."}</Note> : (
         <>
-          <div className="strip" role="group" aria-label="Team summary">
+          <div className="strip strip-6" role="group" aria-label="Team summary">
             {([["Changes", int(t.changes)], ["Cost", money(t.cost_usd)], ["Lines added", int(t.lines_added)], ["Lines removed", int(t.lines_removed)],
               ["PII changes", int(t.pii_changes)], ["Rules missed", int(t.policy_missed)]] as const).map(([label, value]) => (
               <div key={label} data-testid="team-tile" style={{ display: "contents" }}><Tile label={label} value={value} /></div>

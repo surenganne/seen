@@ -1645,6 +1645,14 @@
             "title": "Alert",
             "type": "boolean"
           },
+          "alert_reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Alert Reasons",
+            "type": "array"
+          },
           "changes": {
             "title": "Changes",
             "type": "integer"

@@ -2,13 +2,23 @@ import { useSettings } from "../api/hooks";
 import { PiiSettings } from "../components/PiiSettings";
 import { Badge, Card, ErrorBox, Loading, PageHead } from "../components/ui";
 
+/** A path breaks at its slashes, never in the middle of a folder name. */
+function Value({ v }: { v: unknown }) {
+  if (v === null || v === undefined || v === "") return <span className="muted">not set</span>;
+  if (Array.isArray(v)) return <>{v.join(", ")}</>;
+  if (typeof v === "boolean") return <>{v ? "on" : "off"}</>;
+  const str = String(v);
+  if (!/^[/~]/.test(str)) return <>{str}</>;
+  return <>{str.split("/").map((part, i) => <span key={i}>{i > 0 && <>/<wbr /></>}{part}</span>)}</>;
+}
+
 function KV({ obj }: { obj: Record<string, unknown> }) {
   return (
     <dl className="kv">
       {Object.entries(obj).map(([k, v]) => (
         <div key={k} style={{ display: "contents" }}>
           <dt>{k.replace(/_/g, " ")}</dt>
-          <dd className="mono">{Array.isArray(v) ? v.join(", ") : typeof v === "boolean" ? (v ? "on" : "off") : String(v ?? "—")}</dd>
+          <dd className="mono"><Value v={v} /></dd>
         </div>
       ))}
     </dl>
@@ -41,10 +51,9 @@ export function Settings() {
           </Card>
         </div>
       </div>
-      <div className="grid cols">
-        <Card title="Skill auditing"><KV obj={s.skills} /></Card>
-        <Card title="Audit retention"><KV obj={s.audit} /></Card>
-      </div>
+      <Card title="Auditing and retention">
+        <KV obj={{ "skill auditing": s.skills.audit, "retention days": s.audit.retention_days }} />
+      </Card>
       <div className="grid split">
         <Card title="Price table" flush aside={s.prices.verified ? <Badge tone="good">verified</Badge> : <Badge tone="warning">unverified</Badge>}>
           <div className="table-wrap" tabIndex={0} role="region" aria-label="Price table">

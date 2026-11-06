@@ -29,7 +29,12 @@ export function ChangesTable({ rows, pid, sort, compact }: { rows: S["ChangeRow"
   const open = (id: string) => nav(withRange(`/p/${pid}/changes/${id}`, range));
   return (
     <div className="table-wrap" tabIndex={0} role="region" aria-label="Changes">
-      <table className="data" data-testid="changes-table">
+      <table className={compact ? "data fixed-cols" : "data"} data-testid="changes-table">
+        {compact && (
+          <colgroup>
+            <col className="c-when" /><col /><col className="c-lines" /><col className="c-cost" /><col className="c-checks" />
+          </colgroup>
+        )}
         <thead>
           <tr>
             <Th id="time" label="When" s={sort} />

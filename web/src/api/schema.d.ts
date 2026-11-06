@@ -935,6 +935,11 @@ export interface components {
         ProjectOut: {
             /** Alert */
             alert: boolean;
+            /**
+             * Alert Reasons
+             * @default []
+             */
+            alert_reasons: string[];
             /** Changes */
             changes: number;
             /** Cost 7D */

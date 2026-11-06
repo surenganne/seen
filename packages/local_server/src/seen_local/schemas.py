@@ -52,6 +52,7 @@ class ProjectOut(BaseModel):
     last_change_at: str | None
     cost_7d: float
     alert: bool
+    alert_reasons: list[str] = []
 
 
 class Tiles(BaseModel):
