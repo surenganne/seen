@@ -3,7 +3,7 @@ name = "seen-cli"
 version = "0.1.0"
 description = "Seen: nothing your agents do goes unseen"
 requires-python = ">=3.11"
-dependencies = ["seen-core", "seen-local", "typer==0.27.3"]
+dependencies = ["seen-core", "seen-local", "typer==0.28.0"]
 
 [project.scripts]
 seen = "seen_cli.main:app"
