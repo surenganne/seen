@@ -36,3 +36,6 @@ deploy/.env
 # local security-audit reports (gstack /cso)
 .gstack/
 *.tsbuildinfo
+
+# Internal build plan, kept locally only
+docs/plan/

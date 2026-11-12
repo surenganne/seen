@@ -17,4 +17,4 @@ tested against payloads and transcripts recorded from real sessions (`tests/fixt
 the web checks, Playwright and the Docker suites on every push. A manual check list is in
 [docs/TESTING.md](docs/TESTING.md).
 
-Releases: [docs/RELEASING.md](docs/RELEASING.md). The build plan and progress are in [docs/plan/SEEN_BUILD_PLAN.md](docs/plan/SEEN_BUILD_PLAN.md) and [docs/build-ledger.md](docs/build-ledger.md).
+Releases: [docs/RELEASING.md](docs/RELEASING.md). Build progress is in [docs/build-ledger.md](docs/build-ledger.md).

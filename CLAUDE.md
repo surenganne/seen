@@ -1,6 +1,6 @@
 # Seen: working rules
 
-- Read docs/plan/SEEN_BUILD_PLAN.md (the plan). Work one task at a time, in order. Name the task ID in each commit.
+- Read docs/plan/SEEN_BUILD_PLAN.md (the plan; kept locally, not in the public repo). Work one task at a time, in order. Name the task ID in each commit.
 - Do not guess Claude Code behaviour. Use recorded fixtures in tests/fixtures (see docs/hooks-findings.md). If a fact is missing, write a spike first (spikes/).
 - Hooks must fail open. Only the blocked-skill check, PII block mode and the optional policy enforcement may exit non-zero.
 - The hook hot path uses the Python standard library only. No network, no SQLite writes, no heavy imports (tests/pii/test_ner.py enforces the import list).
