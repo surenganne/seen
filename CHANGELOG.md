@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Fixes:** a resumed subagent no longer counts its skill runs twice; two sessions finishing a first turn in the same new project or skill no longer lose a turn to a duplicate-row error; a spool file removed by another SessionEnd no longer aborts the cleanup sweep.
+- **Fixes:** a resumed subagent no longer counts its skill runs twice; two sessions finishing a first turn in the same new project or skill no longer lose a turn to a duplicate-row error; a spool file removed by another SessionEnd no longer aborts the cleanup sweep; finishing a turn no longer holds the ledger write lock while it runs git, PII and skill scans, so a second session does not wait on it.
 
 ## 0.1.0 (2026-11-12)
 

@@ -95,3 +95,42 @@ def test_first_writes_survive_a_stale_check(seen_home: Path) -> None:
         db.commit()
     assert len(rows("select * from projects")) == 1
     assert len(rows("select * from skills")) == 1 and len(rows("select * from skill_versions")) == 1
+
+
+def test_slow_work_runs_outside_the_ledger_write_lock(repo: Path, tmp_path: Path, seen_home: Path,
+                                                      monkeypatch) -> None:
+    """The PII/git scan and the skill inventory scan must not run while this turn holds SQLite's write lock,
+    or a second session finishing a turn waits (and can time out and lose its turn)."""
+    import sqlite3
+
+    from seen_core import ingest
+
+    locked: list[bool] = []
+
+    def probe() -> None:
+        c = sqlite3.connect(seen_home / "ledger.db", timeout=0)
+        try:
+            c.execute("BEGIN IMMEDIATE")
+            locked.append(False)
+            c.execute("ROLLBACK")
+        except sqlite3.OperationalError:
+            locked.append(True)
+        finally:
+            c.close()
+
+    for name in ("_stop_scan", "inventory"):
+        orig = getattr(ingest, name)
+
+        def wrapped(*a, _orig=orig, **k):
+            probe()
+            return _orig(*a, **k)
+
+        monkeypatch.setattr(ingest, name, wrapped)
+
+    r = Replay(repo, tmp_path)
+    r.start()
+    r.prompt("add mul")
+    (repo / "a.py").write_text("one\ntwo\ndef mul(a, b):\n    return a * b\n")
+    r.model_works()
+    assert r.stop().code == 0
+    assert locked and not any(locked), "slow scan ran while the ledger write lock was held"

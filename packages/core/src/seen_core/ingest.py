@@ -88,9 +88,21 @@ def finish_turn(session_id: str) -> dict[str, Any]:
     t = parse_turn(tp, int(ts.get("transcript_offset") or 0)) if tp else Turn()
     cost, price_version = pricing.cost(t.usage)
     end_summary = (end or {}).get("summary")
+    pid = start.get("project_id")
+
+    # Slow, DB-free work first: the write transaction below must not hold SQLite's lock across git, file and
+    # skill-folder scans, or a second session finishing a turn waits on it and can time out.
+    pii_rows, pii_allowed = _stop_scan(t, start, lines, turn_lines, files, before)
+    inv_items = inventory(pid)
+    invs = reconcile(turn_lines, t, "/" + ts["slash"] if ts.get("slash") else "", {s["id"]: s for s in inv_items})
+    root = start.get("root")
+    lk = lock.load(root) if root else lock.Lockfile()
+    for inv in invs:
+        inv.status = lock.status(lk, inv.skill_id, inv.hash)
+    pols = policy.load(root)
+    results = policy.evaluate(pols, sorted(files), {i.skill_id for i in invs if i.status != "blocked"})
 
     with ledger_session() as db:
-        pid = start.get("project_id")
         if pid:
             _insert_ignore(db, Project, id=pid, name=start.get("project_name"), remote=start.get("remote"),
                            root_path=start.get("project_root") or start.get("root"), created_at=start.get("t"))
@@ -117,21 +129,13 @@ def finish_turn(session_id: str) -> dict[str, Any]:
         row.git_head_before = before["head"] if before else None
         row.git_head_after = head_after
         row.git_status = ("committed" if head_after != row.git_head_before else "uncommitted") if files else None
-        pii_rows, pii_allowed = _stop_scan(t, start, lines, turn_lines, files, before)
         _write_prompt_pii(db, cid, turn_lines)
         _write_stop_pii(db, cid, pii_rows)
-        _sync_inventory(db, pid)
+        _sync_inventory(db, pid, inv_items)
         db.execute(delete(ChangeFile).where(ChangeFile.change_id == cid))
         for path, (a, r) in sorted(files.items()):
             db.add(ChangeFile(change_id=cid, path=path, added=a, removed=r))
-        invs = reconcile(turn_lines, t, "/" + ts["slash"] if ts.get("slash") else "", {s["id"]: s for s in inventory(pid)})
-        root = start.get("root")
-        lk = lock.load(root) if root else lock.Lockfile()
-        for inv in invs:
-            inv.status = lock.status(lk, inv.skill_id, inv.hash)
         _write_invocations(db, cid, invs)
-        pols = policy.load(root)
-        results = policy.evaluate(pols, sorted(files), {i.skill_id for i in invs if i.status != "blocked"})
         _write_policies(db, cid, pid, pols, results)
         db.commit()
     audit_spool(session_id)
@@ -248,9 +252,9 @@ def _insert_ignore(db: Any, model: Any, **vals: Any) -> None:
     db.execute(_sqlite_insert(model).values(**vals).on_conflict_do_nothing())
 
 
-def _sync_inventory(db: Any, project_id: str | None) -> None:
+def _sync_inventory(db: Any, project_id: str | None, items: list[dict[str, Any]] | None = None) -> None:
     now = spool.now()
-    for s in inventory(project_id):
+    for s in inventory(project_id) if items is None else items:
         row = db.get(Skill, s["id"])
         if row is None:
             _insert_ignore(db, Skill, id=s["id"], first_seen=now)
