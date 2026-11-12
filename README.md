@@ -10,6 +10,8 @@ ledger of what AI agents change: files and lines, tokens and API-equivalent cost
 
 Local first: everything works with no server. Prompts and diffs never leave the machine.
 
+**Status: early.** Not on PyPI yet, and the dashboard UI is built from a clone. Needs Python 3.11+, [uv](https://docs.astral.sh/uv/) and Claude Code; Node 22 only to build the dashboard. Feedback and issues welcome.
+
 ## What it records, per agent turn
 
 | | |
@@ -112,7 +114,7 @@ itself is changed on the server, not from a dashboard. Details and open decision
 A local web UI over the same ledger: **Projects** and **Overview** (cost, tokens, skills, PII),
 **Changes**, **Sessions** and **Timeline** (every agent turn, by session and by day, with the files, skills and findings behind each number),
 **Skills** (versions and approvals), **Audit** (the hash-chained trail, with verify and export) and
-**Team** (per-project team figures and who last synced, once a team server is set; sign in with SSO from the page) and
+**Team** (per-project team figures and who last synced, once a team server is set; sign in with SSO from the page), and
 **Settings** (PII detection and team sync are editable; SSO status, retention and prices are shown). Summaries link to the rows behind them.
 
 The UI is a built bundle that is not packaged with the CLI, so build it once from a clone:
@@ -149,7 +151,7 @@ the test suites and the team server. Ports avoid the common defaults.
 | (host dashboard) | The container never opens the live ledger: SQLite WAL locking does not cross the Docker Desktop VM; see Dashboard above | |
 | `docker compose --profile test run --rm tests` | Python lint, types and unit tests | |
 | `docker compose --profile test run --rm e2e` | Playwright against a throwaway, freshly seeded test database (tmpfs) | |
-| `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (Phase 5 skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 (set `SEEN_TEAM_PG_PORT` in `deploy/.env` if that port is taken) |
+| `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (early skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 (set `SEEN_TEAM_PG_PORT` in `deploy/.env` if that port is taken) |
 
 Development data never touches your real ledger: `seen dev-seed` only writes into an explicit scratch
 `SEEN_HOME`, every test gets its own temporary one, and the team test suite uses a separate
@@ -168,7 +170,7 @@ uv run pytest -m e2e tests/e2e                 # real headless Claude Code sessi
 uv run python scripts/pii_benchmark.py         # regenerates docs/pii-benchmark.md
 ```
 
-Phase 0 findings about Claude Code hooks are in [docs/hooks-findings.md](docs/hooks-findings.md); every parser
+Findings about Claude Code hook behaviour are in [docs/hooks-findings.md](docs/hooks-findings.md); every parser
 is tested against payloads and transcripts recorded from real sessions (`tests/fixtures`). CI runs Python
 lint/types/tests, the web checks, Playwright and the Docker suites on every push.
 
@@ -205,13 +207,13 @@ Issues and pull requests: <https://github.com/surenganne/seen>.
 - **Data at rest.** The local ledger (SQLite) and the team database (Postgres) are not encrypted by Seen: use disk
   encryption, and decide whether you also want database encryption. `seen purge` and the team server's delete routes
   erase data (bytes, not just rows); the audit trail keeps a record of each erasure, counts only.
-- **Cost** is an API-equivalent estimate from a price table marked unverified until the owner confirms it.
+- **Cost** is an API-equivalent estimate from a price table that is not verified against current provider pricing: check `pricing/prices.json` before relying on the numbers.
 - **The dashboard** has no login (see Dashboard). The Docker copy is a snapshot: it is as old as the last
   `seen docker-sync`, and settings or approvals changed there are lost on refresh. It targets WCAG 2.2 AA: axe
   checks every page in both themes on desktop and phone sizes in CI, and Playwright covers the skip link, keyboard
   access to table rows, per-page titles and reflow at 320px. Automated checks catch only part of what matters, so
   screen-reader use and 200% zoom are manual checks (docs/TESTING.md Part 16).
-- **The team server** is a Phase 5 skeleton: optional OIDC sign-in (ADR 0018), schema changes outside Alembic, and no scheduled retention.
+- **The team server** is an early skeleton: optional OIDC sign-in (ADR 0018), schema changes outside Alembic, and no scheduled retention.
   Sync is off by default and sends only the metadata you switch on; per-person detail stays private to that person.
 - **Network.** Hooks never touch it. `seen doctor` and `seen upgrade` make one anonymous request to GitHub to look
   for a newer release; set `SEEN_NO_UPDATE_CHECK=1` to stop it.
