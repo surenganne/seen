@@ -81,6 +81,7 @@ hash-chained audit database when the turn stops. An optional team server (off by
 
 - **Tamper-evident, not tamper-proof.** Someone with write access to this machine can rebuild the audit chain.
 - **Coverage.** Only sessions where the plugin ran are recorded, and sessions outside a git repository record nothing.
+- **One agent per working tree.** If two agents edit the same repo at once, a turn's file changes can be credited to the wrong one.
 - **PII detection** finds structured identifiers (Aadhaar, PAN, cards, IBAN, secrets…). It misses names and free text,
   cannot un-send what already reached the model provider, and is evidence for a privacy review, not a compliance control.
 - **Cost** is an API-equivalent estimate from a price table that is not verified against current provider pricing.

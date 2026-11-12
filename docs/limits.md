@@ -8,6 +8,11 @@
   `session.incomplete`. Sessions that start outside a git repository record nothing (PII block mode still
   applies there). Sessions that installed plugins start in the background are recorded but shown apart from
   your own. Enable the plugin through managed settings for whole teams.
+- **Overlapping agents in one repo.** A turn's file changes are measured as the difference between two snapshots of the
+  whole working tree. If two sessions (or you) edit the same repo at the same time, each turn can be credited with the
+  other's edits, which inflates line totals and can wrongly satisfy or miss a required-skill rule. Use one agent per
+  working tree, or separate git worktrees. Cost, tokens, skills and PII findings stay per session. See
+  [ADR 0020](adr/0020-concurrent-sessions-attribution.md).
 - **PII detection** finds structured identifiers (Aadhaar, PAN, cards, IBAN, email, phone, UPI, DOB, GSTIN, public
   IP addresses, secrets and tokens…). It misses names, addresses and free-text health details unless the optional
   Presidio tier is on. Seen shows exposure; it cannot un-send what already reached the model provider. It is
