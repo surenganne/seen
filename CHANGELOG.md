@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 (2026-11-12)
+
+First public release. Install from GitHub; not on PyPI yet.
 
 - **Team SSO** (ADR 0018): sign in to the team server with Microsoft Entra ID (OIDC with PKCE, public client). The server
   validates the ID token (RS256, pinned tenant issuer, audience, nonce, `tid`, verified email, domain allowlist, single
