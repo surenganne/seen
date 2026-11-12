@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Fixes:** a resumed subagent no longer counts its skill runs twice; two sessions finishing a first turn in the same new project or skill no longer lose a turn to a duplicate-row error; a spool file removed by another SessionEnd no longer aborts the cleanup sweep.
+
 ## 0.1.0 (2026-11-12)
 
 First public release. Install from GitHub; not on PyPI yet.

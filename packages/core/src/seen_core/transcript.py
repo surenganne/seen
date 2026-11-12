@@ -151,7 +151,7 @@ def parse_turn(transcript: str | Path, offset: int, end: int | None = None) -> T
     _walk(turn, main, seen, False, tools, agents)
     since = min((str(d["timestamp"]) for d in main if d.get("timestamp")), default="")
     subdir = path.with_suffix("") / "subagents"
-    for aid in agents:
+    for aid in dict.fromkeys(agents):  # a resumed subagent is reported twice but its file is walked once
         f = subdir / f"agent-{re.sub(r'[^A-Za-z0-9_-]', '', aid)}.jsonl"
         if f.exists():
             _walk(turn, _lines(f, 0), seen, True, {}, [], since)

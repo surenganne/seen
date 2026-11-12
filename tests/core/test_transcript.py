@@ -96,3 +96,17 @@ def test_unknown_model_cost_is_none() -> None:
     cost, _ = pricing.cost({"mystery-model": {"tok_in": 5, "tok_out": 5, "tok_cache_read": 0, "tok_cache_write": 0,
                                               "cw_5m": 0, "cw_1h": 0}})
     assert cost is None
+
+
+def test_resumed_subagent_is_walked_once(tmp_path: Path) -> None:
+    """Two Agent results carrying the same agentId (a resumed subagent) must not double its skill calls."""
+    shutil.copytree(TR / "subagent", tmp_path / "t")
+    lines = (TR / "subagent.jsonl").read_text().splitlines()
+    agent_line = next(ln for ln in lines if isinstance(json.loads(ln).get("toolUseResult"), dict)
+                      and json.loads(ln)["toolUseResult"].get("agentId"))
+    p = tmp_path / "t.jsonl"
+    p.write_text("\n".join(lines + [agent_line]) + "\n")
+    base = parse_turn(TR / "subagent.jsonl", 0)
+    got = parse_turn(p, 0)
+    assert [c.tool_use_id for c in got.skill_calls] == [c.tool_use_id for c in base.skill_calls]
+    assert len(got.skill_calls) == len({c.tool_use_id for c in got.skill_calls}) >= 1

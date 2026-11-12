@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.sqlite import insert as _sqlite_insert
 
 from . import audit, gitdelta, gitutil, paths, policy, pricing, spool
 from .db import ledger_session
@@ -90,14 +91,13 @@ def finish_turn(session_id: str) -> dict[str, Any]:
 
     with ledger_session() as db:
         pid = start.get("project_id")
-        if pid and db.get(Project, pid) is None:
-            db.add(Project(id=pid, name=start.get("project_name"), remote=start.get("remote"),
-                           root_path=start.get("project_root") or start.get("root"), created_at=start.get("t")))
+        if pid:
+            _insert_ignore(db, Project, id=pid, name=start.get("project_name"), remote=start.get("remote"),
+                           root_path=start.get("project_root") or start.get("root"), created_at=start.get("t"))
+        _insert_ignore(db, Session, id=session_id, project_id=pid, started_at=start.get("t") or ts["t"],
+                       tool="claude-code", user_id=_user_id(), entrypoint=start.get("entrypoint"))
         sess = db.get(Session, session_id)
-        if sess is None:
-            sess = Session(id=session_id, project_id=pid, started_at=start.get("t") or ts["t"], tool="claude-code",
-                           user_id=_user_id(), entrypoint=start.get("entrypoint"))
-            db.add(sess)
+        assert sess is not None
         if t.version and not sess.tool_version:
             sess.tool_version = t.version
         row = db.get(Change, cid)
@@ -191,7 +191,11 @@ def cleanup_spools(keep: str, max_age_days: int = SPOOL_KEEP_DAYS) -> None:
     d = paths.home() / "spool"
     for f in d.glob("*.jsonl") if d.is_dir() else []:
         sid = f.stem
-        if sid == keep or time.time() - f.stat().st_mtime < max_age_days * 86400:
+        try:
+            young = time.time() - f.stat().st_mtime < max_age_days * 86400
+        except FileNotFoundError:
+            continue  # another SessionEnd already removed it
+        if sid == keep or young:
             continue
         if not any(ln.get("ev") == "session_end" for ln in spool.read(sid)):
             continue  # sweep_incomplete owns these
@@ -239,21 +243,26 @@ def inventory(project_id: str | None) -> list[dict[str, Any]]:
         return []
 
 
+def _insert_ignore(db: Any, model: Any, **vals: Any) -> None:
+    """Insert a row unless it exists. Two sessions can both see 'no row yet': the loser must not fail its turn."""
+    db.execute(_sqlite_insert(model).values(**vals).on_conflict_do_nothing())
+
+
 def _sync_inventory(db: Any, project_id: str | None) -> None:
     now = spool.now()
     for s in inventory(project_id):
         row = db.get(Skill, s["id"])
         if row is None:
-            row = Skill(id=s["id"], first_seen=now)
-            db.add(row)
+            _insert_ignore(db, Skill, id=s["id"], first_seen=now)
+            row = db.get(Skill, s["id"])
+            assert row is not None
         elif TRUST.get(row.kind or "", 0) > TRUST.get(s["kind"], 0):
             continue  # never let a lower-trust folder take over a known skill id
         row.kind, row.origin, row.path = s["kind"], s["origin"], s["path"]
         row.description, row.allowed_tools, row.last_seen = s["description"], s["allowed_tools"], now
         if s["kind"] == "project":
             row.scope_project_id = project_id
-        if db.get(SkillVersion, (s["id"], s["hash"])) is None:
-            db.add(SkillVersion(skill_id=s["id"], hash=s["hash"], first_seen=now))
+        _insert_ignore(db, SkillVersion, skill_id=s["id"], hash=s["hash"], first_seen=now)
     db.flush()
 
 
@@ -262,7 +271,7 @@ def _write_invocations(db: Any, cid: str, invs: list[Invocation]) -> None:
     now = spool.now()
     for i, inv in enumerate(invs, start=1):
         if db.get(Skill, inv.skill_id) is None:  # not in any scanned folder: sideloaded
-            db.add(Skill(id=inv.skill_id, kind=inv.kind, first_seen=now, last_seen=now))
+            _insert_ignore(db, Skill, id=inv.skill_id, kind=inv.kind, first_seen=now, last_seen=now)
         db.add(SkillInvocation(change_id=cid, ordinal=i, skill_id=inv.skill_id, hash=inv.hash, trigger=inv.trigger, status=inv.status))
     db.flush()
 
@@ -381,8 +390,11 @@ def sweep_incomplete(max_age_s: float = 6 * 3600) -> None:
     if not d.is_dir():
         return
     for f in d.glob("*.jsonl"):
-        if time.time() - f.stat().st_mtime < max_age_s:
-            continue
+        try:
+            if time.time() - f.stat().st_mtime < max_age_s:
+                continue
+        except FileNotFoundError:
+            continue  # removed by another SessionEnd between glob and stat
         sid = f.stem
         lines = spool.read(sid)
         if not lines or any(ln.get("ev") == "session_end" for ln in lines):

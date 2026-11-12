@@ -181,3 +181,15 @@ def test_hook_log_keeps_type_not_message_or_home_path(monkeypatch: pytest.Monkey
     log = paths.hook_log().read_text()
     assert "ValueError" in log and "sentinel-value-9876" not in log
     assert oct(paths.hook_log().stat().st_mode & 0o777) == "0o600"
+
+
+def test_spool_cleanup_survives_a_file_vanishing(seen_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Another SessionEnd can unlink a spool between glob and stat; neither sweep may raise."""
+    from pathlib import Path as P
+
+    from seen_core import ingest
+
+    (seen_home / "spool").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(P, "glob", lambda self, pat: [self / "ghost.jsonl"])
+    ingest.cleanup_spools(keep="other", max_age_days=0)
+    ingest.sweep_incomplete(max_age_s=0)

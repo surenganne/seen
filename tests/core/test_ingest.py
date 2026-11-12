@@ -79,3 +79,19 @@ def test_session_end_closes_session_and_reconciles_commit(repo: Path, tmp_path: 
     r.fire("session-end", "session_end")
     assert rows("select ended_at from sessions")[0]["ended_at"]
     assert rows("select git_status from changes")[0]["git_status"] == "committed"
+
+
+def test_first_writes_survive_a_stale_check(seen_home: Path) -> None:
+    """Two sessions can both see 'no row yet' for a new project or skill: the second insert must not fail."""
+    from seen_core.db import ledger_session
+    from seen_core.db.models import Project, Skill, SkillVersion
+    from seen_core.ingest import _insert_ignore
+
+    with ledger_session() as db:
+        for _ in range(2):  # the second call is the loser of the race
+            _insert_ignore(db, Project, id="p1", name="demo")
+            _insert_ignore(db, Skill, id="s1", first_seen="t")
+            _insert_ignore(db, SkillVersion, skill_id="s1", hash="h", first_seen="t")
+        db.commit()
+    assert len(rows("select * from projects")) == 1
+    assert len(rows("select * from skills")) == 1 and len(rows("select * from skill_versions")) == 1
