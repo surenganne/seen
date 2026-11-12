@@ -28,19 +28,7 @@ Local first: everything works with no server. Prompts and diffs never leave the 
 | PII | Types and counts of personal data and secrets that reached the model, the network or the repo, and from where. Never the values |
 | Audit | Append-only, hash-chained events. `seen audit verify` finds the first edited, deleted or reordered row |
 
-## Architecture
-
-![Seen architecture: hooks write to a local ledger; the host dashboard reads it live, the Docker dashboard reads a snapshot, the team server is opt-in](docs/architecture.svg)
-
-Hooks never touch the network or write SQLite: they append to a spool file and ingest folds it into the ledger
-and the hash-chained audit database when the turn stops. The host dashboard reads `~/.seen` live. A container
-cannot safely share SQLite WAL files with the host, so the Docker dashboard serves a snapshot made by
-`seen docker-sync`. The team server only ever
-receives metadata, and only when you switch sync on. Source: [docs/architecture.html](docs/architecture.html).
-
 ## Install
-
-Seen is not on PyPI yet; install the CLI and the plugin straight from GitHub.
 
 ```bash
 # 1. CLI and the seen-hook binary (Python 3.11+, uv)
@@ -55,172 +43,64 @@ cd your-repo && seen init          # .seen/ folder: policies, PII rules, skills 
 seen doctor                        # checks Python, hooks, plugin, databases, PATH
 ```
 
-Upgrade the CLI and the plugin together:
-
-```bash
-seen upgrade --check          # versions, skew warnings, and the commands it would run
-seen upgrade --yes            # reinstall the CLI from where it came from, then update the plugin
-seen version                  # every piece's version and the ledger schema
-```
-
-Then restart Claude Code. `seen doctor` also warns when the plugin, the `seen-hook` binary or the ledger schema
-disagree with the CLI, and when a newer release tag exists on GitHub (one anonymous GET; opt out with
-`SEEN_NO_UPDATE_CHECK=1`). Inside Claude Code, `/seen:upgrade` does the check and asks before upgrading.
-
-Teams can enable it for everyone from the repo's `.claude/settings.json`; Claude Code installs it after a
-contributor accepts the workspace trust dialog:
-
-```json
-{
-  "extraKnownMarketplaces": { "seen-tools": { "source": { "source": "github", "repo": "surenganne/seen" } } },
-  "enabledPlugins": { "seen@seen-tools": true }
-}
-```
+Then restart Claude Code. Upgrades, team-wide enablement and more commands: [docs/install.md](docs/install.md).
 
 ## Use
 
 ```bash
 seen report --days 7          # what changed, what it cost, which skills ran
-seen serve --open             # the dashboard on your real data (needs a web build once: see Dashboard)
-seen skills scan | list
-seen team login | logout | whoami   # sign in to the team server with your identity provider
-seen import --dry-run         # past sessions from Claude Code transcripts (before the plugin was installed)
-seen audit verify
-seen purge --before 2026-01-01      # report what would be erased; add --yes to erase (DPDP)
-seen docker-sync --watch 300 --restart   # keep the Docker dashboard's copy of ~/.seen fresh
-seen audit export --format csv --from 2026-10-01 --to 2026-10-31
+seen serve --open             # the dashboard on your real data (build it once, see below)
+seen audit verify             # check the hash chain
 ```
-
-## Team server and SSO
-
-The team server (`deploy/docker-compose.team.yml`) is optional and receives only the metadata you switch on. People sign in
-with Microsoft Entra ID (OIDC, authorization code with PKCE, public client, no secret); the server then issues its own
-30-day API key. Set this in `deploy/.env` and restart the server:
-
-| Variable | Meaning |
-|---|---|
-| `SEEN_OIDC_ISSUER` | `https://login.microsoftonline.com/<tenant id>/v2.0`; https only in production |
-| `SEEN_OIDC_CLIENT_ID` | the app registration's client id; set it together with the issuer or startup stops |
-| `SEEN_OIDC_ALLOWED_DOMAINS` | comma-separated email domains allowed to sign in |
-| `SEEN_TEAM_ADMINS` | comma-separated emails that become admin on first sign-in |
-| `SEEN_TEAM_BOOTSTRAP_DISABLE` | `1` turns the bootstrap admin key off once SSO works |
-| `SEEN_TEAM_PROXY_HOPS` | number of trusted reverse proxies in front of the server |
-
-Register these redirect URIs in Entra: `http://127.0.0.1/callback` (command line) and
-`http://127.0.0.1:47821/api/team/callback` (dashboard). On the host, set `[sync] server` in `~/.seen/config.toml` or in
-Settings, then use **Sign in with SSO** on the Team page or `seen team login`. The dashboard in Docker never signs in
-(its snapshot has no `[sync]` section). Settings shows the SSO status, and an admin also sees the server's settings; SSO
-itself is changed on the server, not from a dashboard. Details and open decisions: [ADR 0018](docs/adr/0018-team-sso.md),
-[ADR 0019](docs/adr/0019-team-dashboard-proxy.md).
 
 ## Dashboard
 
-A local web UI over the same ledger: **Projects** and **Overview** (cost, tokens, skills, PII),
-**Changes**, **Sessions** and **Timeline** (every agent turn, by session and by day, with the files, skills and findings behind each number),
-**Skills** (versions and approvals), **Audit** (the hash-chained trail, with verify and export) and
-**Team** (per-project team figures and who last synced, once a team server is set; sign in with SSO from the page), and
-**Settings** (PII detection and team sync are editable; SSO status, retention and prices are shown). Summaries link to the rows behind them.
-
-The UI is a built bundle that is not packaged with the CLI, so build it once from a clone:
+A local web UI over the same ledger: Overview, Changes, Sessions, Timeline, Skills, Audit and Settings, with every
+summary linked to the rows behind it. The UI is a built bundle that is not packaged with the CLI, so build it once
+from a clone:
 
 ```bash
 git clone https://github.com/surenganne/seen && cd seen
 (cd web && npm ci && npm run build)
+SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open     # http://127.0.0.1:47825
 ```
 
-Then pick how to run it:
+The dashboard has no login: it binds to 127.0.0.1 only. Do not publish its port beyond localhost. Other ways to run
+it (from a clone, in Docker, for UI development) are in [docs/docker.md](docs/docker.md). `seen dev-seed --home <scratch dir>`
+fills a throwaway home with generated data for trying the UI; it refuses `~/.seen`.
 
-| | Command | URL | Data |
-|---|---|---|---|
-| **On the host** (recommended) | `SEEN_WEB_DIST=$PWD/web/dist seen serve --port 47825 --open` | http://127.0.0.1:47825 | Your real `~/.seen`, live |
-| From a clone | `uv run seen serve --open` (finds `web/dist` itself; default port 47821) | http://127.0.0.1:47821 | Your real `~/.seen`, live |
-| In Docker | `seen docker-sync && docker compose up -d --build` | http://127.0.0.1:47821 | A snapshot of `~/.seen`, refreshed by `seen docker-sync --watch 300 --restart` |
-| UI development | `docker compose --profile dev up -d` | http://127.0.0.1:47822 | The Docker dashboard's data, with hot reload |
+## How it works
 
-The dashboard has no login: it binds to 127.0.0.1 only, rejects other `Host` headers and requires a custom header
-on every write, and `seen serve` refuses a non-loopback address unless you pass `--allow-remote` (containers only).
-Do not publish its port beyond localhost. `seen dev-seed --home <scratch dir>` fills a throwaway home with generated
-data for trying the UI; it refuses `~/.seen`.
+![Seen architecture: hooks write to a local ledger; the host dashboard reads it live, the Docker dashboard reads a snapshot, the team server is opt-in](docs/architecture.svg)
 
-## Docker
+Hooks never touch the network or write SQLite: they append to a spool file and ingest folds it into the ledger and the
+hash-chained audit database when the turn stops. An optional team server (off by default, metadata only) is described in
+[docs/team-server.md](docs/team-server.md). Source: [docs/architecture.html](docs/architecture.html).
 
-Hooks and the CLI run on the host (that is where Claude Code and your repos are). Docker runs the dashboard,
-the test suites and the team server. Ports avoid the common defaults.
+## Limits, stated plainly
 
-| Command | What | URL |
-|---|---|---|
-| `seen docker-sync && docker compose up -d --build` | Dashboard on a snapshot of your real `~/.seen` | http://127.0.0.1:47821 |
-| `seen docker-sync --watch 300 --restart` (host) | Keep the container near-live: snapshot every 5 minutes, then restart the dashboard | |
-| `docker compose --profile dev up -d` | Plus the Vite dev server with hot reload | http://127.0.0.1:47822 |
-| (host dashboard) | The container never opens the live ledger: SQLite WAL locking does not cross the Docker Desktop VM; see Dashboard above | |
-| `docker compose --profile test run --rm tests` | Python lint, types and unit tests | |
-| `docker compose --profile test run --rm e2e` | Playwright against a throwaway, freshly seeded test database (tmpfs) | |
-| `sh deploy/init-env.sh` then `docker compose -f deploy/docker-compose.team.yml --env-file deploy/.env up -d` | Team server (early skeleton) and Postgres | http://127.0.0.1:47824, Postgres on 47823 (set `SEEN_TEAM_PG_PORT` in `deploy/.env` if that port is taken) |
+- **Tamper-evident, not tamper-proof.** Someone with write access to this machine can rebuild the audit chain.
+- **Coverage.** Only sessions where the plugin ran are recorded, and sessions outside a git repository record nothing.
+- **PII detection** finds structured identifiers (Aadhaar, PAN, cards, IBAN, secrets…). It misses names and free text,
+  cannot un-send what already reached the model provider, and is evidence for a privacy review, not a compliance control.
+- **Cost** is an API-equivalent estimate from a price table that is not verified against current provider pricing.
+- **Data at rest** is not encrypted by Seen: use disk encryption.
 
-Development data never touches your real ledger: `seen dev-seed` only writes into an explicit scratch
-`SEEN_HOME`, every test gets its own temporary one, and the team test suite uses a separate
-`seen_team_test` database.
-
-The Docker dashboard needs nothing on the host except the CLI (`seen docker-sync`); the image builds the UI itself.
-
-## Develop
-
-```bash
-git clone https://github.com/surenganne/seen && cd seen
-uv sync && (cd web && npm ci)
-uv run pytest                                  # unit + integration (fast, no network)
-uv run pytest -m e2e tests/e2e                 # real headless Claude Code sessions (costs a few cents)
-(cd web && npx playwright test)                # browser e2e, desktop and phone, CSP-violation guard
-uv run python scripts/pii_benchmark.py         # regenerates docs/pii-benchmark.md
-```
-
-Findings about Claude Code hook behaviour are in [docs/hooks-findings.md](docs/hooks-findings.md); every parser
-is tested against payloads and transcripts recorded from real sessions (`tests/fixtures`). CI runs Python
-lint/types/tests, the web checks, Playwright and the Docker suites on every push.
+The full list is in [docs/limits.md](docs/limits.md).
 
 ## Docs
 
 | | |
 |---|---|
+| [docs/install.md](docs/install.md) | Upgrade, enable for a team, more commands |
+| [docs/docker.md](docs/docker.md) | Docker dashboard and run modes |
+| [docs/team-server.md](docs/team-server.md) | Optional team server and SSO |
+| [docs/limits.md](docs/limits.md) | Limits, in full |
 | [docs/TESTING.md](docs/TESTING.md) | Step-by-step guide to check every feature by hand |
 | [DESIGN.md](DESIGN.md) / [PRODUCT.md](PRODUCT.md) | Dashboard design system and who it is for |
 | [docs/schema.md](docs/schema.md) | Where every piece of data lives |
-| [docs/architecture.html](docs/architecture.html) | Architecture diagram (also `.svg` and `.png`) |
-| [docs/RELEASING.md](docs/RELEASING.md) | How to cut a release and what `seen upgrade` relies on |
 | [docs/pii-benchmark.md](docs/pii-benchmark.md) | Detector precision and recall on the labelled corpus |
-| [docs/plan/SEEN_BUILD_PLAN.md](docs/plan/SEEN_BUILD_PLAN.md) | The build plan; progress in [docs/build-ledger.md](docs/build-ledger.md) |
-
-Issues and pull requests: <https://github.com/surenganne/seen>.
-
-## Limits, stated plainly
-
-- **Tamper-evident, not tamper-proof.** Someone with write access to this machine can rebuild the audit chain.
-  It catches bugs, partial edits and clumsy tampering. Anchoring chain heads on a team server (`seen sync`)
-  makes rewriting local history detectable. Retention pruning is recorded as a checkpoint that can only vouch
-  for rows that are really gone.
-- **Coverage.** Only sessions where the plugin ran are recorded; gaps are recorded as `capture.gap` and
-  `session.incomplete`. Sessions that start outside a git repository record nothing (PII block mode still
-  applies there). Sessions that installed plugins start in the background are recorded but shown apart from
-  your own. Enable the plugin through managed settings for whole teams.
-- **PII detection** finds structured identifiers (Aadhaar, PAN, cards, IBAN, email, phone, UPI, DOB, GSTIN, public
-  IP addresses, secrets and tokens…). It misses names, addresses and free-text health details unless the optional
-  Presidio tier is on. Seen shows exposure; it cannot un-send what already reached the model provider. It is
-  evidence for a privacy review, not a compliance control, and makes no claim about DPDP, GDPR or HIPAA compliance.
-  In block mode a file over 256 KB, or one that takes longer than the 100 ms scan budget, is read first and scanned
-  after the turn (detect only). A custom rule that cannot finish in time blocks the prompt rather than being skipped.
-- **Data at rest.** The local ledger (SQLite) and the team database (Postgres) are not encrypted by Seen: use disk
-  encryption, and decide whether you also want database encryption. `seen purge` and the team server's delete routes
-  erase data (bytes, not just rows); the audit trail keeps a record of each erasure, counts only.
-- **Cost** is an API-equivalent estimate from a price table that is not verified against current provider pricing: check `pricing/prices.json` before relying on the numbers.
-- **The dashboard** has no login (see Dashboard). The Docker copy is a snapshot: it is as old as the last
-  `seen docker-sync`, and settings or approvals changed there are lost on refresh. It targets WCAG 2.2 AA: axe
-  checks every page in both themes on desktop and phone sizes in CI, and Playwright covers the skip link, keyboard
-  access to table rows, per-page titles and reflow at 320px. Automated checks catch only part of what matters, so
-  screen-reader use and 200% zoom are manual checks (docs/TESTING.md Part 16).
-- **The team server** is an early skeleton: optional OIDC sign-in (ADR 0018), schema changes outside Alembic, and no scheduled retention.
-  Sync is off by default and sends only the metadata you switch on; per-person detail stays private to that person.
-- **Network.** Hooks never touch it. `seen doctor` and `seen upgrade` make one anonymous request to GitHub to look
-  for a newer release; set `SEEN_NO_UPDATE_CHECK=1` to stop it.
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Develop, test, send a pull request |
 
 ## License
 
