@@ -1,5 +1,5 @@
 # Reviewed false positives: synthetic values in tests and docs (fingerprint = commit:file:rule:line).
 # An API-key-shaped example used to show the PII detector in docs/TESTING.md Part 12b.
-2a4997f5c03c35c414165b2d49afb16d588eb79b:docs/TESTING.md:generic-api-key:322
+fbcad883ea46643bb8f1cc78d5fa0a1f38df9643:docs/TESTING.md:generic-api-key:322
 # SENTINEL-77, a marker the audit-wiring test uses to prove command arguments are never recorded.
-629a6ec6656f4287e3d3e6656a945179dda7e5b5:tests/core/test_audit_wiring.py:curl-auth-header:24
+a6928afb46be2ddeb6b6c96a46d2a04da06cc22e:tests/core/test_audit_wiring.py:curl-auth-header:24
