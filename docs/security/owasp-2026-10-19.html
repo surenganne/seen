@@ -46,7 +46,7 @@ React dashboard, Dockerfiles and Compose, GitHub Actions. Phases: architecture m
 false-positive filtering. Every candidate was scored by an independent verifier that saw only the file and line. Fixes were reproduced
 on the live Docker stack.</p>
 
-<h2>Baseline checks (ExampleOrg §5.1)</h2>
+<h2>Baseline checks (OWASP Top 10)</h2>
 <table>
   <tr><th>Check</th><th>Result</th><th>Evidence</th></tr>
   <tr><td>Secrets (A02/A07)</td><td><span class="pill pass">pass</span></td><td>Team server refuses to start in production with a bootstrap key under 32 characters (test). <code>deploy/.env</code> is generated at 0600 and gitignored. Token-shaped strings in history are seeded synthetic benchmark data; <code>.gitleaks.toml</code> added with that allowlist.</td></tr>

@@ -12,6 +12,10 @@ Local first: everything works with no server. Prompts and diffs never leave the 
 
 **Status: early.** Not on PyPI yet, and the dashboard UI is built from a clone. Needs Python 3.11+, [uv](https://docs.astral.sh/uv/) and Claude Code; Node 22 only to build the dashboard. Feedback and issues welcome.
 
+![Seen dashboard overview on generated demo data: requests, code changed, cost, rules met and PII exposure, with a Needs attention list](docs/screenshots/overview.png)
+
+*The Overview page on generated demo data (`seen dev-seed`), not a real session.*
+
 ## What it records, per agent turn
 
 | | |
@@ -217,3 +221,7 @@ Issues and pull requests: <https://github.com/surenganne/seen>.
   Sync is off by default and sends only the metadata you switch on; per-person detail stays private to that person.
 - **Network.** Hooks never touch it. `seen doctor` and `seen upgrade` make one anonymous request to GitHub to look
   for a newer release; set `SEEN_NO_UPDATE_CHECK=1` to stop it.
+
+## License
+
+[MIT](LICENSE).

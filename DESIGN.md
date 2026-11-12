@@ -9,7 +9,7 @@ Change tokens there, never hard-code colours in components.
 
 ## Colour
 
-OKLCH throughout, built on the ExampleOrg palette. Strategy is **restrained**: tinted neutrals and one accent
+OKLCH throughout, built on a navy and orange palette. Strategy is **restrained**: tinted neutrals and one accent
 (orange) under 10% of any screen. Status colours are separate from the accent and always come with an
 icon and a word, never colour alone.
 

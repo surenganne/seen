@@ -9,7 +9,7 @@ export const tokens = (n: number | null | undefined) => (n == null ? "—" : com
 export const int = (n: number | null | undefined) => (n == null ? "—" : whole.format(n));
 export const pct = (n: number | null | undefined) => (n == null ? "—" : `${Math.round(n * 100)}%`);
 
-/** Dates are shown in IST (UTC+5:30), per ExampleOrg convention. */
+/** Dates are shown in IST (UTC+5:30). */
 const IST = "Asia/Kolkata";
 export const when = (iso: string | null | undefined) =>
   iso

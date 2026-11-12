@@ -4,7 +4,7 @@ Ruling: ledger keyed by plan IDs (P0-1..) — task-brief can't parse table tasks
 Ruling: SEEN_HOME env overrides ~/.seen everywhere; dev uses ./.dev-data (mock seed), tests use tmp dirs — user asked for isolated test DB — cost: one env lookup.
 Ruling: Docker runs dashboard (local_server+web) and Phase 5 team stack; hooks/CLI run on host because Claude Code + git repos live on host — cost if wrong: none, container can't see ~/.claude anyway.
 Ruling: ports 47821 api/dashboard, 47822 vite dev, 47823 postgres, 47824 team server — user's defaults taken.
-Ruling: brand colours = ExampleOrg palette (#E85D26 accent, #0A2540 navy) over plan's #1C55BB/#F4A027 — org instructions override — cost: token swap in tokens.css.
+Ruling: brand colours = #E85D26 accent, #0A2540 navy, over plan's #1C55BB/#F4A027 — cost: token swap in tokens.css.
 Ruling: §17 defaults per user; phase-exit "one week of real use" criteria can't be met in-session — recorded as pending owner validation.
 P0-1..P0-13: complete (commit 7c7d39c); A1-A12 settled in docs/hooks-findings.md
 P0-7: Ruling: hasher spike folded into P1-8 implementation+tests — avoids writing it twice — cost: none.

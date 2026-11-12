@@ -15,7 +15,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.path.expanduser("~")
 SP = os.path.dirname(REC.rstrip("/"))
 KEEP_TYPES = {"user", "assistant", "system", "cost-state", "last-prompt", "queue-operation"}
-FORBIDDEN = [os.path.basename(HOME).lower(), "ExampleOrg", "@exampleorg"]
+EXTRA = [w for w in os.environ.get("SEEN_SCRUB_EXTRA", "").split(",") if w]  # org names to scrub, kept out of the repo
+FORBIDDEN = [os.path.basename(HOME).lower(), *[w.lower() for w in EXTRA]]
 
 
 def scrub_text(s: str) -> str:
@@ -27,7 +28,8 @@ def scrub_text(s: str) -> str:
     s = re.sub(re.escape(slug) + r"-(repos-[\w-]+|spike-repo)", "-work-demo-repo", s)
     s = s.replace(HOME + "/repos/seen/spikes/recorder", "/home/dev/seen/plugin")
     s = s.replace(HOME, "/home/dev")
-    s = re.sub(r"(?i)ExampleOrg", "ExampleOrg", s)
+    for w in EXTRA:
+        s = re.sub("(?i)" + re.escape(w), "ExampleOrg", s)
     s = re.sub(r"/private/tmp/claude-\d+/[^\"\s]*", "/tmp/claude-tasks", s)
     return s
 

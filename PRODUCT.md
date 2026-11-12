@@ -8,7 +8,7 @@ product
 
 Three groups, designed for equally:
 
-- **Engineering leads and the platform team**, reviewing what agents did across a team's repos: cost, skills that ran, policy compliance, PII exposure. Weekly reviews plus spot checks when something looks off.
+- **Engineering leads and platform or compliance teams**, reviewing what agents did across a team's repos: cost, skills that ran, policy compliance, PII exposure. Weekly reviews plus spot checks when something looks off.
 - **Individual developers**, checking their own agent sessions during the day: what changed and when, what a turn cost, which skills ran.
 - **Compliance and security reviewers**, auditing evidence for a privacy review: the hash-chained audit trail, PII findings and their sources, approvals, exports.
 

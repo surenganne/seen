@@ -494,9 +494,9 @@ def test_sso_config_reports_the_oidc_settings(team_url: str, monkeypatch: pytest
     monkeypatch.setenv("SEEN_TEAM_BOOTSTRAP_KEY", BOOT)
     monkeypatch.setenv("SEEN_OIDC_ISSUER", "https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/v2.0")
     monkeypatch.setenv("SEEN_OIDC_CLIENT_ID", "client-123")
-    monkeypatch.setenv("SEEN_OIDC_ALLOWED_DOMAINS", "Example.com, exampleorg.com")
+    monkeypatch.setenv("SEEN_OIDC_ALLOWED_DOMAINS", "Example.com, contoso.com")
     c = TestClient(create_app(team_url, reset=True, oidc_validate=fake), base_url="http://localhost")
     d = c.get("/api/sso", headers=admin(c)).json()
     assert d["configured"] is True and d["client_id"] == "client-123"
     assert d["issuer"].startswith("https://login.microsoftonline.com/")
-    assert d["allowed_domains"] == ["example.com", "exampleorg.com"]
+    assert d["allowed_domains"] == ["contoso.com", "example.com"]

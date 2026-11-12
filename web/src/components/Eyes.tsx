@@ -3,7 +3,7 @@ import "./eyes.css";
 
 export type EyesState = "idle" | "alert";
 
-/** The Seen mark (assets/brand/eyes.svg): owl eyes, nearly all iris (amber to ExampleOrg orange), a navy pupil with two
+/** The Seen mark (assets/brand/eyes.svg): owl eyes, nearly all iris (amber to orange), a navy pupil with two
  *  glints and orange feather tufts for brows. idle: glances around with quick saccades and pauses, blinks with lids
  *  (now and then twice). While the pointer moves, or focus jumps to a control, the eyes watch it anywhere on the page
  *  and go back to glancing around a few seconds after it stops. alert: looks straight ahead, lids wide, pupils shrink to pinpoints and the tufts lift.

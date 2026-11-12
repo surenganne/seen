@@ -1,4 +1,4 @@
-/* Seen design tokens (OKLCH). ExampleOrg palette: accent #E85D26, navy #0A2540.
+/* Seen design tokens (OKLCH). Palette: accent #E85D26, navy #0A2540.
    Restrained: cool neutrals tinted toward navy (hue 255), orange only for actions, selection and the mark.
    Status hues are kept away from the accent hue and always ship with an icon and a label. */
 :root {
